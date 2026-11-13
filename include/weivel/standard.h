@@ -72,6 +72,12 @@ typedef enum weivel_standard_refusal_code {
 } weivel_standard_refusal_code;
 
 /**
+ * The highest code published, moved to each code as it is appended, so a table keyed on the codes can check that it
+ * names every one.
+ */
+#define WEIVEL_STANDARD_REFUSAL_LAST WEIVEL_STANDARD_REFUSAL_NAME_MISMATCH
+
+/**
  * A refusal, as a value, shaped like the core's. `detail` says what happened and `fix` what would make it succeed,
  * both English UTF-8; `path` names the field, as `services.consumes[1].provider`, and is empty for the whole
  * document. Everything lives in `storage`, private to the standard, until weivel_standard_refusal_release. An empty
