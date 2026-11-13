@@ -1,4 +1,5 @@
 #include "check.h"
+#include "json_equality.h"
 #include "patterns.h"
 #include "validate_rules.h"
 #include "weivel/json.h"
@@ -82,6 +83,16 @@ static const schema_rule *rule_at(const char *location, size_t *index) {
     return NULL;
 }
 
+static int is_string_equal_to(const weivel_json_value *value, const char *expected) {
+    return weivel_json_kind_of(value) == WEIVEL_JSON_STRING && strlen(expected) == weivel_json_string_length(value) &&
+           strcmp(weivel_json_as_string(value), expected) == 0;
+}
+
+/**
+ * An expected value that reads as JSON (`true`, `1`, `{}`) is compared as JSON, kind included, so `"true"` in the
+ * schema is not `uniqueItems: true`; any other expected value is a string's text and the schema's value must be
+ * that string.
+ */
 static int value_is_expected(const weivel_json_value *value, const char *expected) {
     weivel_json_error error = {0};
     weivel_json_value *parsed;
@@ -89,17 +100,19 @@ static int value_is_expected(const weivel_json_value *value, const char *expecte
     if (expected == NULL) {
         return value == NULL;
     }
-    if (weivel_json_kind_of(value) == WEIVEL_JSON_STRING) {
-        return strlen(expected) == weivel_json_string_length(value) &&
-               strcmp(weivel_json_as_string(value), expected) == 0;
-    }
     parsed = weivel_json_parse(expected, strlen(expected), &error);
-    equal = parsed != NULL && weivel_json_equal(parsed, value);
+    if (parsed == NULL) {
+        return is_string_equal_to(value, expected);
+    }
+    equal = weivel_standard_json_equal(parsed, value);
     weivel_json_free(parsed);
     return equal;
 }
 
-/** A constraint the schema states must be one the rule table holds, with the same value. */
+/**
+ * A constraint the schema states must be one the rule table holds, with the same value.
+ * @implNote Cases name their rule by label, so a changed numeric bound is caught only by a case at the boundary.
+ */
 static void check_constraint(walk *state, const char *location, const weivel_json_value *value) {
     size_t index = 0;
     const schema_rule *rule = rule_at(location, &index);

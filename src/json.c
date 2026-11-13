@@ -1,6 +1,7 @@
 #include "weivel/json.h"
 
 #include "allocation.h"
+#include "json_equality.h"
 
 #include <locale.h>
 #include <math.h>
@@ -821,11 +822,28 @@ int weivel_json_as_double(const weivel_json_value *value, double *out) {
     return 1;
 }
 
+/**
+ * @implNote A real is compared with an integer by converting the real, never the integer: beyond 2^53 a double no
+ * longer holds every integer, so the integer's own conversion could round onto the real.
+ */
+static int real_is_integer(double real, int64_t integer) {
+    return real >= -9223372036854775808.0 && real < 9223372036854775808.0 && (double)(int64_t)real == real &&
+           (int64_t)real == integer;
+}
+
 static int numbers_equal(const weivel_json_value *left, const weivel_json_value *right) {
     int64_t left_integer;
     int64_t right_integer;
-    if (weivel_json_as_int64(left, &left_integer) && weivel_json_as_int64(right, &right_integer)) {
+    int left_is_integer = weivel_json_as_int64(left, &left_integer);
+    int right_is_integer = weivel_json_as_int64(right, &right_integer);
+    if (left_is_integer && right_is_integer) {
         return left_integer == right_integer;
+    }
+    if (left_is_integer) {
+        return real_is_integer(right->real, left_integer);
+    }
+    if (right_is_integer) {
+        return real_is_integer(left->real, right_integer);
     }
     return left->real == right->real;
 }
@@ -840,7 +858,7 @@ static int arrays_equal(const weivel_json_value *left, const weivel_json_value *
         return 0;
     }
     for (at = 0; at < left->count; at++) {
-        if (!weivel_json_equal(weivel_json_array_at(left, at), weivel_json_array_at(right, at))) {
+        if (!weivel_standard_json_equal(weivel_json_array_at(left, at), weivel_json_array_at(right, at))) {
             return 0;
         }
     }
@@ -854,14 +872,14 @@ static int objects_equal(const weivel_json_value *left, const weivel_json_value 
     }
     for (at = 0; at < left->count; at++) {
         const weivel_json_value *match = weivel_json_object_get(right, weivel_json_object_key_at(left, at));
-        if (match == NULL || !weivel_json_equal(weivel_json_object_value_at(left, at), match)) {
+        if (match == NULL || !weivel_standard_json_equal(weivel_json_object_value_at(left, at), match)) {
             return 0;
         }
     }
     return 1;
 }
 
-int weivel_json_equal(const weivel_json_value *left, const weivel_json_value *right) {
+int weivel_standard_json_equal(const weivel_json_value *left, const weivel_json_value *right) {
     if (left == NULL || right == NULL) {
         return left == right;
     }

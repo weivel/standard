@@ -66,11 +66,4 @@ WEIVEL_STANDARD_API int weivel_json_as_bool(const weivel_json_value *value, int 
 WEIVEL_STANDARD_API int weivel_json_as_int64(const weivel_json_value *value, int64_t *out);
 WEIVEL_STANDARD_API int weivel_json_as_double(const weivel_json_value *value, double *out);
 
-/**
- * Whether two values are equal as JSON Schema counts it for `uniqueItems`: the same kind, numbers equal in value
- * whatever their spelling (`1` and `1.0`), strings equal byte for byte, arrays item by item, and objects with the
- * same keys holding equal values in any order. Two NULLs are equal; a NULL and a value are not.
- */
-WEIVEL_STANDARD_API int weivel_json_equal(const weivel_json_value *left, const weivel_json_value *right);
-
 #endif
