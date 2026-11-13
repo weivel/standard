@@ -98,6 +98,37 @@ int weivel_standard_fill_refusal(weivel_standard_refusal *refusal, uint32_t code
     return 1;
 }
 
+weivel_status weivel_standard_refuse_malformed_json(weivel_standard_refusal *refusal, const weivel_json_error *error) {
+    weivel_standard_refusal_texts texts = {NULL, NULL, NULL};
+    if (refusal == NULL) {
+        return WEIVEL_STATUS_REFUSED;
+    }
+    texts.detail = weivel_standard_format_text("line %d, column %d: %s", error->line, error->column,
+                                               error->message == NULL ? "malformed JSON" : error->message);
+    texts.fix = weivel_standard_format_text("correct the JSON at line %d, column %d", error->line, error->column);
+    texts.path = weivel_standard_format_text("%s", "");
+    return weivel_standard_fill_refusal(refusal, WEIVEL_STANDARD_REFUSAL_MALFORMED_JSON, texts)
+               ? WEIVEL_STATUS_REFUSED
+               : WEIVEL_STATUS_OUT_OF_MEMORY;
+}
+
+weivel_status weivel_standard_refuse_call(weivel_standard_refusal *refusal, const char *detail, const char *fix) {
+    weivel_standard_refusal_texts texts = {NULL, NULL, NULL};
+    if (refusal == NULL) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    texts.detail = weivel_standard_format_text("%s", detail);
+    texts.fix = weivel_standard_format_text("%s", fix);
+    texts.path = weivel_standard_format_text("%s", "");
+    return weivel_standard_fill_refusal(refusal, WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL, texts)
+               ? WEIVEL_STATUS_MALFORMED
+               : WEIVEL_STATUS_OUT_OF_MEMORY;
+}
+
+int weivel_standard_refusal_holds_one(const weivel_standard_refusal *refusal) {
+    return refusal != NULL && (refusal->storage != NULL || refusal->code != WEIVEL_STANDARD_REFUSAL_NONE);
+}
+
 const char *weivel_standard_subject_of(const char *path) {
     return path[0] == '\0' ? "the manifest" : path;
 }

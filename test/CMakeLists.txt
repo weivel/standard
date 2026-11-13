@@ -30,3 +30,16 @@ target_compile_definitions(schema_parity_test PRIVATE
 standard_test(identity_test identity_test weivel_standard)
 target_include_directories(identity_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 standard_test(identity_memory_test identity_memory_test weivel_standard_testing)
+standard_test(library_test library_test weivel_standard)
+standard_test(library_shared_test library_test weivel_standard_shared)
+standard_test(library_memory_test library_memory_test weivel_standard_testing)
+
+function(layout_test name source)
+    standard_test(${name} ${source} ${ARGN})
+    target_sources(${name} PRIVATE fixtures.c)
+    target_compile_definitions(${name} PRIVATE
+        WEIVEL_STANDARD_FIXTURE_ROOT="${CMAKE_CURRENT_BINARY_DIR}/fixtures-${name}")
+endfunction()
+layout_test(layout_test layout_test weivel_standard)
+layout_test(layout_shared_test layout_test weivel_standard_shared)
+layout_test(layout_memory_test layout_memory_test weivel_standard_testing)
