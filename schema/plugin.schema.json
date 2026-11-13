@@ -1,0 +1,245 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://weivel.com/schema/plugin.schema.json",
+  "title": "weivel plugin manifest",
+  "description": "What a plugin declares to the weivel core: its name, the API it needs, its entry, what it provides and consumes, its permissions and the plugins it needs beside it. Every object stays open, so a field this schema does not name validates and is ignored.",
+  "type": "object",
+  "properties": {
+    "importName": {
+      "description": "The name other plugins import this plugin by, and the namespace of the services it registers. Its identity as a repository is supplied from outside the manifest.",
+      "type": "string",
+      "pattern": "^(?!package(?![\\s\\S]))(?!(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:[\\.]|(?![\\s\\S])))[a-z0-9]+([-.][a-z0-9]+)*(?![\\s\\S])"
+    },
+    "api": {
+      "description": "The lowest API major version this plugin needs. A floor, not a build tag.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "entry": {
+      "description": "The built module a host loads, relative to the plugin's directory. Required once capabilities are provided.",
+      "type": "string",
+      "pattern": "^(?![\\\\/])(?![A-Za-z]:)(?![\\s\\S]*[\\u0000-\\u001f\\u007f-\\u009f\\u2028\\u2029])(?!(?:[\\s\\S]*[\\\\/])?\\.\\.(?:[\\\\/]|(?![\\s\\S])))"
+    },
+    "targets": {
+      "description": "The applications this plugin is for, opaque to the core. Absent means every application.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "capabilities": {
+      "description": "The host-facing contract: the abilities this plugin provides at activation, and the ones it asks to see the implementations of.",
+      "type": "object",
+      "properties": {
+        "provides": {
+          "description": "Capability ids this plugin provides at activation.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "consumes": {
+          "description": "Capability ids this plugin asks to see the verified implementations of.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "services": {
+      "description": "The inter-plugin contract: what this plugin offers other plugins, and what it asks of them.",
+      "type": "object",
+      "properties": {
+        "provides": {
+          "description": "Service ids this plugin registers, each namespaced by its own importName as <importName>:<name>, or a bare id the host lists as well-known.",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "One service this plugin registers, with what it advertises.",
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "description": "The service id this plugin registers.",
+                    "type": "string"
+                  },
+                  "attributes": {
+                    "description": "What this service claims, keyed by attribute name, until the live service reports its own.",
+                    "type": "object",
+                    "additionalProperties": {
+                      "description": "One advertised value, in the units its attribute name names.",
+                      "type": "number"
+                    }
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            ]
+          }
+        },
+        "consumes": {
+          "description": "Service ids this plugin asks for. A bare string asks for it optionally.",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "One service this plugin asks for, and what its absence or its shortfall costs.",
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "description": "The service id this plugin asks for.",
+                    "type": "string"
+                  },
+                  "provider": {
+                    "description": "The repository identity of the plugin this plugin takes the service from. Absent means any provider of the service id.",
+                    "type": "string",
+                    "pattern": "^(local:[^/\\s]+|[a-z][a-z0-9-]*(@[a-z0-9.-]+)?:[0-9]+)(/(?!\\.{1,2}(/|(?![\\s\\S])))[a-z0-9._-]+)*(?![\\s\\S])"
+                  },
+                  "optional": {
+                    "description": "Whether this plugin still starts when nothing provides the service. Absent means true, which is what a bare string means.",
+                    "type": "boolean"
+                  },
+                  "degradable": {
+                    "description": "Whether this plugin accepts a service that never satisfies its constraints once the budget is spent. Absent means false, and it never excuses an absence.",
+                    "type": "boolean"
+                  },
+                  "constraints": {
+                    "description": "What this plugin needs of the service, keyed by constraint name, compared against what the service advertises.",
+                    "type": "object",
+                    "additionalProperties": {
+                      "description": "One required value, in the units its constraint name names.",
+                      "type": "number"
+                    }
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "permissions": {
+      "description": "Declared permissions, opaque to the core, which keeps them for the host to show.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "dependencies": {
+      "description": "The plugins this plugin needs installed beside it, each named by the import name it is imported by and located by a repository id or an owner/name.",
+      "type": "array",
+      "items": {
+        "description": "One plugin this plugin needs, named by exactly one of id or name.",
+        "type": "object",
+        "properties": {
+          "importName": {
+            "description": "The name this plugin imports the dependency by.",
+            "type": "string"
+          },
+          "id": {
+            "description": "The repository identity of the dependency, which survives a rename.",
+            "type": "string",
+            "pattern": "^(local:[^/\\s]+|[a-z][a-z0-9-]*(@[a-z0-9.-]+)?:[0-9]+)(/(?!\\.{1,2}(/|(?![\\s\\S])))[a-z0-9._-]+)*(?![\\s\\S])"
+          },
+          "name": {
+            "description": "The owner and name of the dependency's repository, for a repository whose id is not known. A name can be taken by someone else, so a host warns about it.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/(?!\\.{1,2}(?![\\s\\S]))[A-Za-z0-9._-]+(?![\\s\\S])"
+          },
+          "commit": {
+            "description": "The commit the dependency is pinned to.",
+            "type": "string"
+          },
+          "sha256": {
+            "description": "The SHA-256 digest the dependency's artifact must match.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "importName"
+        ],
+        "if": {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "not": {}
+            }
+          }
+        },
+        "else": {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "importName",
+    "api"
+  ],
+  "if": {
+    "type": "object",
+    "required": [
+      "capabilities"
+    ],
+    "properties": {
+      "capabilities": {
+        "type": "object",
+        "required": [
+          "provides"
+        ],
+        "properties": {
+          "provides": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
+      }
+    }
+  },
+  "then": {
+    "type": "object",
+    "required": [
+      "entry"
+    ],
+    "properties": {
+      "entry": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
