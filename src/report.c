@@ -15,6 +15,95 @@ static size_t index_digits(size_t index) {
     return digits;
 }
 
+static int is_plain_key_character(char character) {
+    return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+           (character >= '0' && character <= '9') || character == '_' || character == '-';
+}
+
+static int is_plain_key(const char *key) {
+    if (key[0] == '\0') {
+        return 0;
+    }
+    for (; *key != '\0'; key++) {
+        if (!is_plain_key_character(*key)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static const char *short_escape(unsigned char character) {
+    switch (character) {
+    case '"':
+        return "\\\"";
+    case '\\':
+        return "\\\\";
+    case '\b':
+        return "\\b";
+    case '\f':
+        return "\\f";
+    case '\n':
+        return "\\n";
+    case '\r':
+        return "\\r";
+    case '\t':
+        return "\\t";
+    default:
+        return NULL;
+    }
+}
+
+/** Writes one key character as JSON escapes it, when `cursor` is not NULL, and answers how many bytes it takes. */
+static size_t write_escaped_character(unsigned char character, char *cursor) {
+    const char *escape = short_escape(character);
+    if (escape != NULL) {
+        if (cursor != NULL) {
+            memcpy(cursor, escape, 2);
+        }
+        return 2;
+    }
+    if (character < 0x20) {
+        if (cursor != NULL) {
+            snprintf(cursor, 7, "\\u%04x", character);
+        }
+        return 6;
+    }
+    if (cursor != NULL) {
+        *cursor = (char)character;
+    }
+    return 1;
+}
+
+/** A key segment as `.key`, or `key` first; any other key as `["<JSON-escaped key>"]`. Writes when `cursor` is set. */
+static size_t write_key(const char *key, int first, char *cursor) {
+    size_t written = 0;
+    const unsigned char *at;
+    if (is_plain_key(key)) {
+        size_t length = strlen(key);
+        if (!first) {
+            if (cursor != NULL) {
+                cursor[written] = '.';
+            }
+            written++;
+        }
+        if (cursor != NULL) {
+            memcpy(cursor + written, key, length);
+        }
+        return written + length;
+    }
+    if (cursor != NULL) {
+        memcpy(cursor, "[\"", 2);
+    }
+    written = 2;
+    for (at = (const unsigned char *)key; *at != '\0'; at++) {
+        written += write_escaped_character(*at, cursor == NULL ? NULL : cursor + written);
+    }
+    if (cursor != NULL) {
+        memcpy(cursor + written, "\"]", 2);
+    }
+    return written + 2;
+}
+
 static size_t path_length(const weivel_standard_field_path *path) {
     size_t before;
     if (path == NULL) {
@@ -24,7 +113,7 @@ static size_t path_length(const weivel_standard_field_path *path) {
     if (path->key == NULL) {
         return before + index_digits(path->index) + 2;
     }
-    return before + (before > 0 ? 1 : 0) + strlen(path->key);
+    return before + write_key(path->key, before == 0, NULL);
 }
 
 static char *path_write(const weivel_standard_field_path *path, char *cursor, const char *start) {
@@ -35,11 +124,7 @@ static char *path_write(const weivel_standard_field_path *path, char *cursor, co
     if (path->key == NULL) {
         return cursor + snprintf(cursor, index_digits(path->index) + 3, "[%zu]", path->index);
     }
-    if (cursor != start) {
-        *cursor++ = '.';
-    }
-    memcpy(cursor, path->key, strlen(path->key));
-    return cursor + strlen(path->key);
+    return cursor + write_key(path->key, cursor == start, cursor);
 }
 
 char *weivel_standard_path_text(const weivel_standard_field_path *path) {

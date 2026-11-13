@@ -20,7 +20,11 @@ typedef struct weivel_standard_refusal_texts {
     char *path;
 } weivel_standard_refusal_texts;
 
-/** The path as `services.consumes[1].provider`, empty for the root; NULL when memory runs out. */
+/**
+ * The path as `services.consumes[1].provider`, empty for the root; NULL when memory runs out. A key that is not
+ * `[A-Za-z0-9_-]+` is written `["<JSON-escaped key>"]`, as `services.provides[0].attributes["a.b"]`, so a key chosen by
+ * a manifest's author can never read as two steps. Every path the standard answers is built here.
+ */
 char *weivel_standard_path_text(const weivel_standard_field_path *path);
 
 /** A printf-formatted copy; NULL when memory runs out. */

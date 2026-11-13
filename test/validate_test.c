@@ -150,7 +150,7 @@ typedef struct vector_case {
 } vector_case;
 
 /**
- * The kit's 31 `vectors/standard/validate` vectors, each manifest and well-known list as the vector gives it and the
+ * The kit's 30 `vectors/standard/validate` vectors, each manifest and well-known list as the vector gives it and the
  * paths it expects; `reports-a-missing-entry-beside-another-error` asserts `contains`, and is held here to the exact
  * list this validator answers. The four that still assert wording are held to the refusal code that wording meant.
  */
@@ -449,7 +449,38 @@ static void a_malformed_load_is_answered_not_crashed(void) {
     weivel_standard_validation_release(&validation);
 }
 
+/** A key the author chose is written `["<JSON-escaped key>"]` whenever it is not `[A-Za-z0-9_-]+`, never as two steps. */
+static void a_chosen_key_that_is_not_plain_is_bracketed(void) {
+    static const char MANIFEST[] =
+        "{\"importName\": \"a\", \"api\": 2, \"services\": {"
+        "\"provides\": [{\"id\": \"a:x\", \"attributes\": {\"a.b\": \"x\", \"c[d\": \"x\", \"e\\\"f\": \"x\", "
+        "\"\xc3\xa9\": \"x\", \"plain_key-1\": \"x\", \"\": \"x\", \"g\\\\h\\n\": \"x\"}}],"
+        "\"consumes\": [{\"id\": \"b\", \"constraints\": {\"x.y\": true}}]}}";
+    static const char *const EXPECTED[] = {
+        "services.provides[0].attributes[\"a.b\"]",
+        "services.provides[0].attributes[\"c[d\"]",
+        "services.provides[0].attributes[\"e\\\"f\"]",
+        "services.provides[0].attributes[\"\xc3\xa9\"]",
+        "services.provides[0].attributes.plain_key-1",
+        "services.provides[0].attributes[\"\"]",
+        "services.provides[0].attributes[\"g\\\\h\\n\"]",
+        "services.consumes[0].constraints[\"x.y\"]",
+    };
+    weivel_standard_validation validation = WEIVEL_INIT(weivel_standard_validation);
+    size_t at;
+    CHECK(weivel_standard_validate(MANIFEST, strlen(MANIFEST), NULL, &validation) == WEIVEL_STATUS_REFUSED);
+    CHECK(validation.paths.count == sizeof EXPECTED / sizeof EXPECTED[0]);
+    for (at = 0; at < validation.paths.count && at < sizeof EXPECTED / sizeof EXPECTED[0]; at++) {
+        if (strcmp(validation.paths.items[at], EXPECTED[at]) != 0) {
+            fprintf(stderr, "  path %zu: expected %s, got %s\n", at, EXPECTED[at], validation.paths.items[at]);
+            CHECK(!"a chosen key's path");
+        }
+    }
+    weivel_standard_validation_release(&validation);
+}
+
 int main(void) {
+    a_chosen_key_that_is_not_plain_is_bracketed();
     every_rule_case_validates_as_it_states();
     every_kit_vector_validates_as_it_expects();
     the_wording_vectors_say_what_they_meant();
