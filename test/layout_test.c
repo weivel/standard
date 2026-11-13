@@ -2,6 +2,8 @@
 #include "fixtures.h"
 #include "weivel/layout.h"
 
+#include <stdlib.h>
+
 static const char *const ROOT = WEIVEL_STANDARD_FIXTURE_ROOT;
 
 static void scenario(char *directory, const char *name) {
@@ -204,6 +206,66 @@ static void never_follows_a_link(void) {
     weivel_standard_discovery_release(&discovery);
 }
 
+static void never_reaches_an_entry_through_a_link(void) {
+    char directory[FIXTURE_PATH_CAPACITY];
+    char outside[FIXTURE_PATH_CAPACITY];
+    char real[FIXTURE_PATH_CAPACITY];
+    weivel_standard_discovery discovery;
+    const weivel_standard_discovered_plugin *plugin;
+    scenario(outside, "outside");
+    write_file(outside, "main.bin", "entry");
+    scenario(directory, "linked-entry");
+    write_file(directory, "linked.json", "{\"importName\": \"linked\", \"api\": 2, \"entry\": \"lib/main.bin\"}");
+    write_file(directory, "real.json", "{\"importName\": \"real\", \"api\": 2, \"entry\": \"real/main.bin\"}");
+    fixture_join(real, directory, "real");
+    CHECK(fixture_make_directory(real));
+    write_file(real, "main.bin", "entry");
+    if (!fixture_link_directory(directory, "lib", outside)) {
+        printf("layout_test: skipped the linked entry, this process may not make a link\n");
+        return;
+    }
+    CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
+    CHECK(discovery.plugin_count == 2 && discovery.failure_count == 0);
+    plugin = plugin_named(&discovery, "linked");
+    CHECK(plugin != NULL && plugin->entry_path != NULL && plugin->entry_present == 0);
+    plugin = plugin_named(&discovery, "real");
+    CHECK(plugin != NULL && plugin->entry_present == 1);
+    weivel_standard_discovery_release(&discovery);
+}
+
+/** A manifest of exactly `size` bytes: `text`, then spaces. */
+static void write_sized(const char *directory, const char *name, const char *text, size_t size) {
+    char *padded = malloc(size + 1);
+    CHECK(padded != NULL);
+    if (padded == NULL) {
+        return;
+    }
+    memset(padded, ' ', size);
+    memcpy(padded, text, strlen(text));
+    padded[size] = '\0';
+    write_file(directory, name, padded);
+    free(padded);
+}
+
+static void refuses_a_file_over_the_cap_alone(void) {
+    static const size_t CAP = (size_t)1 << 20;
+    char directory[FIXTURE_PATH_CAPACITY];
+    weivel_standard_discovery discovery;
+    scenario(directory, "sizes");
+    write_sized(directory, "exact.json", "{\"importName\": \"exact\", \"api\": 2}", CAP);
+    write_sized(directory, "big.json", "{\"importName\": \"big\", \"api\": 2}", CAP + 1);
+    write_file(directory, "huge.json", "{\"importName\": \"huge\", \"api\": 2}");
+    write_sized(directory, "huge_identity.json", "{\"id\": \"forge:5\", \"name\": \"o/huge\"}", CAP + 1);
+    write_file(directory, "good.json", "{\"importName\": \"good\", \"api\": 2}");
+    CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
+    CHECK(discovery.plugin_count == 2 && plugin_named(&discovery, "exact") != NULL &&
+          plugin_named(&discovery, "good") != NULL);
+    CHECK(discovery.failure_count == 2);
+    check_failure(&discovery, directory, "big.json", WEIVEL_STANDARD_REFUSAL_UNREADABLE, "");
+    check_failure(&discovery, directory, "huge_identity.json", WEIVEL_STANDARD_REFUSAL_UNREADABLE, "");
+    weivel_standard_discovery_release(&discovery);
+}
+
 static const char *import_name_at(const weivel_standard_discovery *discovery, size_t at) {
     return at < discovery->plugin_count ? weivel_standard_manifest_view(discovery->plugins[at].manifest)->import_name
                                         : "(none)";
@@ -347,6 +409,8 @@ int main(void) {
     reports_an_unreadable_file();
     ignores_what_is_not_a_manifest();
     never_follows_a_link();
+    never_reaches_an_entry_through_a_link();
+    refuses_a_file_over_the_cap_alone();
     orders_by_identity_then_the_rest_by_name();
     refuses_a_repeated_identity();
     reads_a_directory_whose_name_is_not_ascii();

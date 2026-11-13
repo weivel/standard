@@ -46,9 +46,17 @@ static char *copy_text(const char *text) {
     return copy;
 }
 
+static int is_separator(char character) {
+#ifdef _WIN32
+    return character == '/' || character == '\\';
+#else
+    return character == '/';
+#endif
+}
+
 static int ends_with_separator(const char *directory) {
     size_t length = strlen(directory);
-    return length > 0 && (directory[length - 1] == '/' || directory[length - 1] == '\\');
+    return length > 0 && is_separator(directory[length - 1]);
 }
 
 static char *join_path(const char *directory, const char *name) {
@@ -132,6 +140,14 @@ static weivel_status refuse_file(scan *state, const char *file, uint32_t code, c
     return add_failure(state, file, &refusal);
 }
 
+static weivel_status refuse_too_large(scan *state, const char *file) {
+    return refuse_file(state, file, WEIVEL_STANDARD_REFUSAL_UNREADABLE, "",
+                       weivel_standard_format_text("%s is larger than the %zu bytes a laid-out file may hold", file,
+                                                   WEIVEL_STANDARD_FILES_LARGEST_READ),
+                       weivel_standard_format_text("make %s at most %zu bytes", file,
+                                                   WEIVEL_STANDARD_FILES_LARGEST_READ));
+}
+
 static weivel_status refuse_unreadable(scan *state, const char *file) {
     return refuse_file(state, file, WEIVEL_STANDARD_REFUSAL_UNREADABLE, "",
                        weivel_standard_format_text("%s cannot be read", file),
@@ -143,6 +159,9 @@ static weivel_status read_file(scan *state, const char *file, char **bytes, size
     weivel_standard_files_outcome outcome = weivel_standard_files_read(file, bytes, length);
     if (outcome == WEIVEL_STANDARD_FILES_OUT_OF_MEMORY) {
         return WEIVEL_STATUS_OUT_OF_MEMORY;
+    }
+    if (outcome == WEIVEL_STANDARD_FILES_TOO_LARGE) {
+        return refuse_too_large(state, file);
     }
     return outcome == WEIVEL_STANDARD_FILES_DONE ? WEIVEL_STATUS_OK : refuse_unreadable(state, file);
 }
@@ -289,8 +308,9 @@ static weivel_status read_identity(scan *state, const char *import_name, discove
         *accepted = 1;
         return WEIVEL_STATUS_OK;
     }
-    status = kind == WEIVEL_STANDARD_FILE_OTHER ? refuse_unreadable(state, file)
-                                                : read_identity_file(state, file, plugin, accepted);
+    status = kind == WEIVEL_STANDARD_FILE_REGULAR || kind == WEIVEL_STANDARD_FILE_UNKNOWN
+                 ? read_identity_file(state, file, plugin, accepted)
+                 : refuse_unreadable(state, file);
     if (*accepted) {
         plugin->identity_path = file;
     } else {
@@ -299,18 +319,50 @@ static weivel_status read_identity(scan *state, const char *import_name, discove
     return status;
 }
 
+/** The kind of what `path` names up to `end`, a separator in it. */
+static weivel_standard_files_outcome kind_up_to(char *path, size_t end, weivel_standard_file_kind *kind) {
+    char kept = path[end];
+    weivel_standard_files_outcome outcome;
+    path[end] = '\0';
+    outcome = weivel_standard_files_kind(path, kind);
+    path[end] = kept;
+    return outcome;
+}
+
+/**
+ * Whether the entry, from `entry_start` in `path`, is a regular file reached through real directories only: a link at
+ * any component, as `lib` in `lib/main.js`, could lead outside the directory, so such an entry answers not present.
+ */
+static weivel_status entry_is_present(char *path, size_t entry_start, uint32_t *present) {
+    weivel_standard_file_kind kind = WEIVEL_STANDARD_FILE_DIRECTORY;
+    size_t at;
+    *present = 0;
+    for (at = entry_start + 1; path[at] != '\0' && kind == WEIVEL_STANDARD_FILE_DIRECTORY; at++) {
+        if (is_separator(path[at]) && kind_up_to(path, at, &kind) != WEIVEL_STANDARD_FILES_DONE) {
+            return WEIVEL_STATUS_OUT_OF_MEMORY;
+        }
+    }
+    if (kind != WEIVEL_STANDARD_FILE_DIRECTORY) {
+        return WEIVEL_STATUS_OK;
+    }
+    if (weivel_standard_files_kind(path, &kind) != WEIVEL_STANDARD_FILES_DONE) {
+        return WEIVEL_STATUS_OUT_OF_MEMORY;
+    }
+    *present = kind == WEIVEL_STANDARD_FILE_REGULAR;
+    return WEIVEL_STATUS_OK;
+}
+
 static weivel_status resolve_entry(scan *state, const char *entry, discovered_plugin *plugin) {
-    weivel_standard_file_kind kind;
+    char *path;
     if (entry == NULL) {
         return WEIVEL_STATUS_OK;
     }
-    plugin->entry_path = join_path(state->directory, entry);
-    if (plugin->entry_path == NULL ||
-        weivel_standard_files_kind(plugin->entry_path, &kind) != WEIVEL_STANDARD_FILES_DONE) {
+    path = join_path(state->directory, entry);
+    plugin->entry_path = path;
+    if (path == NULL) {
         return WEIVEL_STATUS_OUT_OF_MEMORY;
     }
-    plugin->entry_present = kind == WEIVEL_STANDARD_FILE_REGULAR;
-    return WEIVEL_STATUS_OK;
+    return entry_is_present(path, strlen(path) - strlen(entry), &plugin->entry_present);
 }
 
 static weivel_status refuse_mismatch(scan *state, const char *file, const char *file_name_import_name,

@@ -38,10 +38,6 @@ static const context_name CONTEXT_NAMES[] = {{"environment", WEIVEL_STANDARD_CON
                                              {"home", WEIVEL_STANDARD_CONTEXT_HOME},
                                              {"arguments", WEIVEL_STANDARD_CONTEXT_ARGUMENTS}};
 
-static const char *const ROOT_FIELDS[] = {"$schema", "importName", "version", "release", "services"};
-static const char *const SERVICE_FIELDS[] = {"id", "functions"};
-static const char *const FUNCTION_FIELDS[] = {"name", "symbol", "kind", "argument", "result", "context"};
-
 #define COUNT_OF(array) (sizeof(array) / sizeof((array)[0]))
 
 static int is_lowercase_or_digit(char byte) {
@@ -169,31 +165,8 @@ static int refuse_missing(checking *state, const field_path *path) {
                   "add %s");
 }
 
-static int is_known(const char *key, const char *const *known, size_t known_count) {
-    size_t at;
-    for (at = 0; at < known_count; at++) {
-        if (strcmp(key, known[at]) == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-static int check_object(checking *state, const weivel_json_value *value, const field_path *path,
-                        const char *const *known, size_t known_count) {
-    size_t at;
-    if (weivel_json_kind_of(value) != WEIVEL_JSON_OBJECT) {
-        return refuse_wrong_type(state, value, path, "an object");
-    }
-    for (at = 0; at < weivel_json_object_size(value); at++) {
-        const char *key = weivel_json_object_key_at(value, at);
-        if (!is_known(key, known, known_count)) {
-            field_path member = {path, key, 0};
-            return refuse(state, WEIVEL_STANDARD_REFUSAL_UNKNOWN_FIELD, &member,
-                          "is not a field a library declaration defines", "remove %s");
-        }
-    }
-    return 1;
+static int check_object(checking *state, const weivel_json_value *value, const field_path *path) {
+    return weivel_json_kind_of(value) == WEIVEL_JSON_OBJECT || refuse_wrong_type(state, value, path, "an object");
 }
 
 static int check_string(checking *state, const weivel_json_value *value, const field_path *path) {
@@ -328,7 +301,7 @@ static int check_context(checking *state, const weivel_json_value *function, con
 }
 
 static int check_function(checking *state, const weivel_json_value *function, const field_path *path) {
-    return check_object(state, function, path, FUNCTION_FIELDS, COUNT_OF(FUNCTION_FIELDS)) &&
+    return check_object(state, function, path) &&
            check_text_field(state, function, path, &FUNCTION_NAME) &&
            check_text_field(state, function, path, &FUNCTION_SYMBOL) && check_kind(state, function, path) &&
            check_schema_value(state, function, path, "argument") &&
@@ -336,20 +309,13 @@ static int check_function(checking *state, const weivel_json_value *function, co
 }
 
 static int check_service(checking *state, const weivel_json_value *service, const field_path *path) {
-    return check_object(state, service, path, SERVICE_FIELDS, COUNT_OF(SERVICE_FIELDS)) &&
+    return check_object(state, service, path) &&
            check_text_field(state, service, path, &SERVICE_ID) &&
            check_list(state, service, path, "functions", check_function);
 }
 
-static int check_schema_pointer(checking *state, const weivel_json_value *root) {
-    const weivel_json_value *value = weivel_json_object_get(root, "$schema");
-    field_path path = {NULL, "$schema", 0};
-    return value == NULL || weivel_json_kind_of(value) == WEIVEL_JSON_STRING ||
-           refuse_wrong_type(state, value, &path, "a string");
-}
-
 static int check_library(checking *state, const weivel_json_value *root) {
-    return check_object(state, root, NULL, ROOT_FIELDS, COUNT_OF(ROOT_FIELDS)) && check_schema_pointer(state, root) &&
+    return check_object(state, root, NULL) &&
            check_text_field(state, root, NULL, &IMPORT_NAME) && check_text_field(state, root, NULL, &VERSION) &&
            check_text_field(state, root, NULL, &RELEASE) && check_list(state, root, NULL, "services", check_service);
 }

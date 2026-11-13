@@ -100,19 +100,12 @@ static const refused_case REFUSED[] = {
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services"},
     {"services an object", "{'importName': 'echo', 'version': '1', 'release': 'r', 'services': {}}",
      WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, "services"},
-    {"an unknown field", "{'importName': 'echo', 'version': '1', 'release': 'r', 'site': 'x', 'services': []}",
-     WEIVEL_STANDARD_REFUSAL_UNKNOWN_FIELD, "site"},
-    {"$schema a number", "{'$schema': 1, 'importName': 'echo', 'version': '1', 'release': 'r', 'services': []}",
-     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, "$schema"},
     {"a service id with a dot",
      "{'importName': 'echo', 'version': '1', 'release': 'r', 'services': [{'id': 'a.b', 'functions': []}]}",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].id"},
     {"a service with no functions",
      "{'importName': 'echo', 'version': '1', 'release': 'r', 'services': [{'id': 'echo'}]}",
      WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, "services[0].functions"},
-    {"a service with an unknown field",
-     "{'importName': 'echo', 'version': '1', 'release': 'r', 'services': [{'id': 'echo', 'functions': [], 'x': 1}]}",
-     WEIVEL_STANDARD_REFUSAL_UNKNOWN_FIELD, "services[0].x"},
     {"a function name with a capital start",
      ONE_FUNCTION("{'name': 'Second', 'symbol': 's', 'kind': 'json', 'argument': true, 'result': true}"),
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].name"},
@@ -133,9 +126,6 @@ static const refused_case REFUSED[] = {
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].context[0]"},
     {"an empty context", WITH_FUNCTION("'kind': 'json', 'argument': true, 'result': true, 'context': []"),
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].context"},
-    {"a function with an unknown field",
-     WITH_FUNCTION("'kind': 'json', 'argument': true, 'result': true, 'provider': 'x'"),
-     WEIVEL_STANDARD_REFUSAL_UNKNOWN_FIELD, "services[0].functions[1].provider"},
     {"a function that is not an object", ONE_FUNCTION("3"), WEIVEL_STANDARD_REFUSAL_WRONG_TYPE,
      "services[0].functions[1]"},
 };
@@ -155,6 +145,19 @@ static void refuses_by_path(const refused_case *item) {
     CHECK(refusal.fix != NULL && refusal.fix[0] != '\0');
     CHECK(library.storage == NULL && library.import_name == NULL);
     weivel_standard_refusal_release(&refusal);
+}
+
+static void ignores_fields_it_does_not_define(void) {
+    weivel_standard_library library = {0};
+    weivel_standard_refusal refusal = {0};
+    const char *json = json_of(
+        "{'$schema': 7, 'site': {'x': 1}, 'importName': 'echo', 'version': '1', 'release': 'r', 'services': ["
+        "{'id': 'echo', 'later': [], 'functions': [{'name': 'a', 'symbol': 'a', 'kind': 'json', 'argument': true,"
+        " 'result': true, 'provider': 'x'}]}]}");
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, &refusal) == WEIVEL_STATUS_OK);
+    CHECK(refusal.storage == NULL);
+    CHECK(library.service_count == 1 && library.services[0].function_count == 1);
+    weivel_standard_library_release(&library);
 }
 
 static void refuses_a_nul_in_a_name(void) {
@@ -198,6 +201,7 @@ int main(void) {
     for (at = 0; at < sizeof REFUSED / sizeof REFUSED[0]; at++) {
         refuses_by_path(&REFUSED[at]);
     }
+    ignores_fields_it_does_not_define();
     refuses_a_nul_in_a_name();
     refuses_without_a_refusal_to_fill();
     refuses_a_malformed_call();

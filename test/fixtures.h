@@ -30,4 +30,7 @@ void fixture_unlock(const char *path);
 /** Creates `directory/name` as a symbolic link to `target`; 0 where this process may not make links. */
 int fixture_link(const char *directory, const char *name, const char *target);
 
+/** As fixture_link, for a target that is a directory. */
+int fixture_link_directory(const char *directory, const char *name, const char *target);
+
 #endif

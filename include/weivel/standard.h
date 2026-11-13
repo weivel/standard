@@ -34,14 +34,12 @@ typedef enum weivel_standard_refusal_code {
     WEIVEL_STANDARD_REFUSAL_NOT_WELL_KNOWN = 8,
     /** A field is present beside one that excludes it, as a dependency's `name` beside its `id`; path names it. */
     WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD = 9,
-    /** A field a closed format does not define, as a library declaration's; path names it. */
-    WEIVEL_STANDARD_REFUSAL_UNKNOWN_FIELD = 10,
     /** A file or directory exists and could not be read, or is not the kind of thing that was needed. */
-    WEIVEL_STANDARD_REFUSAL_UNREADABLE = 11,
+    WEIVEL_STANDARD_REFUSAL_UNREADABLE = 10,
     /** The directory named does not exist. */
-    WEIVEL_STANDARD_REFUSAL_NOT_FOUND = 12,
+    WEIVEL_STANDARD_REFUSAL_NOT_FOUND = 11,
     /** A manifest's file name is not `<importName>.json` for the importName it states. */
-    WEIVEL_STANDARD_REFUSAL_NAME_MISMATCH = 13
+    WEIVEL_STANDARD_REFUSAL_NAME_MISMATCH = 12
 } weivel_standard_refusal_code;
 
 /**

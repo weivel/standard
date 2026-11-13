@@ -28,7 +28,7 @@ typedef struct weivel_standard_discovered_plugin {
     weivel_standard_identity identity;
     /** The manifest's `entry` joined to the directory; NULL when the manifest declares none. */
     const char *entry_path;
-    /** 1 when `entry_path` names a regular file, a link not being followed to find one, else 0. */
+    /** 1 when `entry_path` names a regular file reached with no link at any of its components, else 0. */
     uint32_t entry_present;
 } weivel_standard_discovered_plugin;
 
@@ -53,14 +53,16 @@ typedef struct weivel_standard_discovery {
  * Scans one directory, not its subdirectories, for plugins laid out by the standard. A regular file named
  * `<name>.json`, where `<name>` is a valid importName, is a manifest; every other entry is ignored, among them each
  * `*_identity.json` (an importName holds no underscore), a `package.json` a language layer may write (no importName is
- * `package`), a directory, and a link, which is never followed.
+ * `package`), a directory, and a link, which is never followed; on Windows every reparse point is skipped, a cloud
+ * placeholder file among them.
  *
  * Every manifest that loads is a plugin, and every one that does not is a failure naming its file, so one bad file
- * never hides the rest: a file that cannot be read (UNREADABLE), is not JSON (MALFORMED_JSON) or does not validate
- * (its first refusal, with its field `path`), a manifest whose importName is not its file name (NAME_MISMATCH), an
- * identity file that is not a regular file, not JSON, or lacks a string `id` that is an identity or a non-empty
- * string `name` (failing at that field's path), and a plugin whose identity an earlier one in order already holds
- * (DUPLICATE, naming its identity file). Failures come in the order of their file names, repeated identities last.
+ * never hides the rest: a file that cannot be read or is over 1 MiB (UNREADABLE), is not JSON (MALFORMED_JSON) or
+ * does not validate (its first refusal, with its field `path`), a manifest whose importName is not its file name
+ * (NAME_MISMATCH), an identity file that is not a regular file, not JSON, or lacks a string `id` that is an identity
+ * or a non-empty string `name` (failing at that field's path), and a plugin whose identity an earlier one in order
+ * already holds (DUPLICATE, naming its identity file). Failures come in the order of their file names, repeated
+ * identities last.
  *
  * Plugins come ordered by identity, by weivel_standard_identity_compare, and then every plugin with no identity file
  * after all of those, by importName. A missing identity file is not a failure: the plugin is local and it is the

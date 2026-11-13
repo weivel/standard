@@ -1,4 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
+#if defined(__APPLE__)
+/** Apple's headers hide O_NOFOLLOW under a strict _POSIX_C_SOURCE unless this is defined too. */
+#define _DARWIN_C_SOURCE
+#endif
 
 #include "files.h"
 
@@ -96,16 +100,20 @@ weivel_standard_files_outcome weivel_standard_files_kind(const char *path, weive
     if (lstat(path, &status) != 0) {
         *kind = errno == ENOENT || errno == ENOTDIR ? WEIVEL_STANDARD_FILE_NOTHING : WEIVEL_STANDARD_FILE_UNKNOWN;
     } else {
-        *kind = S_ISREG(status.st_mode) ? WEIVEL_STANDARD_FILE_REGULAR : WEIVEL_STANDARD_FILE_OTHER;
+        *kind = S_ISREG(status.st_mode)   ? WEIVEL_STANDARD_FILE_REGULAR
+                : S_ISDIR(status.st_mode) ? WEIVEL_STANDARD_FILE_DIRECTORY
+                : S_ISLNK(status.st_mode) ? WEIVEL_STANDARD_FILE_LINK
+                                          : WEIVEL_STANDARD_FILE_OTHER;
     }
     return WEIVEL_STANDARD_FILES_DONE;
 }
 
+/** Grows to at most one byte past the cap and a NUL, so a read past the cap is seen without reading further. */
 static int grow(char **buffer, size_t *capacity) {
     size_t wanted = *capacity * 2;
     char *grown;
-    if (wanted <= *capacity) {
-        return 0;
+    if (wanted > WEIVEL_STANDARD_FILES_LARGEST_READ + 2) {
+        wanted = WEIVEL_STANDARD_FILES_LARGEST_READ + 2;
     }
     grown = weivel_standard_memory_reallocate(*buffer, wanted);
     if (grown == NULL) {
@@ -141,6 +149,10 @@ static weivel_standard_files_outcome read_open(int descriptor, char **bytes, siz
             break;
         }
         done += (size_t)got;
+        if (done > WEIVEL_STANDARD_FILES_LARGEST_READ) {
+            weivel_standard_memory_release(buffer);
+            return WEIVEL_STANDARD_FILES_TOO_LARGE;
+        }
     }
     buffer[done] = '\0';
     *bytes = buffer;
@@ -161,6 +173,10 @@ weivel_standard_files_outcome weivel_standard_files_read(const char *path, char 
     if (fstat(descriptor, &status) != 0 || !S_ISREG(status.st_mode)) {
         close(descriptor);
         return WEIVEL_STANDARD_FILES_UNREADABLE;
+    }
+    if ((unsigned long long)status.st_size > WEIVEL_STANDARD_FILES_LARGEST_READ) {
+        close(descriptor);
+        return WEIVEL_STANDARD_FILES_TOO_LARGE;
     }
     outcome = read_open(descriptor, bytes, length);
     close(descriptor);
