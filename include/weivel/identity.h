@@ -51,7 +51,8 @@ WEIVEL_STANDARD_API void weivel_standard_identity_release(weivel_standard_identi
 /**
  * Orders two identities by their parts: kind (local first), then for a local one its name bytes, for a forge one the
  * forge word, the host (none before any), and the number as a number; then the segments in order, a shorter list
- * first when it is a prefix of the other. Returns below zero, zero or above zero, so `forge:9` < `forge:10`.
+ * first when it is a prefix of the other. Leading zeros do not matter: `forge:007` and `forge:7` are one repository
+ * and compare 0. Returns below zero, zero or above zero, so `forge:9` < `forge:10`.
  */
 WEIVEL_STANDARD_API int weivel_standard_identity_compare(const weivel_standard_identity *left,
                                                          const weivel_standard_identity *right);

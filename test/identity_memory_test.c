@@ -3,7 +3,8 @@
 #include "weivel/identity.h"
 
 static const char *const SAMPLES[] = {"forge@host.example:42/a/b/c", "local:name/x", "forge:1",
-                                      "forge:18446744073709551616", "forge:1/.."};
+                                      "forge:18446744073709551616", "forge:1/..",
+                                      "calendar", "local:a b/x"};
 
 /** Fails each allocation in turn until a parse needs no more, and checks every failure leaves nothing behind. */
 static void every_failed_allocation_leaves_nothing(const char *text) {

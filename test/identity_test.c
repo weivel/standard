@@ -184,22 +184,7 @@ static void check_parse_agrees_with_matcher(const char *label, const char *text,
     }
 }
 
-static const char *const VECTOR_NAMES[] = {
-    "accepts-a-forge-repository-id",
-    "accepts-a-gitea-host-qualified-id",
-    "accepts-a-local-id",
-    "accepts-a-path-under-a-repository-id",
-    "accepts-a-segment-containing-two-dots",
-    "accepts-a-segment-starting-with-a-dot",
-    "refuses-a-bare-name",
-    "refuses-a-dot-dot-segment-before-a-name",
-    "refuses-a-dot-dot-segment-between-names",
-    "refuses-a-dot-dot-segment",
-    "refuses-a-non-numeric-repository-id",
-    "refuses-a-single-dot-segment",
-    "refuses-an-empty-repository-id",
-    "refuses-an-uppercase-forge",
-};
+static const char *const VECTOR_NAMES[] = {WEIVEL_STANDARD_IDENTITY_VECTOR_NAMES NULL};
 
 static void check_vector(const char *name) {
     char path[1024];
@@ -231,9 +216,10 @@ static void check_vector(const char *name) {
 
 static void parse_agrees_with_the_vectors(void) {
     size_t at;
-    for (at = 0; at < sizeof VECTOR_NAMES / sizeof VECTOR_NAMES[0]; at++) {
+    for (at = 0; VECTOR_NAMES[at] != NULL; at++) {
         check_vector(VECTOR_NAMES[at]);
     }
+    CHECK(at >= 14);
 }
 
 static void parse_agrees_with_every_pattern_sample(void) {
