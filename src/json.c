@@ -823,25 +823,27 @@ int weivel_json_as_double(const weivel_json_value *value, double *out) {
 }
 
 /**
- * @implNote Beyond 2^53 a double no longer holds every integer, so two spellings there can round to one double; such
- * numbers are equal only when both were read as the same 64-bit integer, never through a double.
+ * @implNote A real is compared with an integer by converting the real, never the integer: beyond 2^53 a double no
+ * longer holds every integer, so the integer's own conversion could round onto the real.
  */
-static int is_beyond_exact_doubles(const weivel_json_value *number) {
-    int64_t integer;
-    if (weivel_json_as_int64(number, &integer)) {
-        return integer > 9007199254740992LL || integer < -9007199254740992LL;
-    }
-    return number->real > 9007199254740992.0 || number->real < -9007199254740992.0;
+static int real_is_integer(double real, int64_t integer) {
+    return real >= -9223372036854775808.0 && real < 9223372036854775808.0 && (double)(int64_t)real == real &&
+           (int64_t)real == integer;
 }
 
 static int numbers_equal(const weivel_json_value *left, const weivel_json_value *right) {
     int64_t left_integer;
     int64_t right_integer;
-    if (weivel_json_as_int64(left, &left_integer) && weivel_json_as_int64(right, &right_integer)) {
+    int left_is_integer = weivel_json_as_int64(left, &left_integer);
+    int right_is_integer = weivel_json_as_int64(right, &right_integer);
+    if (left_is_integer && right_is_integer) {
         return left_integer == right_integer;
     }
-    if (is_beyond_exact_doubles(left) || is_beyond_exact_doubles(right)) {
-        return 0;
+    if (left_is_integer) {
+        return real_is_integer(right->real, left_integer);
+    }
+    if (right_is_integer) {
+        return real_is_integer(left->real, right_integer);
     }
     return left->real == right->real;
 }

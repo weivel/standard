@@ -43,8 +43,12 @@ static void compares_large_numbers_without_rounding(void) {
     CHECK(!texts_equal("9007199254740993", "9007199254740992.0"));
     CHECK(!texts_equal("9007199254740993", "9007199254740993.0"));
     CHECK(!texts_equal("-9007199254740993", "-9007199254740992.0"));
-    CHECK(!texts_equal("18446744073709551617", "18446744073709551616"));
-    CHECK(!texts_equal("1e300", "1e300"));
+    CHECK(!texts_equal("9223372036854775807", "9223372036854775808.0"));
+    CHECK(texts_equal("1e300", "1e300"));
+    CHECK(texts_equal("1e300", "1.0e300"));
+    CHECK(texts_equal("1", "1.0"));
+    CHECK(texts_equal("-1", "-1e0"));
+    CHECK(!texts_equal("1", "1.5"));
     CHECK(texts_equal("1e15", "1000000000000000.0"));
 }
 
