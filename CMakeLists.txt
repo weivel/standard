@@ -27,7 +27,8 @@ endif()
 set(WEIVEL_STANDARD_SOURCES
     src/allocation.c
     src/json.c
-    src/manifest.c)
+    src/manifest.c
+    src/report.c)
 
 function(standard_target target)
     target_include_directories(${target} PUBLIC include
