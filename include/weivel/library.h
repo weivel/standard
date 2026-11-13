@@ -11,7 +11,16 @@
 
 /** How a library function is called. */
 typedef enum weivel_standard_function_kind {
-    WEIVEL_STANDARD_FUNCTION_JSON = 1
+    /** A JSON value in and a JSON value out, each checked against the function's `argument` and `result` schema. */
+    WEIVEL_STANDARD_FUNCTION_JSON = 1,
+    /**
+     * Opaque bytes in and opaque bytes out, as
+     * `int32_t f(const uint8_t *input, size_t input_length, uint8_t **output, size_t *output_length)`. Status 0
+     * answers the result; any other status refuses, its body, when there is one, English UTF-8 saying why. Every
+     * body is the library's, freed by its `release` symbol as `void release(uint8_t *buffer)`. The declaration
+     * carries no `argument` or `result`, since neither has a shape the standard could check.
+     */
+    WEIVEL_STANDARD_FUNCTION_BYTES = 2
 } weivel_standard_function_kind;
 
 /** The facts of the calling process a library function reads, as bits of its `context`. */
@@ -30,7 +39,7 @@ typedef struct weivel_standard_library_function {
     uint32_t kind;
     /** The facts the function reads, as weivel_standard_context_fact bits; 0 when it reads none. */
     uint32_t context;
-    /** The JSON Schemas of its argument and its result, each an object or a boolean. */
+    /** The JSON Schemas of its argument and its result, each an object or a boolean; NULL for a bytes function. */
     const weivel_json_value *argument;
     const weivel_json_value *result;
 } weivel_standard_library_function;

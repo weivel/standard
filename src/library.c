@@ -35,6 +35,14 @@ typedef struct context_name {
     uint32_t fact;
 } context_name;
 
+typedef struct kind_name {
+    const char *name;
+    uint32_t kind;
+} kind_name;
+
+static const kind_name KIND_NAMES[] = {{"json", WEIVEL_STANDARD_FUNCTION_JSON},
+                                       {"bytes", WEIVEL_STANDARD_FUNCTION_BYTES}};
+
 static const context_name CONTEXT_NAMES[] = {{"environment", WEIVEL_STANDARD_CONTEXT_ENVIRONMENT},
                                              {"home", WEIVEL_STANDARD_CONTEXT_HOME},
                                              {"arguments", WEIVEL_STANDARD_CONTEXT_ARGUMENTS}};
@@ -225,6 +233,22 @@ static int check_list(checking *state, const weivel_json_value *object, const fi
     return 1;
 }
 
+/** The weivel_standard_function_kind `name` stands for, 0 for none. */
+static uint32_t kind_named(const char *name) {
+    size_t at;
+    for (at = 0; at < COUNT_OF(KIND_NAMES); at++) {
+        if (strcmp(name, KIND_NAMES[at].name) == 0) {
+            return KIND_NAMES[at].kind;
+        }
+    }
+    return 0;
+}
+
+/** The kind of a function whose `kind` has passed check_kind. */
+static uint32_t kind_of(const weivel_json_value *function) {
+    return kind_named(weivel_json_as_string(weivel_json_object_get(function, "kind")));
+}
+
 static int check_kind(checking *state, const weivel_json_value *function, const field_path *parent) {
     const weivel_json_value *value = weivel_json_object_get(function, "kind");
     field_path path = {parent, "kind", 0};
@@ -234,9 +258,9 @@ static int check_kind(checking *state, const weivel_json_value *function, const 
     if (!check_string(state, value, &path)) {
         return 0;
     }
-    if (strcmp(weivel_json_as_string(value), "json") != 0) {
-        return refuse(state, WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, &path, "is not \"json\"",
-                      "set \"kind\" to \"json\", the only kind there is");
+    if (kind_named(weivel_json_as_string(value)) == 0) {
+        return refuse(state, WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, &path, "is not \"json\" or \"bytes\"",
+                      "set \"kind\" to \"json\" or \"bytes\"");
     }
     return 1;
 }
@@ -253,6 +277,24 @@ static int check_schema_value(checking *state, const weivel_json_value *function
         return refuse_wrong_type(state, value, &path, "a JSON Schema, an object or a boolean");
     }
     return 1;
+}
+
+static int check_no_schema(checking *state, const weivel_json_value *function, const field_path *parent,
+                           const char *key) {
+    field_path path = {parent, key, 0};
+    if (weivel_json_object_get(function, key) == NULL) {
+        return 1;
+    }
+    return refuse(state, WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, &path,
+                  "is declared on a bytes function, whose argument and result are opaque bytes", "remove %s");
+}
+
+static int check_schemas(checking *state, const weivel_json_value *function, const field_path *path) {
+    if (kind_of(function) == WEIVEL_STANDARD_FUNCTION_BYTES) {
+        return check_no_schema(state, function, path, "argument") && check_no_schema(state, function, path, "result");
+    }
+    return check_schema_value(state, function, path, "argument") &&
+           check_schema_value(state, function, path, "result");
 }
 
 static uint32_t context_fact_of(const char *name) {
@@ -305,8 +347,7 @@ static int check_function(checking *state, const weivel_json_value *function, co
     return check_object(state, function, path) &&
            check_text_field(state, function, path, &FUNCTION_NAME) &&
            check_text_field(state, function, path, &FUNCTION_SYMBOL) && check_kind(state, function, path) &&
-           check_schema_value(state, function, path, "argument") &&
-           check_schema_value(state, function, path, "result") && check_context(state, function, path);
+           check_schemas(state, function, path) && check_context(state, function, path);
 }
 
 static int check_service(checking *state, const weivel_json_value *service, const field_path *path) {
@@ -338,7 +379,7 @@ static const char *text_of(const weivel_json_value *object, const char *key) {
 static void fill_function(weivel_standard_library_function *function, const weivel_json_value *value) {
     function->name = text_of(value, "name");
     function->symbol = text_of(value, "symbol");
-    function->kind = WEIVEL_STANDARD_FUNCTION_JSON;
+    function->kind = kind_of(value);
     function->context = context_of(value);
     function->argument = weivel_json_object_get(value, "argument");
     function->result = weivel_json_object_get(value, "result");

@@ -9,6 +9,11 @@ static const char *const SAMPLES[] = {
     "{\"id\": \"other\", \"functions\": [{\"name\": \"a\", \"symbol\": \"a\", \"kind\": \"json\", \"argument\": true,"
     " \"result\": true}, {\"name\": \"b\", \"symbol\": \"b\", \"kind\": \"json\", \"argument\": true,"
     " \"result\": true}]}]}",
+    "{\"importName\": \"echo\", \"version\": \"1\", \"release\": \"echo_release\", \"services\": ["
+    "{\"id\": \"echo\", \"functions\": [{\"name\": \"echo\", \"symbol\": \"echo_echo\", \"kind\": \"bytes\"}]}]}",
+    "{\"importName\": \"echo\", \"version\": \"1\", \"release\": \"r\", \"services\": ["
+    "{\"id\": \"echo\", \"functions\": [{\"name\": \"echo\", \"symbol\": \"echo_echo\", \"kind\": \"bytes\","
+    " \"result\": true}]}]}",
     "{\"importName\": \"echo\", \"version\": \"1\", \"release\": \"r\", \"services\": [{\"id\": \"Echo\"}]}",
     "{\"importName\": "};
 

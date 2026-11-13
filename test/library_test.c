@@ -64,6 +64,25 @@ static void reads_a_declaration(void) {
     weivel_standard_library_release(NULL);
 }
 
+static void reads_a_bytes_function(void) {
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    const char *json = json_of(
+        "{'importName': 'echo', 'version': '1', 'release': 'echo_release', 'services': [{'id': 'echo', 'functions': ["
+        "{'name': 'echo', 'symbol': 'echo_echo', 'kind': 'bytes', 'context': ['arguments']},"
+        " {'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'json', 'argument': true, 'result': true}]}]}");
+    const weivel_standard_library_function *function;
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, NULL) == WEIVEL_STATUS_OK);
+    CHECK(library.service_count == 1 && library.services[0].function_count == 2);
+    if (library.service_count == 1 && library.services[0].function_count == 2) {
+        function = &library.services[0].functions[0];
+        CHECK(function->kind == WEIVEL_STANDARD_FUNCTION_BYTES);
+        CHECK(function->argument == NULL && function->result == NULL);
+        CHECK(function->context == WEIVEL_STANDARD_CONTEXT_ARGUMENTS);
+        CHECK(library.services[0].functions[1].kind == WEIVEL_STANDARD_FUNCTION_JSON);
+    }
+    weivel_standard_library_release(&library);
+}
+
 typedef struct refused_case {
     const char *name;
     const char *json;
@@ -115,6 +134,12 @@ static const refused_case REFUSED[] = {
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].symbol"},
     {"a function of another kind", WITH_FUNCTION("'kind': 'binary', 'argument': true, 'result': true"),
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].kind"},
+    {"a bytes function with an argument", WITH_FUNCTION("'kind': 'bytes', 'argument': true"),
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].argument"},
+    {"a bytes function with a result", WITH_FUNCTION("'kind': 'bytes', 'result': {}"),
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].result"},
+    {"a kind in another case", WITH_FUNCTION("'kind': 'Bytes'"), WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
+     "services[0].functions[1].kind"},
     {"a function with no result", WITH_FUNCTION("'kind': 'json', 'argument': true"),
      WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, "services[0].functions[1].result"},
     {"an argument that is a string", WITH_FUNCTION("'kind': 'json', 'argument': 'any', 'result': true"),
@@ -198,6 +223,7 @@ static void refuses_a_malformed_call(void) {
 int main(void) {
     size_t at;
     reads_a_declaration();
+    reads_a_bytes_function();
     for (at = 0; at < sizeof REFUSED / sizeof REFUSED[0]; at++) {
         refuses_by_path(&REFUSED[at]);
     }
