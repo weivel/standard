@@ -16,8 +16,8 @@ static const char *const SAMPLES[] = {
 static void every_failed_allocation_leaves_nothing(const char *text) {
     uint64_t nth;
     for (nth = 1; nth < 10000; nth++) {
-        weivel_standard_library library = {0};
-        weivel_standard_refusal refusal = {0};
+        weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
         weivel_status status;
         weivel_standard_memory_fail_at(nth);
         status = weivel_standard_read_library(text, strlen(text), &library, &refusal);

@@ -4,6 +4,7 @@
 #include "files.h"
 #include "patterns.h"
 #include "report.h"
+#include "sized.h"
 #include "weivel/json.h"
 
 #include <stdlib.h>
@@ -81,6 +82,7 @@ static int grow(void **items, size_t *capacity, size_t count, size_t item_size) 
 
 static void release_plugin(discovered_plugin *plugin) {
     discovered_plugin empty = {0};
+    empty.identity.size = (uint32_t)sizeof empty.identity;
     weivel_standard_manifest_release((weivel_standard_manifest *)plugin->manifest);
     weivel_standard_memory_release((char *)plugin->manifest_path);
     weivel_standard_memory_release((char *)plugin->identity_path);
@@ -122,14 +124,14 @@ static weivel_status add_failure(scan *state, const char *file, weivel_standard_
     failures->items[failures->count].file = copy;
     failures->items[failures->count].refusal = *refusal;
     failures->count++;
-    memset(refusal, 0, sizeof *refusal);
+    weivel_standard_refusal_forget(refusal);
     return WEIVEL_STATUS_OK;
 }
 
 /** Takes `detail` and `fix`, either of which may be NULL when memory ran out building it. */
 static weivel_status refuse_file(scan *state, const char *file, uint32_t code, const char *field, char *detail,
                                  char *fix) {
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     weivel_standard_refusal_texts texts;
     texts.detail = detail;
     texts.fix = fix;
@@ -183,7 +185,7 @@ static weivel_status load_manifest(scan *state, const char *file, weivel_standar
         status = add_failure(state, file, &validation.refusal);
     } else if (status == WEIVEL_STATUS_MALFORMED) {
         state->call_refusal = validation.refusal;
-        memset(&validation.refusal, 0, sizeof validation.refusal);
+        weivel_standard_refusal_forget(&validation.refusal);
     }
     weivel_standard_validation_release(&validation);
     return status;
@@ -223,7 +225,7 @@ static const char *identity_text(scan *state, const char *file, const weivel_jso
 /** Parses `id` into the plugin's identity, recording a failure at path `id` for one that is not an identity. */
 static weivel_status parse_identity(scan *state, const char *file, const char *id, discovered_plugin *plugin,
                                     int *accepted) {
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     weivel_status status = weivel_standard_identity_parse(id, strlen(id), &plugin->identity, &refusal);
     if (status == WEIVEL_STATUS_REFUSED) {
         status = refuse_file(state, file, refusal.code, "id",
@@ -263,7 +265,7 @@ static weivel_status take_identity_document(scan *state, const char *file, const
 }
 
 static weivel_status read_identity_file(scan *state, const char *file, discovered_plugin *plugin, int *accepted) {
-    weivel_json_error error = {0};
+    weivel_json_error error = {.size = (uint32_t)sizeof(weivel_json_error)};
     weivel_json_value *document;
     weivel_status status;
     char *bytes;
@@ -275,7 +277,7 @@ static weivel_status read_identity_file(scan *state, const char *file, discovere
     document = weivel_json_parse(bytes, length, &error);
     weivel_standard_memory_release(bytes);
     if (document == NULL) {
-        weivel_standard_refusal refusal = {0};
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
         if (error.out_of_memory) {
             return WEIVEL_STATUS_OUT_OF_MEMORY;
         }
@@ -431,6 +433,7 @@ static weivel_status take_file(scan *state, const char *file_name) {
     weivel_status status;
     int out_of_memory;
     char *import_name = import_name_of(file_name, &out_of_memory);
+    plugin.identity.size = (uint32_t)sizeof plugin.identity;
     if (import_name == NULL) {
         return out_of_memory ? WEIVEL_STATUS_OUT_OF_MEMORY : WEIVEL_STATUS_OK;
     }
@@ -552,6 +555,14 @@ static weivel_status refuse_listing(weivel_standard_discovery *discovery, const 
                             weivel_standard_format_text("name a directory this process can list, not %s", directory));
 }
 
+/** Readies a usable discovery for its answer: its refusal sized, and what a newer caller has beyond it zero. */
+static void prepare(weivel_standard_discovery *discovery) {
+    weivel_standard_discovery own;
+    memset(&own, 0, sizeof own);
+    own.refusal.size = (uint32_t)sizeof own.refusal;
+    weivel_standard_sized_write(discovery, &own, sizeof own);
+}
+
 static int holds_answer(const weivel_standard_discovery *discovery) {
     return discovery->plugins != NULL || discovery->failures != NULL || discovery->plugin_count != 0 ||
            discovery->failure_count != 0 || weivel_standard_refusal_holds_one(&discovery->refusal);
@@ -581,6 +592,7 @@ weivel_status weivel_standard_discover(const char *directory, const weivel_stand
     if (discovery == NULL || discovery->size < DISCOVERY_FIRST_SHAPE || holds_answer(discovery)) {
         return WEIVEL_STATUS_MALFORMED;
     }
+    prepare(discovery);
     if (directory == NULL || directory[0] == '\0') {
         return weivel_standard_refuse_call(&discovery->refusal, "weivel_standard_discover was given no directory",
                                            "name the directory the plugins are laid out in");

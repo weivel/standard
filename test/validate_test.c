@@ -23,7 +23,7 @@ static char *double_quoted(const char *text) {
 
 static weivel_json_value *parse_quoted(const char *text) {
     char *json = double_quoted(text);
-    weivel_json_error error = {0};
+    weivel_json_error error = {.size = (uint32_t)sizeof(weivel_json_error)};
     weivel_json_value *value = json == NULL ? NULL : weivel_json_parse(json, strlen(json), &error);
     free(json);
     return value;
@@ -430,7 +430,7 @@ static void loading_refuses_what_the_core_cannot_hold(void) {
 
 static void reading_alone_does_not_validate(void) {
     weivel_standard_manifest *manifest = NULL;
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     const char *text = "{\"api\": 0, \"importName\": \"Upper\"}";
     CHECK(weivel_standard_read_manifest(text, strlen(text), &manifest, &refusal) == WEIVEL_STATUS_OK);
     weivel_standard_manifest_release(manifest);

@@ -10,8 +10,8 @@ static const char *const SAMPLES[] = {"forge@host.example:42/a/b/c", "local:name
 static void every_failed_allocation_leaves_nothing(const char *text) {
     uint64_t nth;
     for (nth = 1; nth < 1000; nth++) {
-        weivel_standard_identity identity;
-        weivel_standard_refusal refusal = {0};
+        weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
         weivel_status status;
         weivel_standard_memory_fail_at(nth);
         status = weivel_standard_identity_parse(text, strlen(text), &identity, &refusal);

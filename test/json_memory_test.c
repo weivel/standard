@@ -11,7 +11,7 @@ static void bad_text_is_not_out_of_memory(void) {
     static const char *const MALFORMED[] = {"{\"a\": }", "[1, 2", "{\"a\": 1, \"a\": 2}", "1e999", "nul"};
     size_t at;
     for (at = 0; at < sizeof MALFORMED / sizeof MALFORMED[0]; at++) {
-        weivel_json_error error = {0};
+        weivel_json_error error = {.size = (uint32_t)sizeof(weivel_json_error)};
         weivel_json_value *value = weivel_json_parse(MALFORMED[at], strlen(MALFORMED[at]), &error);
         CHECK(value == NULL);
         CHECK(error.message != NULL);
@@ -24,7 +24,7 @@ static void bad_text_is_not_out_of_memory(void) {
 static void every_failed_allocation_is_out_of_memory(void) {
     uint64_t nth;
     for (nth = 1; nth < 100000; nth++) {
-        weivel_json_error error = {0};
+        weivel_json_error error = {.size = (uint32_t)sizeof(weivel_json_error)};
         weivel_json_value *value;
         int failed;
         weivel_standard_memory_fail_at(nth);
@@ -54,7 +54,7 @@ static void every_failed_allocation_is_out_of_memory(void) {
 /** One read of the locale both sizes a number's buffer and fills it, so a setlocale between them cannot overrun it. */
 static void each_number_reads_the_locale_once(void) {
     static const char NUMBERS[] = "[1.5, 2.25, -3e2, 4]";
-    weivel_json_error error = {0};
+    weivel_json_error error = {.size = (uint32_t)sizeof(weivel_json_error)};
     int64_t before = weivel_standard_json_locale_reads();
     weivel_json_value *value = weivel_json_parse(NUMBERS, strlen(NUMBERS), &error);
     double real = 0;

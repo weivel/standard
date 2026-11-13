@@ -728,7 +728,13 @@ static int refuse_unreadable_text(parser *state) {
 }
 
 static void report_failure(const parser *state, weivel_json_error *error) {
+    uint32_t size = error->size;
+    if (size < sizeof *error) {
+        return;
+    }
     *error = state->failure;
+    error->size = size;
+    memset((unsigned char *)error + sizeof *error, 0, size - sizeof *error);
     if (state->failure.message == state->failure.detail) {
         error->message = error->detail;
     }

@@ -20,11 +20,14 @@ typedef enum {
 #define WEIVEL_JSON_ERROR_DETAIL_CAPACITY 96
 
 /**
- * message points at a string literal, or into detail when the refusal names part of the input (a
+ * Why a text could not be read. The caller sets `size` to `sizeof` the struct, as WEIVEL_INIT does; the reader fills
+ * only an error whose `size` covers its first shape, the whole struct as first published, and leaves a smaller one
+ * untouched. message points at a string literal, or into detail when the refusal names part of the input (a
  * duplicate key), so it stays valid for as long as the weivel_json_error itself does. out_of_memory
  * is 1 when the text could not be read because memory ran out, and 0 when the text is malformed.
  */
 typedef struct {
+    uint32_t size;
     int line;
     int column;
     const char *message;

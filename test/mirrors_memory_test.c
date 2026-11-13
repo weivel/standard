@@ -13,8 +13,8 @@ static const char *const SAMPLES[] = {
 static void every_failed_read_leaves_nothing(const char *text) {
     uint64_t nth;
     for (nth = 1; nth < 10000; nth++) {
-        weivel_standard_mirror_list list = {0};
-        weivel_standard_refusal refusal = {0};
+        weivel_standard_mirror_list list = WEIVEL_INIT(weivel_standard_mirror_list);
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
         weivel_status status;
         weivel_standard_memory_fail_at(nth);
         status = weivel_standard_read_mirrors(text, strlen(text), &list, &refusal);
@@ -38,7 +38,7 @@ static void every_failed_expansion_leaves_nothing(void) {
     uint64_t nth;
     for (nth = 1; nth < 100; nth++) {
         char *url = NULL;
-        weivel_standard_refusal refusal = {0};
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
         weivel_status status;
         weivel_standard_memory_fail_at(nth);
         status = weivel_standard_mirror_expand("https://example.org/{sha256}", HASH, &url, &refusal);
@@ -60,7 +60,7 @@ static void every_failed_expansion_leaves_nothing(void) {
 static void every_failed_mismatch_refusal_leaves_nothing(void) {
     uint64_t nth;
     for (nth = 1; nth < 100; nth++) {
-        weivel_standard_refusal refusal = {0};
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
         weivel_status status;
         weivel_standard_memory_fail_at(nth);
         status = weivel_standard_verify_download("abd", 3, HASH, &refusal);

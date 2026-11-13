@@ -37,6 +37,7 @@ set(WEIVEL_STANDARD_SOURCES
     src/report.c
     src/services.c
     src/sha256.c
+    src/sized.c
     src/validate.c)
 if(WIN32)
     list(APPEND WEIVEL_STANDARD_SOURCES src/files_windows.c)

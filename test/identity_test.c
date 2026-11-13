@@ -12,7 +12,7 @@ static weivel_status parse_text(const char *text, weivel_standard_identity *iden
 
 static void check_forge_parts(const char *text, const char *forge, const char *host, uint64_t number,
                               size_t segment_count, const char *last_segment) {
-    weivel_standard_identity identity;
+    weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
     CHECK(parse_text(text, &identity, NULL) == WEIVEL_STATUS_OK);
     CHECK(identity.kind == WEIVEL_STANDARD_IDENTITY_FORGE);
     check_text(identity.forge, forge, text);
@@ -39,7 +39,7 @@ static void parts_of_forge_identities(void) {
 }
 
 static void parts_of_local_identities(void) {
-    weivel_standard_identity identity;
+    weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
     CHECK(parse_text("local:plugin-stub", &identity, NULL) == WEIVEL_STATUS_OK);
     CHECK(identity.kind == WEIVEL_STANDARD_IDENTITY_LOCAL);
     check_text(identity.name, "plugin-stub", "local name");
@@ -65,8 +65,8 @@ static void parts_of_local_identities(void) {
 }
 
 static int order_of_texts(const char *left_text, const char *right_text) {
-    weivel_standard_identity left;
-    weivel_standard_identity right;
+    weivel_standard_identity left = WEIVEL_INIT(weivel_standard_identity);
+    weivel_standard_identity right = WEIVEL_INIT(weivel_standard_identity);
     int order;
     CHECK(parse_text(left_text, &left, NULL) == WEIVEL_STATUS_OK);
     CHECK(parse_text(right_text, &right, NULL) == WEIVEL_STATUS_OK);
@@ -100,8 +100,8 @@ static void compare_orders_by_parts(void) {
 }
 
 static void refusal_of(const char *text, uint32_t code, const char *detail_part) {
-    weivel_standard_identity identity;
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(parse_text(text, &identity, &refusal) == WEIVEL_STATUS_REFUSED);
     CHECK(refusal.code == code);
     CHECK(refusal.path != NULL && refusal.path[0] == '\0');
@@ -139,7 +139,7 @@ static void a_number_past_64_bits_is_refused_on_its_own(void) {
 }
 
 static void malformed_calls_and_missing_refusal(void) {
-    weivel_standard_identity identity;
+    weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
     CHECK(weivel_standard_identity_parse(NULL, 0, &identity, NULL) == WEIVEL_STATUS_MALFORMED);
     CHECK(weivel_standard_identity_parse("forge:1", 7, NULL, NULL) == WEIVEL_STATUS_MALFORMED);
     CHECK(parse_text("nope", &identity, NULL) == WEIVEL_STATUS_REFUSED);
@@ -147,7 +147,7 @@ static void malformed_calls_and_missing_refusal(void) {
 }
 
 static void check_parse_agrees_with_matcher(const char *label, const char *text, size_t length, int expected_valid) {
-    weivel_standard_identity identity;
+    weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
     weivel_status status = weivel_standard_identity_parse(text, length, &identity, NULL);
     int matches = weivel_standard_matches_repository_id(text, length);
     if (matches != expected_valid) {
@@ -196,8 +196,8 @@ static void parse_agrees_with_the_identity_cases(void) {
 static void parse_agrees_with_every_pattern_sample(void) {
     size_t at;
     for (at = 0; at < sizeof REPOSITORY_IDS / sizeof REPOSITORY_IDS[0]; at++) {
-        weivel_standard_identity identity;
-        weivel_standard_refusal refusal = {0};
+        weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
         weivel_status status =
             weivel_standard_identity_parse(REPOSITORY_IDS[at].text, REPOSITORY_IDS[at].length, &identity, &refusal);
         if (REPOSITORY_IDS[at].matches) {

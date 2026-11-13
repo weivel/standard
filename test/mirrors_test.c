@@ -22,8 +22,8 @@ static const char *json_of(const char *quoted) {
 }
 
 static void reads_an_ordered_list(void) {
-    weivel_standard_mirror_list list = {0};
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_mirror_list list = WEIVEL_INIT(weivel_standard_mirror_list);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     const char *json = json_of("{'mirrors': ['https://example.org/core/{sha256}', 'file:///srv/core/{sha256}',"
                                " 'https://example.com/{sha256}.bin'], 'later': {'field': 1}}");
     CHECK(weivel_standard_read_mirrors(json, strlen(json), &list, &refusal) == WEIVEL_STATUS_OK);
@@ -69,8 +69,8 @@ static const refused_case REFUSED[] = {
 static void refuses_a_malformed_list(void) {
     size_t at;
     for (at = 0; at < sizeof REFUSED / sizeof REFUSED[0]; at++) {
-        weivel_standard_mirror_list list = {0};
-        weivel_standard_refusal refusal = {0};
+        weivel_standard_mirror_list list = WEIVEL_INIT(weivel_standard_mirror_list);
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
         const char *json = json_of(REFUSED[at].json);
         CHECK(weivel_standard_read_mirrors(json, strlen(json), &list, &refusal) == WEIVEL_STATUS_REFUSED);
         if (refusal.code != REFUSED[at].code) {
@@ -86,8 +86,8 @@ static void refuses_a_malformed_list(void) {
 }
 
 static void refuses_a_malformed_call(void) {
-    weivel_standard_mirror_list list = {0};
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_mirror_list list = WEIVEL_INIT(weivel_standard_mirror_list);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     const char *json = json_of("{'mirrors': ['https://example.org/{sha256}']}");
     CHECK(weivel_standard_read_mirrors(NULL, 0, &list, &refusal) == WEIVEL_STATUS_MALFORMED);
     CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL);
@@ -103,7 +103,7 @@ static void refuses_a_malformed_call(void) {
 
 static void expands_a_template(void) {
     char *url = NULL;
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(weivel_standard_mirror_expand("https://example.org/core/{sha256}", HASH, &url, &refusal) ==
           WEIVEL_STATUS_OK);
     check_text(url, "https://example.org/core/" HASH, "expanded");
@@ -121,7 +121,7 @@ static void refuses_a_bad_hash(void) {
     size_t at;
     for (at = 0; at < sizeof bad_hashes / sizeof bad_hashes[0]; at++) {
         char *url = (char *)"sentinel";
-        weivel_standard_refusal refusal = {0};
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
         CHECK(weivel_standard_mirror_expand("https://example.org/{sha256}", bad_hashes[at], &url, &refusal) ==
               WEIVEL_STATUS_REFUSED);
         CHECK(url == NULL);
@@ -150,8 +150,8 @@ static void write_file(const char *text, size_t length) {
 }
 
 static void load_expecting_refusal(uint32_t code, const char *label) {
-    weivel_standard_mirror_list list = {0};
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_mirror_list list = WEIVEL_INIT(weivel_standard_mirror_list);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(weivel_standard_load_mirrors(WEIVEL_STANDARD_MIRRORS_FIXTURE, &list, &refusal) == WEIVEL_STATUS_REFUSED);
     if (refusal.code != code) {
         fprintf(stderr, "%s: code %u, expected %u\n", label, (unsigned)refusal.code, (unsigned)code);
@@ -162,8 +162,8 @@ static void load_expecting_refusal(uint32_t code, const char *label) {
 }
 
 static void loads_a_file(void) {
-    weivel_standard_mirror_list list = {0};
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_mirror_list list = WEIVEL_INIT(weivel_standard_mirror_list);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     const char *json = json_of("{'mirrors': ['file:///srv/core/{sha256}']}");
     size_t large_length = ((size_t)1 << 20) + 1;
     char *large = malloc(large_length);

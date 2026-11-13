@@ -27,8 +27,8 @@ static const char *const ECHO_DECLARATION =
     "   'context': ['environment']}]}]}";
 
 static void reads_a_declaration(void) {
-    weivel_standard_library library = {0};
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     const char *json = json_of(ECHO_DECLARATION);
     const weivel_standard_library_function *function;
     CHECK(weivel_standard_read_library(json, strlen(json), &library, &refusal) == WEIVEL_STATUS_OK);
@@ -131,8 +131,8 @@ static const refused_case REFUSED[] = {
 };
 
 static void refuses_by_path(const refused_case *item) {
-    weivel_standard_library library = {0};
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     const char *json = json_of(item->json);
     weivel_status status = weivel_standard_read_library(json, strlen(json), &library, &refusal);
     if (status != WEIVEL_STATUS_REFUSED || refusal.code != item->code) {
@@ -148,8 +148,8 @@ static void refuses_by_path(const refused_case *item) {
 }
 
 static void ignores_fields_it_does_not_define(void) {
-    weivel_standard_library library = {0};
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     const char *json = json_of(
         "{'$schema': 7, 'site': {'x': 1}, 'importName': 'echo', 'version': '1', 'release': 'r', 'services': ["
         "{'id': 'echo', 'later': [], 'functions': [{'name': 'a', 'symbol': 'a', 'kind': 'json', 'argument': true,"
@@ -163,8 +163,8 @@ static void ignores_fields_it_does_not_define(void) {
 static void refuses_a_nul_in_a_name(void) {
     static const char json[] = "{\"importName\": \"echo\", \"version\": \"1\\u0000\", \"release\": \"r\","
                                " \"services\": []}";
-    weivel_standard_library library = {0};
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(weivel_standard_read_library(json, strlen(json), &library, &refusal) == WEIVEL_STATUS_REFUSED);
     CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_UNREPRESENTABLE);
     check_text(refusal.path, "version", "nul path");
@@ -172,16 +172,16 @@ static void refuses_a_nul_in_a_name(void) {
 }
 
 static void refuses_without_a_refusal_to_fill(void) {
-    weivel_standard_library library = {0};
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
     const char *json = json_of("{'importName': 'echo'}");
     CHECK(weivel_standard_read_library(json, strlen(json), &library, NULL) == WEIVEL_STATUS_REFUSED);
     CHECK(library.storage == NULL);
 }
 
 static void refuses_a_malformed_call(void) {
-    weivel_standard_library library = {0};
-    weivel_standard_library holding = {0};
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    weivel_standard_library holding = WEIVEL_INIT(weivel_standard_library);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     const char *json = json_of(ECHO_DECLARATION);
     CHECK(weivel_standard_read_library(NULL, 0, &library, &refusal) == WEIVEL_STATUS_MALFORMED);
     CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL);

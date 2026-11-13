@@ -32,7 +32,10 @@ char *weivel_standard_format_text(const char *format, ...);
 
 void weivel_standard_release_texts(weivel_standard_refusal_texts *texts);
 
-/** Takes the three texts whatever it answers: 1 with the refusal filled, 0 when memory ran out first. */
+/**
+ * Takes the three texts whatever it answers: 1 with the refusal filled, 0 when memory ran out first or the refusal is
+ * smaller than its first shape.
+ */
 int weivel_standard_fill_refusal(weivel_standard_refusal *refusal, uint32_t code,
                                  weivel_standard_refusal_texts texts);
 
@@ -42,8 +45,17 @@ weivel_status weivel_standard_refuse_malformed_json(weivel_standard_refusal *ref
 /** Fills a MALFORMED_CALL refusal at path "" when `refusal` is given; MALFORMED, or OUT_OF_MEMORY. */
 weivel_status weivel_standard_refuse_call(weivel_standard_refusal *refusal, const char *detail, const char *fix);
 
+/** A refusal's first shape: every field it was first published with. */
+#define WEIVEL_STANDARD_REFUSAL_FIRST_SHAPE (offsetof(weivel_standard_refusal, storage) + sizeof(void *))
+
 /** 1 when a refusal the caller passed already holds one, which a call refuses to overwrite. */
 int weivel_standard_refusal_holds_one(const weivel_standard_refusal *refusal);
+
+/** Leaves a refusal empty, its `size` kept, without freeing what it held: for one whose texts were handed on. */
+void weivel_standard_refusal_forget(weivel_standard_refusal *refusal);
+
+/** 1 when a call cannot fill the refusal it was given: one smaller than its first shape, or one holding a refusal. */
+int weivel_standard_refusal_is_unusable(const weivel_standard_refusal *refusal);
 
 /** How a field is named in a sentence: its path, or "the manifest" for the root. */
 const char *weivel_standard_subject_of(const char *path);

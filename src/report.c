@@ -1,6 +1,7 @@
 #include "report.h"
 
 #include "allocation.h"
+#include "sized.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -165,7 +166,9 @@ void weivel_standard_release_texts(weivel_standard_refusal_texts *texts) {
 int weivel_standard_fill_refusal(weivel_standard_refusal *refusal, uint32_t code,
                                  weivel_standard_refusal_texts texts) {
     weivel_standard_refusal_texts *storage;
-    if (texts.detail == NULL || texts.fix == NULL || texts.path == NULL) {
+    weivel_standard_refusal filled = WEIVEL_INIT(weivel_standard_refusal);
+    if (texts.detail == NULL || texts.fix == NULL || texts.path == NULL ||
+        refusal->size < WEIVEL_STANDARD_REFUSAL_FIRST_SHAPE) {
         weivel_standard_release_texts(&texts);
         return 0;
     }
@@ -175,11 +178,12 @@ int weivel_standard_fill_refusal(weivel_standard_refusal *refusal, uint32_t code
         return 0;
     }
     *storage = texts;
-    refusal->code = code;
-    refusal->detail = storage->detail;
-    refusal->fix = storage->fix;
-    refusal->path = storage->path;
-    refusal->storage = storage;
+    filled.code = code;
+    filled.detail = storage->detail;
+    filled.fix = storage->fix;
+    filled.path = storage->path;
+    filled.storage = storage;
+    weivel_standard_sized_write(refusal, &filled, sizeof filled);
     return 1;
 }
 
@@ -199,7 +203,7 @@ weivel_status weivel_standard_refuse_malformed_json(weivel_standard_refusal *ref
 
 weivel_status weivel_standard_refuse_call(weivel_standard_refusal *refusal, const char *detail, const char *fix) {
     weivel_standard_refusal_texts texts = {NULL, NULL, NULL};
-    if (refusal == NULL) {
+    if (refusal == NULL || refusal->size < WEIVEL_STANDARD_REFUSAL_FIRST_SHAPE) {
         return WEIVEL_STATUS_MALFORMED;
     }
     texts.detail = weivel_standard_format_text("%s", detail);
@@ -211,7 +215,18 @@ weivel_status weivel_standard_refuse_call(weivel_standard_refusal *refusal, cons
 }
 
 int weivel_standard_refusal_holds_one(const weivel_standard_refusal *refusal) {
-    return refusal != NULL && (refusal->storage != NULL || refusal->code != WEIVEL_STANDARD_REFUSAL_NONE);
+    return refusal != NULL && refusal->size >= WEIVEL_STANDARD_REFUSAL_FIRST_SHAPE &&
+           (refusal->storage != NULL || refusal->code != WEIVEL_STANDARD_REFUSAL_NONE);
+}
+
+void weivel_standard_refusal_forget(weivel_standard_refusal *refusal) {
+    weivel_standard_refusal empty = WEIVEL_INIT(weivel_standard_refusal);
+    weivel_standard_sized_write(refusal, &empty, sizeof empty);
+}
+
+int weivel_standard_refusal_is_unusable(const weivel_standard_refusal *refusal) {
+    return refusal != NULL &&
+           (refusal->size < WEIVEL_STANDARD_REFUSAL_FIRST_SHAPE || weivel_standard_refusal_holds_one(refusal));
 }
 
 const char *weivel_standard_subject_of(const char *path) {
@@ -240,8 +255,8 @@ int weivel_standard_is_whole_number(double number) {
 }
 
 void weivel_standard_refusal_release(weivel_standard_refusal *refusal) {
-    weivel_standard_refusal empty = {0};
-    if (refusal == NULL) {
+    weivel_standard_refusal empty = WEIVEL_INIT(weivel_standard_refusal);
+    if (refusal == NULL || refusal->size < WEIVEL_STANDARD_REFUSAL_FIRST_SHAPE) {
         return;
     }
     if (refusal->storage != NULL) {
@@ -249,5 +264,5 @@ void weivel_standard_refusal_release(weivel_standard_refusal *refusal) {
         weivel_standard_release_texts(storage);
         weivel_standard_memory_release(storage);
     }
-    *refusal = empty;
+    weivel_standard_sized_write(refusal, &empty, sizeof empty);
 }

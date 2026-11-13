@@ -157,7 +157,7 @@ static weivel_status refuse_mismatch(weivel_standard_refusal *refusal, const cha
 weivel_status weivel_standard_verify_download(const void *bytes, size_t length, const char *expected_hex,
                                               weivel_standard_refusal *refusal) {
     char actual_hex[WEIVEL_STANDARD_SHA256_HEX_LENGTH + 1];
-    if (weivel_standard_refusal_holds_one(refusal)) {
+    if (weivel_standard_refusal_is_unusable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
     if (expected_hex == NULL) {

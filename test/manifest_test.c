@@ -23,7 +23,7 @@ static weivel_status read_text(const char *text, weivel_standard_manifest **mani
 }
 
 static const weivel_manifest *read_view(const char *text, weivel_standard_manifest **manifest) {
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     weivel_status status = read_text(text, manifest, &refusal);
     if (status != WEIVEL_STATUS_OK) {
         fprintf(stderr, "reading %s answered %d: %s (at \"%s\")\n", text, (int)status,
@@ -195,7 +195,7 @@ static void unknown_fields_are_ignored(void) {
 
 static void check_refused_at(const char *text, uint32_t code, const char *path) {
     weivel_standard_manifest *manifest = (weivel_standard_manifest *)&manifest;
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     weivel_status status = read_text(text, &manifest, &refusal);
     if (status != WEIVEL_STATUS_REFUSED) {
         fprintf(stderr, "reading %s answered %d, not refused\n", text, (int)status);
@@ -273,7 +273,7 @@ static void a_whole_api_number_is_read_in_any_spelling(void) {
 
 static void a_refusal_says_what_and_how_to_fix_it(void) {
     weivel_standard_manifest *manifest = NULL;
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(read_text("{\"services\": {\"consumes\": [\"a\", {\"id\": \"b\", \"provider\": 7}]}}", &manifest,
                     &refusal) == WEIVEL_STATUS_REFUSED);
     check_text(refusal.detail, "services.consumes[1].provider is a number, where a string is needed", "detail");
@@ -287,7 +287,7 @@ static void a_refusal_says_what_and_how_to_fix_it(void) {
 
 static void malformed_json_is_refused_with_its_place(void) {
     weivel_standard_manifest *manifest = NULL;
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(read_text("{\"importName\": }", &manifest, &refusal) == WEIVEL_STATUS_REFUSED);
     CHECK(manifest == NULL);
     CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_MALFORMED_JSON);
@@ -313,8 +313,8 @@ static void the_length_bounds_the_text(void) {
 
 static void a_malformed_call_is_answered_not_crashed(void) {
     weivel_standard_manifest *manifest = NULL;
-    weivel_standard_refusal refusal = {0};
-    weivel_standard_refusal held = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    weivel_standard_refusal held = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(weivel_standard_read_manifest(NULL, 2, &manifest, &refusal) == WEIVEL_STATUS_MALFORMED);
     CHECK(manifest == NULL);
     CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL && refusal.detail != NULL && refusal.fix != NULL);

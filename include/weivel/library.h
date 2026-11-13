@@ -45,9 +45,11 @@ typedef struct weivel_standard_library_service {
 /**
  * A C library's declaration: the name plugins import it by, its version, the symbol that frees what it returns, and
  * the services its functions offer. Everything it points at lives in `storage`, private to the standard, until
- * weivel_standard_library_release. An empty declaration is all zero, as a zeroed struct or a release leaves it.
+ * weivel_standard_library_release. An empty declaration has its `size` set and every other field zero, as WEIVEL_INIT
+ * or a release leaves it.
  */
 typedef struct weivel_standard_library {
+    uint32_t size;
     const char *import_name;
     const char *version;
     const char *release;
@@ -68,14 +70,14 @@ typedef struct weivel_standard_library {
  * @param refusal the caller's empty refusal, or NULL for none; filled on WEIVEL_STATUS_REFUSED with the field's
  * `path`, as `services[0].functions[1].symbol`, and on WEIVEL_STATUS_MALFORMED.
  * @return WEIVEL_STATUS_OK; WEIVEL_STATUS_REFUSED for malformed JSON (path "") or a field the rules refuse;
- * WEIVEL_STATUS_MALFORMED for a NULL json or library, or a library or refusal still holding one, which is left as it
- * was; WEIVEL_STATUS_OUT_OF_MEMORY, with nothing allocated.
+ * WEIVEL_STATUS_MALFORMED for a NULL json or library, a library or refusal below its first shape, or one still holding
+ * an answer, which is left as it was; WEIVEL_STATUS_OUT_OF_MEMORY, with nothing allocated.
  */
 WEIVEL_STANDARD_API weivel_status weivel_standard_read_library(const char *json, size_t length,
                                                                weivel_standard_library *library,
                                                                weivel_standard_refusal *refusal);
 
-/** Frees what a declaration holds and leaves it empty; a no-op for NULL or an empty one. */
+/** Frees what a declaration holds and leaves it empty with its `size` kept; a no-op for NULL or an empty one. */
 WEIVEL_STANDARD_API void weivel_standard_library_release(weivel_standard_library *library);
 
 #endif

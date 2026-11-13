@@ -4,6 +4,7 @@
 #include "json_equality.h"
 #include "patterns.h"
 #include "report.h"
+#include "sized.h"
 #include "weivel/json.h"
 
 #include <string.h>
@@ -12,7 +13,7 @@ typedef weivel_standard_field_path field_path;
 typedef weivel_standard_refusal_texts refusal_texts;
 
 #define VALIDATION_FIRST_SHAPE (offsetof(weivel_standard_validation, storage) + sizeof(void *))
-#define OPTIONS_FIRST_SHAPE (offsetof(weivel_standard_validation_options, well_known_services) + sizeof(void *))
+#define OPTIONS_FIRST_SHAPE sizeof(uint32_t)
 
 typedef struct found_paths {
     char **items;
@@ -720,7 +721,20 @@ static weivel_status refuse_call(weivel_standard_validation *validation, const c
 }
 
 static const weivel_strings *well_known_of(const weivel_standard_validation_options *options) {
-    return options == NULL ? NULL : options->well_known_services;
+    weivel_standard_validation_options covered;
+    if (options == NULL) {
+        return NULL;
+    }
+    weivel_standard_sized_read(&covered, sizeof covered, options);
+    return covered.well_known_services;
+}
+
+/** Readies a usable validation for its answer: its refusal sized, and what a newer caller has beyond it zero. */
+static void prepare(weivel_standard_validation *validation) {
+    weivel_standard_validation own;
+    memset(&own, 0, sizeof own);
+    own.refusal.size = (uint32_t)sizeof own.refusal;
+    weivel_standard_sized_write(validation, &own, sizeof own);
 }
 
 static int is_readable(const weivel_strings *ids) {
@@ -744,6 +758,7 @@ static weivel_status check_call(const char *json, const weivel_standard_validati
     if (!is_usable(validation)) {
         return WEIVEL_STATUS_MALFORMED;
     }
+    prepare(validation);
     if (json == NULL) {
         return refuse_call(validation, "weivel_standard_validate was given no JSON text", "pass the manifest's text");
     }
@@ -761,7 +776,7 @@ static weivel_status check_call(const char *json, const weivel_standard_validati
 weivel_status weivel_standard_validate(const char *json, size_t length,
                                        const weivel_standard_validation_options *options,
                                        weivel_standard_validation *validation) {
-    weivel_json_error error = {0};
+    weivel_json_error error = {.size = (uint32_t)sizeof(weivel_json_error)};
     weivel_json_value *root;
     validating state;
     weivel_status status = check_call(json, options, validation);
@@ -769,6 +784,7 @@ weivel_status weivel_standard_validate(const char *json, size_t length,
         return status;
     }
     memset(&state, 0, sizeof state);
+    state.refusal.size = (uint32_t)sizeof state.refusal;
     state.well_known = well_known_of(options);
     root = weivel_json_parse(json, length, &error);
     if (root == NULL) {
@@ -822,16 +838,18 @@ weivel_status weivel_standard_load_manifest(const char *json, size_t length,
                                             const weivel_standard_validation_options *options,
                                             weivel_standard_manifest **manifest,
                                             weivel_standard_validation *validation) {
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     weivel_status status;
     if (manifest != NULL) {
         *manifest = NULL;
     }
     if (manifest == NULL) {
-        return is_usable(validation) ? refuse_call(validation, "weivel_standard_load_manifest was given no place to "
-                                                               "put the manifest",
-                                                   "pass the address of a weivel_standard_manifest pointer")
-                                     : WEIVEL_STATUS_MALFORMED;
+        if (!is_usable(validation)) {
+            return WEIVEL_STATUS_MALFORMED;
+        }
+        prepare(validation);
+        return refuse_call(validation, "weivel_standard_load_manifest was given no place to put the manifest",
+                           "pass the address of a weivel_standard_manifest pointer");
     }
     status = weivel_standard_validate(json, length, options, validation);
     if (status != WEIVEL_STATUS_OK) {
