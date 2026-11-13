@@ -820,3 +820,66 @@ int weivel_json_as_double(const weivel_json_value *value, double *out) {
     *out = value->real;
     return 1;
 }
+
+static int numbers_equal(const weivel_json_value *left, const weivel_json_value *right) {
+    int64_t left_integer;
+    int64_t right_integer;
+    if (weivel_json_as_int64(left, &left_integer) && weivel_json_as_int64(right, &right_integer)) {
+        return left_integer == right_integer;
+    }
+    return left->real == right->real;
+}
+
+static int strings_equal(const weivel_json_value *left, const weivel_json_value *right) {
+    return left->text_length == right->text_length && memcmp(left->text, right->text, left->text_length) == 0;
+}
+
+static int arrays_equal(const weivel_json_value *left, const weivel_json_value *right) {
+    size_t at;
+    if (left->count != right->count) {
+        return 0;
+    }
+    for (at = 0; at < left->count; at++) {
+        if (!weivel_json_equal(weivel_json_array_at(left, at), weivel_json_array_at(right, at))) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int objects_equal(const weivel_json_value *left, const weivel_json_value *right) {
+    size_t at;
+    if (left->count != right->count) {
+        return 0;
+    }
+    for (at = 0; at < left->count; at++) {
+        const weivel_json_value *match = weivel_json_object_get(right, weivel_json_object_key_at(left, at));
+        if (match == NULL || !weivel_json_equal(weivel_json_object_value_at(left, at), match)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int weivel_json_equal(const weivel_json_value *left, const weivel_json_value *right) {
+    if (left == NULL || right == NULL) {
+        return left == right;
+    }
+    if (left->kind != right->kind) {
+        return 0;
+    }
+    switch (left->kind) {
+    case WEIVEL_JSON_BOOL:
+        return left->boolean == right->boolean;
+    case WEIVEL_JSON_NUMBER:
+        return numbers_equal(left, right);
+    case WEIVEL_JSON_STRING:
+        return strings_equal(left, right);
+    case WEIVEL_JSON_ARRAY:
+        return arrays_equal(left, right);
+    case WEIVEL_JSON_OBJECT:
+        return objects_equal(left, right);
+    default:
+        return 1;
+    }
+}
