@@ -27,3 +27,8 @@ target_sources(schema_parity_test PRIVATE validate_rules.c)
 target_include_directories(schema_parity_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_compile_definitions(schema_parity_test PRIVATE
     WEIVEL_STANDARD_SCHEMA_PATH="${PROJECT_SOURCE_DIR}/schema/plugin.schema.json")
+set(WEIVEL_STANDARD_IDENTITY_VECTORS_DIR ${PROJECT_SOURCE_DIR}/../conformance/vectors/standard/identity)
+standard_test(identity_test identity_test weivel_standard)
+target_include_directories(identity_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_compile_definitions(identity_test PRIVATE WEIVEL_STANDARD_IDENTITY_VECTORS="${WEIVEL_STANDARD_IDENTITY_VECTORS_DIR}")
+standard_test(identity_memory_test identity_memory_test weivel_standard_testing)
