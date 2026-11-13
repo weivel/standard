@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "importName": "standard",
+  "description": "The defaults weivel ships in C: the JSON manifest and its validation, identities, layout and discovery, and the mirror list.",
+  "topics": [
+    "weivel"
+  ],
+  "dependencies": [
+    {
+      "id": "github:1455223370",
+      "importName": "core",
+      "commit": "4941cdc669f2a000275ed8028f908fb0d0c5cc7f"
+    }
+  ]
+}
