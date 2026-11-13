@@ -4,16 +4,15 @@
 
 static const char *const SAMPLES[] = {
     "{\"importName\": \"echo\", \"version\": \"1\", \"release\": \"echo_release\", \"services\": ["
-    "{\"id\": \"echo\", \"functions\": [{\"name\": \"repeat\", \"symbol\": \"echo_repeat\", \"kind\": \"json\","
-    " \"argument\": {\"type\": \"string\"}, \"result\": true, \"context\": [\"home\"]}]},"
-    "{\"id\": \"other\", \"functions\": [{\"name\": \"a\", \"symbol\": \"a\", \"kind\": \"json\", \"argument\": true,"
-    " \"result\": true}, {\"name\": \"b\", \"symbol\": \"b\", \"kind\": \"json\", \"argument\": true,"
-    " \"result\": true}]}]}",
+    "{\"id\": \"echo\", \"functions\": [{\"name\": \"repeat\", \"symbol\": \"echo_repeat\", \"kind\": \"bytes\","
+    " \"context\": [\"home\"]}]},"
+    "{\"id\": \"other\", \"functions\": [{\"name\": \"a\", \"symbol\": \"a\", \"kind\": \"bytes\"},"
+    " {\"name\": \"b\", \"symbol\": \"b\", \"kind\": \"bytes\"}]}]}",
     "{\"importName\": \"echo\", \"version\": \"1\", \"release\": \"echo_release\", \"services\": ["
     "{\"id\": \"echo\", \"functions\": [{\"name\": \"echo\", \"symbol\": \"echo_echo\", \"kind\": \"bytes\"}]}]}",
     "{\"importName\": \"echo\", \"version\": \"1\", \"release\": \"r\", \"services\": ["
-    "{\"id\": \"echo\", \"functions\": [{\"name\": \"echo\", \"symbol\": \"echo_echo\", \"kind\": \"bytes\","
-    " \"result\": true}]}]}",
+    "{\"id\": \"echo\", \"functions\": [{\"name\": \"echo\", \"symbol\": \"echo_echo\", \"kind\": \"json\","
+    " \"argument\": true, \"result\": true}]}]}",
     "{\"importName\": \"echo\", \"version\": \"1\", \"release\": \"r\", \"services\": [{\"id\": \"Echo\"}]}",
     "{\"importName\": "};
 

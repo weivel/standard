@@ -19,12 +19,10 @@ static const char *json_of(const char *quoted) {
 static const char *const ECHO_DECLARATION =
     "{'$schema': 'declaration.schema.json', 'importName': 'echo', 'version': '0.1.0', 'release': 'echo_release',"
     " 'services': [{'id': 'echo', 'functions': ["
-    "  {'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'json', 'argument': {'type': 'string'}, 'result': true},"
-    "  {'name': 'where', 'symbol': 'echo_where', 'kind': 'json', 'argument': false, 'result': {},"
-    "   'context': ['home', 'arguments']}]},"
+    "  {'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'bytes'},"
+    "  {'name': 'where', 'symbol': 'echo_where', 'kind': 'bytes', 'context': ['home', 'arguments']}]},"
     " {'id': 'echo-twice', 'functions': ["
-    "  {'name': 'twice', 'symbol': 'echo_twice', 'kind': 'json', 'argument': true, 'result': true,"
-    "   'context': ['environment']}]}]}";
+    "  {'name': 'twice', 'symbol': 'echo_twice', 'kind': 'bytes', 'context': ['environment']}]}]}";
 
 static void reads_a_declaration(void) {
     weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
@@ -43,16 +41,12 @@ static void reads_a_declaration(void) {
         function = &library.services[0].functions[0];
         check_text(function->name, "repeat", "repeat name");
         check_text(function->symbol, "echo_repeat", "repeat symbol");
-        CHECK(function->kind == WEIVEL_STANDARD_FUNCTION_JSON);
+        CHECK(function->kind == WEIVEL_STANDARD_FUNCTION_BYTES);
         CHECK(function->context == 0);
-        CHECK(weivel_json_kind_of(function->argument) == WEIVEL_JSON_OBJECT);
-        check_text(weivel_json_as_string(weivel_json_object_get(function->argument, "type")), "string", "argument");
-        CHECK(weivel_json_kind_of(function->result) == WEIVEL_JSON_BOOL);
         function = &library.services[0].functions[1];
         check_text(function->name, "where", "where name");
+        CHECK(function->kind == WEIVEL_STANDARD_FUNCTION_BYTES);
         CHECK(function->context == (WEIVEL_STANDARD_CONTEXT_HOME | WEIVEL_STANDARD_CONTEXT_ARGUMENTS));
-        CHECK(weivel_json_kind_of(function->argument) == WEIVEL_JSON_BOOL);
-        CHECK(weivel_json_kind_of(function->result) == WEIVEL_JSON_OBJECT);
         check_text(library.services[1].id, "echo-twice", "services[1].id");
         CHECK(library.services[1].function_count == 1);
         CHECK(library.services[1].functions[0].context == WEIVEL_STANDARD_CONTEXT_ENVIRONMENT);
@@ -64,23 +58,21 @@ static void reads_a_declaration(void) {
     weivel_standard_library_release(NULL);
 }
 
-static void reads_a_bytes_function(void) {
+/** `argument` and `result` left the format with the json kind, so they are fields it does not define. */
+static void ignores_a_former_schema_field(void) {
     weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     const char *json = json_of(
         "{'importName': 'echo', 'version': '1', 'release': 'echo_release', 'services': [{'id': 'echo', 'functions': ["
-        "{'name': 'echo', 'symbol': 'echo_echo', 'kind': 'bytes', 'context': ['arguments']},"
-        " {'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'json', 'argument': true, 'result': true}]}]}");
-    const weivel_standard_library_function *function;
-    CHECK(weivel_standard_read_library(json, strlen(json), &library, NULL) == WEIVEL_STATUS_OK);
-    CHECK(library.service_count == 1 && library.services[0].function_count == 2);
-    if (library.service_count == 1 && library.services[0].function_count == 2) {
-        function = &library.services[0].functions[0];
-        CHECK(function->kind == WEIVEL_STANDARD_FUNCTION_BYTES);
-        CHECK(function->argument == NULL && function->result == NULL);
-        CHECK(function->context == WEIVEL_STANDARD_CONTEXT_ARGUMENTS);
-        CHECK(library.services[0].functions[1].kind == WEIVEL_STANDARD_FUNCTION_JSON);
+        "{'name': 'echo', 'symbol': 'echo_echo', 'kind': 'bytes', 'argument': true, 'result': {}}]}]}");
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, &refusal) == WEIVEL_STATUS_OK);
+    CHECK(refusal.storage == NULL);
+    CHECK(library.service_count == 1 && library.services[0].function_count == 1);
+    if (library.service_count == 1 && library.services[0].function_count == 1) {
+        CHECK(library.services[0].functions[0].kind == WEIVEL_STANDARD_FUNCTION_BYTES);
     }
     weivel_standard_library_release(&library);
+    weivel_standard_refusal_release(&refusal);
 }
 
 typedef struct refused_case {
@@ -92,7 +84,7 @@ typedef struct refused_case {
 
 #define ONE_FUNCTION(extra) \
     "{'importName': 'echo', 'version': '1', 'release': 'echo_release', 'services': [{'id': 'echo', 'functions': [" \
-    "{'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'json', 'argument': true, 'result': true}, " extra "]}]}"
+    "{'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'bytes'}, " extra "]}]}"
 
 #define WITH_FUNCTION(fields) ONE_FUNCTION("{'name': 'second', 'symbol': 'echo_second', " fields "}")
 
@@ -125,32 +117,28 @@ static const refused_case REFUSED[] = {
     {"a service with no functions",
      "{'importName': 'echo', 'version': '1', 'release': 'r', 'services': [{'id': 'echo'}]}",
      WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, "services[0].functions"},
-    {"a function name with a capital start",
-     ONE_FUNCTION("{'name': 'Second', 'symbol': 's', 'kind': 'json', 'argument': true, 'result': true}"),
+    {"a function name with a capital start", ONE_FUNCTION("{'name': 'Second', 'symbol': 's', 'kind': 'bytes'}"),
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].name"},
-    {"a function symbol with a hyphen",
-     ONE_FUNCTION("{'name': 'second', 'symbol': 'echo-second', 'kind': 'json', 'argument': true,"
-                  " 'result': true}"),
+    {"a function symbol with a hyphen", ONE_FUNCTION("{'name': 'second', 'symbol': 'echo-second', 'kind': 'bytes'}"),
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].symbol"},
-    {"a function of another kind", WITH_FUNCTION("'kind': 'binary', 'argument': true, 'result': true"),
+    {"a function of another kind", WITH_FUNCTION("'kind': 'binary'"), WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
+     "services[0].functions[1].kind"},
+    {"a json function", WITH_FUNCTION("'kind': 'json', 'argument': true, 'result': true"),
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].kind"},
-    {"a bytes function with an argument", WITH_FUNCTION("'kind': 'bytes', 'argument': true"),
-     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].argument"},
-    {"a bytes function with a result", WITH_FUNCTION("'kind': 'bytes', 'result': {}"),
-     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].result"},
+    {"a json function first in its service",
+     "{'importName': 'echo', 'version': '1', 'release': 'r', 'services': [{'id': 'echo', 'functions': ["
+     "{'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'json'}]}]}",
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[0].kind"},
+    {"a function with no kind", WITH_FUNCTION("'context': ['home']"), WEIVEL_STANDARD_REFUSAL_MISSING_FIELD,
+     "services[0].functions[1].kind"},
     {"a kind in another case", WITH_FUNCTION("'kind': 'Bytes'"), WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
      "services[0].functions[1].kind"},
-    {"a function with no result", WITH_FUNCTION("'kind': 'json', 'argument': true"),
-     WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, "services[0].functions[1].result"},
-    {"an argument that is a string", WITH_FUNCTION("'kind': 'json', 'argument': 'any', 'result': true"),
-     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, "services[0].functions[1].argument"},
-    {"a context fact named twice",
-     WITH_FUNCTION("'kind': 'json', 'argument': true, 'result': true, 'context': ['home', 'environment', 'home']"),
+    {"a context fact named twice", WITH_FUNCTION("'kind': 'bytes', 'context': ['home', 'environment', 'home']"),
      WEIVEL_STANDARD_REFUSAL_DUPLICATE, "services[0].functions[1].context[2]"},
-    {"an unknown context fact", WITH_FUNCTION("'kind': 'json', 'argument': true, 'result': true, 'context': ['clock']"),
+    {"an unknown context fact", WITH_FUNCTION("'kind': 'bytes', 'context': ['clock']"),
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].context[0]"},
-    {"an empty context", WITH_FUNCTION("'kind': 'json', 'argument': true, 'result': true, 'context': []"),
-     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].functions[1].context"},
+    {"an empty context", WITH_FUNCTION("'kind': 'bytes', 'context': []"), WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
+     "services[0].functions[1].context"},
     {"a function that is not an object", ONE_FUNCTION("3"), WEIVEL_STANDARD_REFUSAL_WRONG_TYPE,
      "services[0].functions[1]"},
 };
@@ -169,6 +157,7 @@ static void refuses_by_path(const refused_case *item) {
     CHECK(refusal.detail != NULL && refusal.detail[0] != '\0');
     CHECK(refusal.fix != NULL && refusal.fix[0] != '\0');
     CHECK(library.storage == NULL && library.import_name == NULL);
+    weivel_standard_library_release(&library);
     weivel_standard_refusal_release(&refusal);
 }
 
@@ -177,8 +166,7 @@ static void ignores_fields_it_does_not_define(void) {
     weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     const char *json = json_of(
         "{'$schema': 7, 'site': {'x': 1}, 'importName': 'echo', 'version': '1', 'release': 'r', 'services': ["
-        "{'id': 'echo', 'later': [], 'functions': [{'name': 'a', 'symbol': 'a', 'kind': 'json', 'argument': true,"
-        " 'result': true, 'provider': 'x'}]}]}");
+        "{'id': 'echo', 'later': [], 'functions': [{'name': 'a', 'symbol': 'a', 'kind': 'bytes', 'provider': 'x'}]}]}");
     CHECK(weivel_standard_read_library(json, strlen(json), &library, &refusal) == WEIVEL_STATUS_OK);
     CHECK(refusal.storage == NULL);
     CHECK(library.service_count == 1 && library.services[0].function_count == 1);
@@ -223,7 +211,7 @@ static void refuses_a_malformed_call(void) {
 int main(void) {
     size_t at;
     reads_a_declaration();
-    reads_a_bytes_function();
+    ignores_a_former_schema_field();
     for (at = 0; at < sizeof REFUSED / sizeof REFUSED[0]; at++) {
         refuses_by_path(&REFUSED[at]);
     }

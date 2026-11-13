@@ -159,8 +159,7 @@ static void identities_and_declarations_keep_the_callers_size(void) {
     weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
     const char *declaration = "{\"importName\": \"echo\", \"version\": \"0.1.0\", \"release\": \"echo_release\", "
                               "\"services\": [{\"id\": \"echo\", \"functions\": [{\"name\": \"repeat\", "
-                              "\"symbol\": \"echo_repeat\", \"kind\": \"json\", \"argument\": true, "
-                              "\"result\": true}]}]}";
+                              "\"symbol\": \"echo_repeat\", \"kind\": \"bytes\"}]}]}";
     CHECK(weivel_standard_identity_parse("local:a", 7, &identity, NULL) == WEIVEL_STATUS_OK);
     CHECK(identity.size == sizeof identity && identity.kind == WEIVEL_STANDARD_IDENTITY_LOCAL);
     weivel_standard_identity_release(&identity);
