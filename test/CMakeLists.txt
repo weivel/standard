@@ -1,0 +1,10 @@
+function(standard_test name library)
+    add_executable(${name} ${name}.c)
+    target_link_libraries(${name} PRIVATE ${library})
+    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    standard_strict_warnings(${name})
+    add_test(NAME ${name} COMMAND ${name})
+    set_tests_properties(${name} PROPERTIES TIMEOUT 60)
+endfunction()
+
+standard_test(json_test weivel_standard)
