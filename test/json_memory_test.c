@@ -1,5 +1,6 @@
 #include "allocation.h"
 #include "check.h"
+#include "json_locale.h"
 #include "weivel/json.h"
 
 static const char *const DOCUMENT =
@@ -50,7 +51,21 @@ static void every_failed_allocation_is_out_of_memory(void) {
     CHECK(!"the parse never settled");
 }
 
+/** One read of the locale both sizes a number's buffer and fills it, so a setlocale between them cannot overrun it. */
+static void each_number_reads_the_locale_once(void) {
+    static const char NUMBERS[] = "[1.5, 2.25, -3e2, 4]";
+    weivel_json_error error = {0};
+    int64_t before = weivel_standard_json_locale_reads();
+    weivel_json_value *value = weivel_json_parse(NUMBERS, strlen(NUMBERS), &error);
+    double real = 0;
+    CHECK(value != NULL);
+    CHECK(weivel_standard_json_locale_reads() - before == 4);
+    CHECK(weivel_json_as_double(weivel_json_array_at(value, 1), &real) && real == 2.25);
+    weivel_json_free(value);
+}
+
 int main(void) {
+    each_number_reads_the_locale_once();
     bad_text_is_not_out_of_memory();
     every_failed_allocation_is_out_of_memory();
     return check_summary("json_memory_test");
