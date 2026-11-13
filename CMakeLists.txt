@@ -30,9 +30,12 @@ set_target_properties(weivel_standard PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_library(weivel_standard_shared SHARED ${WEIVEL_STANDARD_SOURCES})
 standard_target(weivel_standard_shared)
+target_compile_definitions(weivel_standard_shared
+    PRIVATE WEIVEL_STANDARD_BUILDING_SHARED
+    INTERFACE WEIVEL_STANDARD_USING_SHARED)
 set_target_properties(weivel_standard_shared PROPERTIES
     OUTPUT_NAME weivel_standard
-    WINDOWS_EXPORT_ALL_SYMBOLS ON
+    C_VISIBILITY_PRESET hidden
     ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/shared)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)

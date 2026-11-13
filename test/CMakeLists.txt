@@ -8,3 +8,10 @@ function(standard_test name library)
 endfunction()
 
 standard_test(json_test weivel_standard)
+
+add_executable(json_shared_test json_test.c)
+target_link_libraries(json_shared_test PRIVATE weivel_standard_shared)
+target_include_directories(json_shared_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+standard_strict_warnings(json_shared_test)
+add_test(NAME json_shared_test COMMAND json_shared_test)
+set_tests_properties(json_shared_test PROPERTIES TIMEOUT 60)

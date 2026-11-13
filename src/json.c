@@ -1,5 +1,6 @@
 #include "weivel/json.h"
 
+#include <locale.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,11 +10,11 @@
 
 typedef struct {
     char *key;
-    json_value *value;
-} json_member;
+    weivel_json_value *value;
+} weivel_json_member;
 
-struct json_value {
-    json_kind kind;
+struct weivel_json_value {
+    weivel_json_kind kind;
     int boolean;
     int is_integer;
     int64_t integer;
@@ -22,7 +23,7 @@ struct json_value {
     size_t text_length;
     size_t count;
     size_t capacity;
-    json_member *members;
+    weivel_json_member *members;
 };
 
 typedef struct {
@@ -37,10 +38,10 @@ typedef struct {
     size_t position;
     int depth;
     int failed;
-    json_error failure;
+    weivel_json_error failure;
 } parser;
 
-static json_value *parse_value(parser *state);
+static weivel_json_value *parse_value(parser *state);
 
 static void locate_failure(parser *state, size_t position) {
     int line = 1;
@@ -58,16 +59,28 @@ static void locate_failure(parser *state, size_t position) {
     state->failure.column = column;
 }
 
-static json_value *fail(parser *state, const char *message) {
+static weivel_json_value *fail(parser *state, const char *message) {
     state->failed = 1;
     state->failure.message = message;
     locate_failure(state, state->position);
     return NULL;
 }
 
-static json_value *fail_naming_key(parser *state, size_t position, const char *key) {
+static size_t whole_character_prefix(const char *text, size_t maximum) {
+    size_t length = strlen(text);
+    if (length <= maximum) {
+        return length;
+    }
+    while (maximum > 0 && ((unsigned char)text[maximum] & 0xC0) == 0x80) {
+        maximum--;
+    }
+    return maximum;
+}
+
+static weivel_json_value *fail_naming_key(parser *state, size_t position, const char *key) {
     state->position = position;
-    snprintf(state->failure.detail, sizeof(state->failure.detail), "duplicate key \"%.60s\"", key);
+    snprintf(state->failure.detail, sizeof(state->failure.detail), "duplicate key \"%.*s\"",
+             (int)whole_character_prefix(key, 60), key);
     return fail(state, state->failure.detail);
 }
 
@@ -89,8 +102,8 @@ static void skip_whitespace(parser *state) {
     }
 }
 
-static json_value *new_value(json_kind kind) {
-    json_value *value = calloc(1, sizeof(*value));
+static weivel_json_value *new_value(weivel_json_kind kind) {
+    weivel_json_value *value = calloc(1, sizeof(*value));
     if (value != NULL) {
         value->kind = kind;
     }
@@ -279,14 +292,14 @@ static int read_string(parser *state, text_buffer *buffer) {
     return read_string_body(state, buffer);
 }
 
-static json_value *parse_string(parser *state) {
+static weivel_json_value *parse_string(parser *state) {
     text_buffer buffer = {NULL, 0, 0};
-    json_value *value;
+    weivel_json_value *value;
     if (!read_string(state, &buffer)) {
         free(buffer.data);
         return NULL;
     }
-    value = new_value(JSON_STRING);
+    value = new_value(WEIVEL_JSON_STRING);
     if (value == NULL) {
         free(buffer.data);
         return fail(state, "out of memory");
@@ -301,8 +314,8 @@ static int matches_literal(const parser *state, const char *literal) {
     return state->position + length <= state->length && memcmp(state->text + state->position, literal, length) == 0;
 }
 
-static json_value *parse_literal(parser *state, const char *literal, json_kind kind, int boolean) {
-    json_value *value;
+static weivel_json_value *parse_literal(parser *state, const char *literal, weivel_json_kind kind, int boolean) {
+    weivel_json_value *value;
     if (!matches_literal(state, literal)) {
         return fail(state, "unexpected character");
     }
@@ -392,18 +405,39 @@ static int accumulate_integer(const char *digits, int negative, int64_t *out) {
     return 1;
 }
 
-static json_value *parse_number(parser *state) {
+static const char *decimal_point(void) {
+    const struct lconv *conventions = localeconv();
+    return conventions->decimal_point != NULL && conventions->decimal_point[0] != '\0' ? conventions->decimal_point : ".";
+}
+
+/**
+ * strtod reads the decimal point of the host's locale, and a JSON number always uses '.', so the
+ * validated text has its '.' rewritten to the locale's before conversion. The buffer holds room
+ * for a decimal point longer than one byte.
+ */
+static double read_real(char *number) {
+    const char *point = decimal_point();
+    size_t point_length = strlen(point);
+    char *dot = strchr(number, '.');
+    if (dot != NULL && !(point_length == 1 && point[0] == '.')) {
+        memmove(dot + point_length, dot + 1, strlen(dot + 1) + 1);
+        memcpy(dot, point, point_length);
+    }
+    return strtod(number, NULL);
+}
+
+static weivel_json_value *parse_number(parser *state) {
     size_t end;
     int inexact;
     size_t length;
     char *copy;
-    json_value *value;
+    weivel_json_value *value;
     if (!scan_number_end(state, &end, &inexact)) {
         return NULL;
     }
     length = end - state->position;
-    copy = malloc(length + 1);
-    value = new_value(JSON_NUMBER);
+    copy = malloc(length + strlen(decimal_point()) + 1);
+    value = new_value(WEIVEL_JSON_NUMBER);
     if (copy == NULL || value == NULL) {
         free(copy);
         free(value);
@@ -411,10 +445,10 @@ static json_value *parse_number(parser *state) {
     }
     memcpy(copy, state->text + state->position, length);
     copy[length] = '\0';
-    value->real = strtod(copy, NULL);
+    value->real = read_real(copy);
     if (!isfinite(value->real)) {
         free(copy);
-        json_free(value);
+        weivel_json_free(value);
         return fail(state, "number is not finite");
     }
     if (!inexact) {
@@ -426,10 +460,10 @@ static json_value *parse_number(parser *state) {
     return value;
 }
 
-static int append_member(json_value *container, char *key, json_value *member) {
+static int append_member(weivel_json_value *container, char *key, weivel_json_value *member) {
     if (container->count == container->capacity) {
         size_t wanted = container->capacity == 0 ? 4 : container->capacity * 2;
-        json_member *grown = realloc(container->members, wanted * sizeof(*grown));
+        weivel_json_member *grown = realloc(container->members, wanted * sizeof(*grown));
         if (grown == NULL) {
             return 0;
         }
@@ -453,6 +487,7 @@ static int enter_container(parser *state) {
 
 static int read_object_key(parser *state, char **key) {
     text_buffer buffer = {NULL, 0, 0};
+    size_t key_position = state->position;
     if (peek(state) != '"') {
         fail(state, "expected a string key");
         return 0;
@@ -461,11 +496,17 @@ static int read_object_key(parser *state, char **key) {
         free(buffer.data);
         return 0;
     }
+    if (memchr(buffer.data, '\0', buffer.length) != NULL) {
+        free(buffer.data);
+        state->position = key_position;
+        fail(state, "object key contains a NUL character");
+        return 0;
+    }
     *key = buffer.data;
     return 1;
 }
 
-static int has_member(const json_value *object, const char *key) {
+static int has_member(const weivel_json_value *object, const char *key) {
     size_t index;
     for (index = 0; index < object->count; index++) {
         if (strcmp(object->members[index].key, key) == 0) {
@@ -475,9 +516,9 @@ static int has_member(const json_value *object, const char *key) {
     return 0;
 }
 
-static int read_object_member(parser *state, json_value *object) {
+static int read_object_member(parser *state, weivel_json_value *object) {
     char *key;
-    json_value *member;
+    weivel_json_value *member;
     size_t key_position = state->position;
     if (!read_object_key(state, &key)) {
         return 0;
@@ -501,34 +542,34 @@ static int read_object_member(parser *state, json_value *object) {
     }
     if (!append_member(object, key, member)) {
         free(key);
-        json_free(member);
+        weivel_json_free(member);
         fail(state, "out of memory");
         return 0;
     }
     return 1;
 }
 
-static int read_array_element(parser *state, json_value *array) {
-    json_value *element = parse_value(state);
+static int read_array_element(parser *state, weivel_json_value *array) {
+    weivel_json_value *element = parse_value(state);
     if (element == NULL) {
         return 0;
     }
     if (!append_member(array, NULL, element)) {
-        json_free(element);
+        weivel_json_free(element);
         fail(state, "out of memory");
         return 0;
     }
     return 1;
 }
 
-static int read_container_items(parser *state, json_value *container, char closing) {
+static int read_container_items(parser *state, weivel_json_value *container, char closing) {
     skip_whitespace(state);
     if (peek(state) == closing) {
         state->position++;
         return 1;
     }
     for (;;) {
-        int read = container->kind == JSON_OBJECT ? read_object_member(state, container)
+        int read = container->kind == WEIVEL_JSON_OBJECT ? read_object_member(state, container)
                                                   : read_array_element(state, container);
         if (!read) {
             return 0;
@@ -539,7 +580,7 @@ static int read_container_items(parser *state, json_value *container, char closi
             return 1;
         }
         if (peek(state) != ',') {
-            fail(state, container->kind == JSON_OBJECT ? "expected ',' or '}'" : "expected ',' or ']'");
+            fail(state, container->kind == WEIVEL_JSON_OBJECT ? "expected ',' or '}'" : "expected ',' or ']'");
             return 0;
         }
         state->position++;
@@ -551,8 +592,8 @@ static int read_container_items(parser *state, json_value *container, char closi
     }
 }
 
-static json_value *parse_container(parser *state, json_kind kind, char closing) {
-    json_value *container;
+static weivel_json_value *parse_container(parser *state, weivel_json_kind kind, char closing) {
+    weivel_json_value *container;
     if (!enter_container(state)) {
         return NULL;
     }
@@ -562,25 +603,25 @@ static json_value *parse_container(parser *state, json_kind kind, char closing) 
     }
     state->position++;
     if (!read_container_items(state, container, closing)) {
-        json_free(container);
+        weivel_json_free(container);
         return NULL;
     }
     state->depth--;
     return container;
 }
 
-static json_value *parse_value(parser *state) {
+static weivel_json_value *parse_value(parser *state) {
     skip_whitespace(state);
     if (!has_more(state)) {
         return fail(state, "unexpected end of input");
     }
     switch (peek(state)) {
-        case '{': return parse_container(state, JSON_OBJECT, '}');
-        case '[': return parse_container(state, JSON_ARRAY, ']');
+        case '{': return parse_container(state, WEIVEL_JSON_OBJECT, '}');
+        case '[': return parse_container(state, WEIVEL_JSON_ARRAY, ']');
         case '"': return parse_string(state);
-        case 't': return parse_literal(state, "true", JSON_BOOL, 1);
-        case 'f': return parse_literal(state, "false", JSON_BOOL, 0);
-        case 'n': return parse_literal(state, "null", JSON_NULL, 0);
+        case 't': return parse_literal(state, "true", WEIVEL_JSON_BOOL, 1);
+        case 'f': return parse_literal(state, "false", WEIVEL_JSON_BOOL, 0);
+        case 'n': return parse_literal(state, "null", WEIVEL_JSON_NULL, 0);
         default: return is_number_start(peek(state)) ? parse_number(state) : fail(state, "unexpected character");
     }
 }
@@ -660,16 +701,16 @@ static int refuse_unreadable_text(parser *state) {
     return 0;
 }
 
-static void report_failure(const parser *state, json_error *error) {
+static void report_failure(const parser *state, weivel_json_error *error) {
     *error = state->failure;
     if (state->failure.message == state->failure.detail) {
         error->message = error->detail;
     }
 }
 
-json_value *json_parse(const char *text, size_t length, json_error *error) {
+weivel_json_value *weivel_json_parse(const char *text, size_t length, weivel_json_error *error) {
     parser state;
-    json_value *root = NULL;
+    weivel_json_value *root = NULL;
     memset(&state, 0, sizeof(state));
     state.text = text;
     state.length = length;
@@ -679,7 +720,7 @@ json_value *json_parse(const char *text, size_t length, json_error *error) {
     if (root != NULL) {
         skip_whitespace(&state);
         if (has_more(&state)) {
-            json_free(root);
+            weivel_json_free(root);
             root = fail(&state, "unexpected text after the document");
         }
     }
@@ -689,27 +730,27 @@ json_value *json_parse(const char *text, size_t length, json_error *error) {
     return root;
 }
 
-void json_free(json_value *value) {
+void weivel_json_free(weivel_json_value *value) {
     size_t index;
     if (value == NULL) {
         return;
     }
     for (index = 0; index < value->count; index++) {
         free(value->members[index].key);
-        json_free(value->members[index].value);
+        weivel_json_free(value->members[index].value);
     }
     free(value->members);
     free(value->text);
     free(value);
 }
 
-json_kind json_kind_of(const json_value *value) {
-    return value == NULL ? JSON_NULL : value->kind;
+weivel_json_kind weivel_json_kind_of(const weivel_json_value *value) {
+    return value == NULL ? WEIVEL_JSON_NULL : value->kind;
 }
 
-const json_value *json_object_get(const json_value *value, const char *key) {
+const weivel_json_value *weivel_json_object_get(const weivel_json_value *value, const char *key) {
     size_t index;
-    if (value == NULL || value->kind != JSON_OBJECT) {
+    if (value == NULL || value->kind != WEIVEL_JSON_OBJECT) {
         return NULL;
     }
     for (index = 0; index < value->count; index++) {
@@ -720,52 +761,52 @@ const json_value *json_object_get(const json_value *value, const char *key) {
     return NULL;
 }
 
-size_t json_object_size(const json_value *value) {
-    return value != NULL && value->kind == JSON_OBJECT ? value->count : 0;
+size_t weivel_json_object_size(const weivel_json_value *value) {
+    return value != NULL && value->kind == WEIVEL_JSON_OBJECT ? value->count : 0;
 }
 
-const char *json_object_key_at(const json_value *value, size_t index) {
-    return index < json_object_size(value) ? value->members[index].key : NULL;
+const char *weivel_json_object_key_at(const weivel_json_value *value, size_t index) {
+    return index < weivel_json_object_size(value) ? value->members[index].key : NULL;
 }
 
-const json_value *json_object_value_at(const json_value *value, size_t index) {
-    return index < json_object_size(value) ? value->members[index].value : NULL;
+const weivel_json_value *weivel_json_object_value_at(const weivel_json_value *value, size_t index) {
+    return index < weivel_json_object_size(value) ? value->members[index].value : NULL;
 }
 
-size_t json_array_length(const json_value *value) {
-    return value != NULL && value->kind == JSON_ARRAY ? value->count : 0;
+size_t weivel_json_array_length(const weivel_json_value *value) {
+    return value != NULL && value->kind == WEIVEL_JSON_ARRAY ? value->count : 0;
 }
 
-const json_value *json_array_at(const json_value *value, size_t index) {
-    return index < json_array_length(value) ? value->members[index].value : NULL;
+const weivel_json_value *weivel_json_array_at(const weivel_json_value *value, size_t index) {
+    return index < weivel_json_array_length(value) ? value->members[index].value : NULL;
 }
 
-const char *json_as_string(const json_value *value) {
-    return value != NULL && value->kind == JSON_STRING ? value->text : NULL;
+const char *weivel_json_as_string(const weivel_json_value *value) {
+    return value != NULL && value->kind == WEIVEL_JSON_STRING ? value->text : NULL;
 }
 
-size_t json_string_length(const json_value *value) {
-    return value != NULL && value->kind == JSON_STRING ? value->text_length : 0;
+size_t weivel_json_string_length(const weivel_json_value *value) {
+    return value != NULL && value->kind == WEIVEL_JSON_STRING ? value->text_length : 0;
 }
 
-int json_as_bool(const json_value *value, int *out) {
-    if (value == NULL || value->kind != JSON_BOOL) {
+int weivel_json_as_bool(const weivel_json_value *value, int *out) {
+    if (value == NULL || value->kind != WEIVEL_JSON_BOOL) {
         return 0;
     }
     *out = value->boolean;
     return 1;
 }
 
-int json_as_int64(const json_value *value, int64_t *out) {
-    if (value == NULL || value->kind != JSON_NUMBER || !value->is_integer) {
+int weivel_json_as_int64(const weivel_json_value *value, int64_t *out) {
+    if (value == NULL || value->kind != WEIVEL_JSON_NUMBER || !value->is_integer) {
         return 0;
     }
     *out = value->integer;
     return 1;
 }
 
-int json_as_double(const json_value *value, double *out) {
-    if (value == NULL || value->kind != JSON_NUMBER) {
+int weivel_json_as_double(const weivel_json_value *value, double *out) {
+    if (value == NULL || value->kind != WEIVEL_JSON_NUMBER) {
         return 0;
     }
     *out = value->real;
