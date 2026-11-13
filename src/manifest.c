@@ -1,13 +1,15 @@
 #include "weivel/standard.h"
 
 #include "allocation.h"
+#include "report.h"
 #include "weivel/json.h"
 
-#include <stdarg.h>
-#include <stdio.h>
 #include <string.h>
 
 #define LARGEST_LIST_LENGTH 4294967295u
+
+typedef weivel_standard_field_path field_path;
+typedef weivel_standard_refusal_texts refusal_texts;
 
 struct weivel_standard_manifest {
     weivel_manifest view;
@@ -15,19 +17,6 @@ struct weivel_standard_manifest {
     size_t block_count;
     size_t block_capacity;
 };
-
-/** One step from the document's root to a field: a member `key`, or, when `key` is NULL, the item at `index`. */
-typedef struct field_path {
-    const struct field_path *parent;
-    const char *key;
-    size_t index;
-} field_path;
-
-typedef struct refusal_texts {
-    char *detail;
-    char *fix;
-    char *path;
-} refusal_texts;
 
 typedef struct reading {
     weivel_standard_manifest *owner;
@@ -37,137 +26,26 @@ typedef struct reading {
 
 typedef int (*element_reader)(reading *state, const weivel_json_value *value, const field_path *path, void *element);
 
-static size_t index_digits(size_t index) {
-    size_t digits = 1;
-    while (index >= 10) {
-        index /= 10;
-        digits++;
-    }
-    return digits;
-}
-
-static size_t path_length(const field_path *path) {
-    size_t before;
-    if (path == NULL) {
-        return 0;
-    }
-    before = path_length(path->parent);
-    if (path->key == NULL) {
-        return before + index_digits(path->index) + 2;
-    }
-    return before + (before > 0 ? 1 : 0) + strlen(path->key);
-}
-
-static char *path_write(const field_path *path, char *cursor, const char *start) {
-    if (path == NULL) {
-        return cursor;
-    }
-    cursor = path_write(path->parent, cursor, start);
-    if (path->key == NULL) {
-        return cursor + snprintf(cursor, index_digits(path->index) + 3, "[%zu]", path->index);
-    }
-    if (cursor != start) {
-        *cursor++ = '.';
-    }
-    memcpy(cursor, path->key, strlen(path->key));
-    return cursor + strlen(path->key);
-}
-
-static char *path_text(const field_path *path) {
-    size_t length = path_length(path);
-    char *text = weivel_standard_memory_allocate(length + 1);
-    if (text != NULL) {
-        *path_write(path, text, text) = '\0';
-    }
-    return text;
-}
-
-static char *format_text(const char *format, ...) {
-    va_list arguments;
-    int length;
-    char *text;
-    va_start(arguments, format);
-    length = vsnprintf(NULL, 0, format, arguments);
-    va_end(arguments);
-    if (length < 0) {
-        return NULL;
-    }
-    text = weivel_standard_memory_allocate((size_t)length + 1);
-    if (text == NULL) {
-        return NULL;
-    }
-    va_start(arguments, format);
-    vsnprintf(text, (size_t)length + 1, format, arguments);
-    va_end(arguments);
-    return text;
-}
-
-static void release_texts(refusal_texts *texts) {
-    weivel_standard_memory_release(texts->detail);
-    weivel_standard_memory_release(texts->fix);
-    weivel_standard_memory_release(texts->path);
-}
-
-/** Takes the three texts whatever it answers: 1 with the refusal filled, 0 when memory ran out first. */
-static int fill_refusal(weivel_standard_refusal *refusal, uint32_t code, refusal_texts texts) {
-    refusal_texts *storage;
-    if (texts.detail == NULL || texts.fix == NULL || texts.path == NULL) {
-        release_texts(&texts);
-        return 0;
-    }
-    storage = weivel_standard_memory_allocate(sizeof *storage);
-    if (storage == NULL) {
-        release_texts(&texts);
-        return 0;
-    }
-    *storage = texts;
-    refusal->code = code;
-    refusal->detail = storage->detail;
-    refusal->fix = storage->fix;
-    refusal->path = storage->path;
-    refusal->storage = storage;
-    return 1;
-}
-
 static int refuse(reading *state, uint32_t code, refusal_texts texts) {
     if (state->refusal == NULL) {
-        release_texts(&texts);
+        weivel_standard_release_texts(&texts);
         state->status = WEIVEL_STATUS_REFUSED;
         return 0;
     }
-    state->status = fill_refusal(state->refusal, code, texts) ? WEIVEL_STATUS_REFUSED : WEIVEL_STATUS_OUT_OF_MEMORY;
+    state->status =
+        weivel_standard_fill_refusal(state->refusal, code, texts) ? WEIVEL_STATUS_REFUSED : WEIVEL_STATUS_OUT_OF_MEMORY;
     return 0;
-}
-
-static const char *subject_of(const char *path) {
-    return path[0] == '\0' ? "the manifest" : path;
-}
-
-static const char *kind_phrase(const weivel_json_value *value) {
-    switch (weivel_json_kind_of(value)) {
-    case WEIVEL_JSON_BOOL:
-        return "a boolean";
-    case WEIVEL_JSON_NUMBER:
-        return "a number";
-    case WEIVEL_JSON_STRING:
-        return "a string";
-    case WEIVEL_JSON_ARRAY:
-        return "an array";
-    case WEIVEL_JSON_OBJECT:
-        return "an object";
-    default:
-        return "null";
-    }
 }
 
 static int refuse_wrong_type(reading *state, const weivel_json_value *value, const field_path *path,
                              const char *expected) {
     refusal_texts texts = {NULL, NULL, NULL};
-    texts.path = path_text(path);
+    texts.path = weivel_standard_path_text(path);
     if (texts.path != NULL) {
-        const char *subject = subject_of(texts.path);
-        texts.detail = format_text("%s is %s, where %s is needed", subject, kind_phrase(value), expected);
-        texts.fix = format_text("write %s as %s", subject, expected);
+        const char *subject = weivel_standard_subject_of(texts.path);
+        texts.detail = weivel_standard_format_text("%s is %s, where %s is needed", subject,
+                                                   weivel_standard_kind_phrase(value), expected);
+        texts.fix = weivel_standard_format_text("write %s as %s", subject, expected);
     }
     return refuse(state, WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, texts);
 }
@@ -175,10 +53,10 @@ static int refuse_wrong_type(reading *state, const weivel_json_value *value, con
 /** `fix` holds one %s, which names the field. */
 static int refuse_unrepresentable(reading *state, const field_path *path, const char *what, const char *fix) {
     refusal_texts texts = {NULL, NULL, NULL};
-    texts.path = path_text(path);
+    texts.path = weivel_standard_path_text(path);
     if (texts.path != NULL) {
-        texts.detail = format_text("%s %s", subject_of(texts.path), what);
-        texts.fix = format_text(fix, subject_of(texts.path));
+        texts.detail = weivel_standard_format_text("%s %s", weivel_standard_subject_of(texts.path), what);
+        texts.fix = weivel_standard_format_text(fix, weivel_standard_subject_of(texts.path));
     }
     return refuse(state, WEIVEL_STANDARD_REFUSAL_UNREPRESENTABLE, texts);
 }
@@ -261,7 +139,8 @@ static int read_list(reading *state, const weivel_json_value *value, const field
     }
     length = weivel_json_array_length(value);
     if (length > LARGEST_LIST_LENGTH) {
-        return refuse_unrepresentable(state, path, "has more than 4294967295 items", "list at most 4294967295 items in %s");
+        return refuse_unrepresentable(state, path, "has more than 4294967295 items",
+                                      "list at most 4294967295 items in %s");
     }
     if (length == 0) {
         return 1;
@@ -345,18 +224,13 @@ static int read_choice(reading *state, const weivel_json_value *value, const fie
     return 1;
 }
 
-static int is_whole(double number) {
-    return number <= -9.2e18 || number >= 9.2e18 || (double)(int64_t)number == number;
-}
-
-/** A whole number in any spelling JSON allows (`2`, `2.0`, `2e0`), as draft-07 counts an integer. */
 static int read_api(reading *state, const weivel_json_value *value, const field_path *path, uint32_t *api) {
     double level = 0;
     *api = 0;
     if (value == NULL) {
         return 1;
     }
-    if (!weivel_json_as_double(value, &level) || !is_whole(level)) {
+    if (!weivel_json_as_double(value, &level) || !weivel_standard_is_whole_number(level)) {
         return refuse_wrong_type(state, value, path, "a whole number");
     }
     if (level < 0 || level > 4294967295.0) {
@@ -489,12 +363,13 @@ static weivel_status refuse_malformed_json(weivel_standard_refusal *refusal, con
     if (refusal == NULL) {
         return WEIVEL_STATUS_REFUSED;
     }
-    texts.detail = format_text("line %d, column %d: %s", error->line, error->column,
+    texts.detail = weivel_standard_format_text("line %d, column %d: %s", error->line, error->column,
                                error->message == NULL ? "malformed JSON" : error->message);
-    texts.fix = format_text("correct the JSON at line %d, column %d", error->line, error->column);
-    texts.path = format_text("%s", "");
-    return fill_refusal(refusal, WEIVEL_STANDARD_REFUSAL_MALFORMED_JSON, texts) ? WEIVEL_STATUS_REFUSED
-                                                                               : WEIVEL_STATUS_OUT_OF_MEMORY;
+    texts.fix = weivel_standard_format_text("correct the JSON at line %d, column %d", error->line, error->column);
+    texts.path = weivel_standard_format_text("%s", "");
+    return weivel_standard_fill_refusal(refusal, WEIVEL_STANDARD_REFUSAL_MALFORMED_JSON, texts)
+               ? WEIVEL_STATUS_REFUSED
+               : WEIVEL_STATUS_OUT_OF_MEMORY;
 }
 
 static weivel_status refuse_call(weivel_standard_refusal *refusal, const char *detail, const char *fix) {
@@ -502,11 +377,12 @@ static weivel_status refuse_call(weivel_standard_refusal *refusal, const char *d
     if (refusal == NULL) {
         return WEIVEL_STATUS_MALFORMED;
     }
-    texts.detail = format_text("%s", detail);
-    texts.fix = format_text("%s", fix);
-    texts.path = format_text("%s", "");
-    return fill_refusal(refusal, WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL, texts) ? WEIVEL_STATUS_MALFORMED
-                                                                               : WEIVEL_STATUS_OUT_OF_MEMORY;
+    texts.detail = weivel_standard_format_text("%s", detail);
+    texts.fix = weivel_standard_format_text("%s", fix);
+    texts.path = weivel_standard_format_text("%s", "");
+    return weivel_standard_fill_refusal(refusal, WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL, texts)
+               ? WEIVEL_STATUS_MALFORMED
+               : WEIVEL_STATUS_OUT_OF_MEMORY;
 }
 
 static int refusal_holds_one(const weivel_standard_refusal *refusal) {
@@ -573,17 +449,4 @@ void weivel_standard_manifest_release(weivel_standard_manifest *manifest) {
     }
     weivel_standard_memory_release(manifest->blocks);
     weivel_standard_memory_release(manifest);
-}
-
-void weivel_standard_refusal_release(weivel_standard_refusal *refusal) {
-    weivel_standard_refusal empty = {0};
-    if (refusal == NULL) {
-        return;
-    }
-    if (refusal->storage != NULL) {
-        refusal_texts *storage = refusal->storage;
-        release_texts(storage);
-        weivel_standard_memory_release(storage);
-    }
-    *refusal = empty;
 }

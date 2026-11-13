@@ -10,7 +10,7 @@ jobs:
     uses: intisy/workflows/.github/workflows/drift.yml@main
     with:
       kit_repository: weivel/conformance
-      kit_ref: 1b43bcf2544a78afd160733294e8a14644c02726
+      kit_ref: 39f39a25eef99f49488a277dcd43571e3fe46d81
       role: standard
       checks: purity names
       runners: '["ubuntu-latest","windows-latest","macos-latest"]'
