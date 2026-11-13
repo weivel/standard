@@ -16,12 +16,16 @@ function(standard_strict_warnings target)
     endif()
 endfunction()
 
+set(WEIVEL_CORE_SOURCE_DIR ${PROJECT_SOURCE_DIR}/siblings/core CACHE PATH
+    "The core checkout the standard builds against when no weivel_core target exists yet")
+
 if(NOT TARGET weivel_core)
-    if(NOT EXISTS ${PROJECT_SOURCE_DIR}/siblings/core/CMakeLists.txt)
-        message(FATAL_ERROR "siblings/core is missing: link or clone the core checkout there "
-            "(for example a directory junction or symlink named siblings/core pointing at the core repository)")
+    if(NOT EXISTS ${WEIVEL_CORE_SOURCE_DIR}/CMakeLists.txt)
+        message(FATAL_ERROR "no core at ${WEIVEL_CORE_SOURCE_DIR}: link or clone the core checkout to siblings/core "
+            "(for example a directory junction or symlink pointing at the core repository), "
+            "or pass -DWEIVEL_CORE_SOURCE_DIR=<core checkout>")
     endif()
-    add_subdirectory(siblings/core core EXCLUDE_FROM_ALL)
+    add_subdirectory(${WEIVEL_CORE_SOURCE_DIR} core EXCLUDE_FROM_ALL)
 endif()
 
 set(WEIVEL_STANDARD_SOURCES
