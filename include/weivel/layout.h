@@ -58,10 +58,11 @@ typedef struct weivel_standard_discovery {
  *
  * Every manifest that loads is a plugin, and every one that does not is a failure naming its file, so one bad file
  * never hides the rest: a file that cannot be read or is over 1 MiB (UNREADABLE), is not JSON (MALFORMED_JSON) or
- * does not validate (its first refusal, with its field `path`), a manifest whose importName is not its file name (NAME_MISMATCH), an
- * identity file that is not a regular file, not JSON, or lacks a string `id` that is an identity or a non-empty
- * string `name` (failing at that field's path), and a plugin whose identity an earlier one in order already holds
- * (DUPLICATE, naming its identity file). Failures come in the order of their file names, repeated identities last.
+ * does not validate (its first refusal, with its field `path`), a manifest whose importName is not its file name
+ * (NAME_MISMATCH), an identity file that is not a regular file, not JSON, or lacks a string `id` that is an identity
+ * or a non-empty string `name` (failing at that field's path), and a plugin whose identity an earlier one in order
+ * already holds (DUPLICATE, naming its identity file). Failures come in the order of their file names, repeated
+ * identities last.
  *
  * Plugins come ordered by identity, by weivel_standard_identity_compare, and then every plugin with no identity file
  * after all of those, by importName. A missing identity file is not a failure: the plugin is local and it is the
