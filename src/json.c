@@ -2,9 +2,8 @@
 
 #include "allocation.h"
 #include "json_equality.h"
-#include "json_locale.h"
+#include "c_locale.h"
 
-#include <locale.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,6 +42,7 @@ typedef struct {
     int depth;
     int failed;
     weivel_json_error failure;
+    void *c_locale;
 } parser;
 
 static weivel_json_value *parse_value(parser *state);
@@ -415,39 +415,12 @@ static int accumulate_integer(const char *digits, int negative, int64_t *out) {
     return 1;
 }
 
-#ifdef WEIVEL_STANDARD_TESTING
-static int64_t locale_reads;
-
-int64_t weivel_standard_json_locale_reads(void) {
-    return locale_reads;
-}
-#endif
-
-/**
- * @implNote Read once per number and passed down: a host's setlocale between sizing the buffer and filling it would
- * otherwise write a longer decimal point than the buffer holds.
- */
-static const char *decimal_point(void) {
-    const struct lconv *conventions = localeconv();
-#ifdef WEIVEL_STANDARD_TESTING
-    locale_reads++;
-#endif
-    return conventions->decimal_point != NULL && conventions->decimal_point[0] != '\0' ? conventions->decimal_point : ".";
-}
-
-/**
- * strtod reads the decimal point of the host's locale, and a JSON number always uses '.', so the
- * validated text has its '.' rewritten to the locale's before conversion. The buffer holds room
- * for a decimal point longer than one byte.
- */
-static double read_real(char *number, const char *point) {
-    size_t point_length = strlen(point);
-    char *dot = strchr(number, '.');
-    if (dot != NULL && !(point_length == 1 && point[0] == '.')) {
-        memmove(dot + point_length, dot + 1, strlen(dot + 1) + 1);
-        memcpy(dot, point, point_length);
+/** @implNote Made on the first number of a parse and kept until its end, so a document without one makes none. */
+static void *c_locale(parser *state) {
+    if (state->c_locale == NULL) {
+        state->c_locale = weivel_standard_c_locale_create();
     }
-    return strtod(number, NULL);
+    return state->c_locale;
 }
 
 static weivel_json_value *parse_number(parser *state) {
@@ -455,23 +428,21 @@ static weivel_json_value *parse_number(parser *state) {
     int inexact;
     size_t length;
     char *copy;
-    const char *point;
     weivel_json_value *value;
     if (!scan_number_end(state, &end, &inexact)) {
         return NULL;
     }
     length = end - state->position;
-    point = decimal_point();
-    copy = weivel_standard_memory_allocate(length + strlen(point) + 1);
+    copy = weivel_standard_memory_allocate(length + 1);
     value = new_value(WEIVEL_JSON_NUMBER);
-    if (copy == NULL || value == NULL) {
+    if (copy == NULL || value == NULL || c_locale(state) == NULL) {
         weivel_standard_memory_release(copy);
         weivel_standard_memory_release(value);
         return fail_out_of_memory(state);
     }
     memcpy(copy, state->text + state->position, length);
     copy[length] = '\0';
-    value->real = read_real(copy, point);
+    value->real = weivel_standard_c_locale_read_real(copy, state->c_locale);
     if (!isfinite(value->real)) {
         weivel_standard_memory_release(copy);
         weivel_json_free(value);
@@ -756,6 +727,7 @@ weivel_json_value *weivel_json_parse(const char *text, size_t length, weivel_jso
             root = fail(&state, "unexpected text after the document");
         }
     }
+    weivel_standard_c_locale_release(state.c_locale);
     if (root == NULL && error != NULL) {
         report_failure(&state, error);
     }

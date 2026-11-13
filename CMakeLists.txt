@@ -26,6 +26,7 @@ endif()
 
 set(WEIVEL_STANDARD_SOURCES
     src/allocation.c
+    src/c_locale.c
     src/file_names.c
     src/identity.c
     src/json.c
