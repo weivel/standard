@@ -176,7 +176,6 @@ static void ignores_what_is_not_a_manifest(void) {
     scenario(directory, "strays");
     write_file(directory, "notes.txt", "not a manifest");
     write_file(directory, "Upper.json", "{");
-    write_file(directory, "package.json", "{\"type\": \"module\"}");
     write_file(directory, "orphan_identity.json", "{");
     write_file(directory, "trailing.json.bak", "{");
     write_file(directory, ".json", "{");

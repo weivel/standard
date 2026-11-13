@@ -52,9 +52,9 @@ typedef struct weivel_standard_discovery {
 /**
  * Scans one directory, not its subdirectories, for plugins laid out by the standard. A regular file named
  * `<name>.json`, where `<name>` is a valid importName, is a manifest; every other entry is ignored, among them each
- * `*_identity.json` (an importName holds no underscore), a `package.json` a language layer may write (no importName is
- * `package`), a directory, and a link, which is never followed; on Windows every reparse point is skipped, a cloud
- * placeholder file among them.
+ * `*_identity.json` (an importName holds no underscore), a directory, and a link, which is never followed; on Windows
+ * every reparse point is skipped, a cloud placeholder file among them. A language layer must never write a file named
+ * like a manifest into a plugin directory.
  *
  * Every manifest that loads is a plugin, and every one that does not is a failure naming its file, so one bad file
  * never hides the rest: a file that cannot be read or is over 1 MiB (UNREADABLE), is not JSON (MALFORMED_JSON) or

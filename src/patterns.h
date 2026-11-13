@@ -11,7 +11,7 @@
  */
 typedef int (*weivel_standard_pattern_matcher)(const char *text, size_t length);
 
-/** `importName`: lowercase words joined by single hyphens or dots, not `package`, not a Windows device name. */
+/** `importName`: lowercase words joined by single hyphens or dots, not a Windows device name. */
 int weivel_standard_matches_import_name(const char *text, size_t length);
 
 /** `entry`: no leading separator or drive, no control or line-separator character, no `..` segment. */

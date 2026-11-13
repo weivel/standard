@@ -37,7 +37,7 @@ typedef struct pattern_rule {
 
 static const char *const IMPORT_NAME_FIX =
     "use lowercase words joined by single hyphens or dots, for example \"text-store\" or \"store.cache\", and not "
-    "package, nor a Windows device name with or without a dot after it (con, prn, aux, nul, com1 to com9, lpt1 to "
+    "a Windows device name with or without a dot after it (con, prn, aux, nul, com1 to com9, lpt1 to "
     "lpt9)";
 static const char *const API_FIX = "set api to the lowest API major version this plugin needs, for example 1";
 static const char *const ENTRY_FIX =

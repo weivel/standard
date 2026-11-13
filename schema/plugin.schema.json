@@ -8,7 +8,7 @@
     "importName": {
       "description": "The name other plugins import this plugin by, and the namespace of the services it registers. Its identity as a repository is supplied from outside the manifest.",
       "type": "string",
-      "pattern": "^(?!package(?![\\s\\S]))(?!(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:[\\.]|(?![\\s\\S])))[a-z0-9]+([-.][a-z0-9]+)*(?![\\s\\S])"
+      "pattern": "^(?!(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:[\\.]|(?![\\s\\S])))[a-z0-9]+([-.][a-z0-9]+)*(?![\\s\\S])"
     },
     "api": {
       "description": "The lowest API major version this plugin needs. A floor, not a build tag.",

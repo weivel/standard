@@ -225,8 +225,6 @@ static const vector_case VECTOR_CASES[] = {
     {"refuses-the-flat-capabilities-list",
      "{'importName': 'config-ledger', 'api': 2, 'entry': 'dist/index.js', 'capabilities': ['provider']}", NULL,
      "['capabilities']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
-    {"refuses-the-import-name-package", "{'importName': 'package', 'api': 2}", "[]", "['importName']",
-     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"reports-a-missing-entry-beside-another-error",
      "{'importName': 'config-ledger', 'api': 'one', 'capabilities': {'provides': ['provider']}}", NULL,
      "['api', 'entry']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
@@ -253,7 +251,7 @@ static const size_t VECTOR_CASE_COUNT = sizeof VECTOR_CASES / sizeof VECTOR_CASE
 
 static void every_kit_vector_validates_as_it_expects(void) {
     size_t at;
-    CHECK(VECTOR_CASE_COUNT == 31);
+    CHECK(VECTOR_CASE_COUNT == 30);
     for (at = 0; at < VECTOR_CASE_COUNT; at++) {
         const vector_case *vector = &VECTOR_CASES[at];
         check_validates_as(vector->name, vector->manifest, vector->well_known, vector->paths, vector->first_code);
@@ -433,7 +431,7 @@ static void loading_refuses_what_the_core_cannot_hold(void) {
 static void reading_alone_does_not_validate(void) {
     weivel_standard_manifest *manifest = NULL;
     weivel_standard_refusal refusal = {0};
-    const char *text = "{\"api\": 0, \"importName\": \"package\"}";
+    const char *text = "{\"api\": 0, \"importName\": \"Upper\"}";
     CHECK(weivel_standard_read_manifest(text, strlen(text), &manifest, &refusal) == WEIVEL_STATUS_OK);
     weivel_standard_manifest_release(manifest);
     weivel_standard_refusal_release(&refusal);
