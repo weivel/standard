@@ -3,6 +3,7 @@
 #include "allocation.h"
 #include "patterns.h"
 #include "report.h"
+#include "sized.h"
 
 #include <string.h>
 
@@ -223,15 +224,33 @@ static int read_forge_words(const char *text, size_t length, weivel_standard_ide
     return identity->forge != NULL;
 }
 
-weivel_status weivel_standard_identity_parse(const char *text, size_t length, weivel_standard_identity *identity,
-                                             weivel_standard_refusal *refusal) {
-    weivel_standard_identity parts;
-    size_t root_end;
-    if (text == NULL || identity == NULL) {
+static weivel_status refuse_malformed_call(const char *text, const weivel_standard_identity *identity,
+                                           weivel_standard_refusal *refusal) {
+    if (refusal == NULL) {
         return WEIVEL_STATUS_MALFORMED;
     }
-    memset(identity, 0, sizeof *identity);
-    memset(&parts, 0, sizeof parts);
+    return text != NULL && identity != NULL ? weivel_standard_refuse_call(refusal,
+                                                          "weivel_standard_identity_parse was given an identity "
+                                                          "smaller than its first shape",
+                                                          "set the identity's size, as WEIVEL_INIT does")
+                            : weivel_standard_refuse_call(refusal,
+                                                          "weivel_standard_identity_parse was given no text or no "
+                                                          "identity to fill",
+                                                          "pass the identity's text and the address of a "
+                                                          "weivel_standard_identity");
+}
+
+weivel_status weivel_standard_identity_parse(const char *text, size_t length, weivel_standard_identity *identity,
+                                             weivel_standard_refusal *refusal) {
+    weivel_standard_identity parts = WEIVEL_INIT(weivel_standard_identity);
+    size_t root_end;
+    if (weivel_standard_refusal_is_unusable(refusal)) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    if (text == NULL || identity == NULL || identity->size < sizeof *identity) {
+        return refuse_malformed_call(text, identity, refusal);
+    }
+    weivel_standard_sized_write(identity, &parts, sizeof parts);
     if (!weivel_standard_matches_repository_id(text, length)) {
         return refuse_grammar(refusal, text, length);
     }
@@ -252,7 +271,7 @@ weivel_status weivel_standard_identity_parse(const char *text, size_t length, we
     if (!read_segments(text, length, root_end, &parts)) {
         goto out_of_memory;
     }
-    *identity = parts;
+    weivel_standard_sized_write(identity, &parts, sizeof parts);
     return WEIVEL_STATUS_OK;
 out_of_memory:
     weivel_standard_identity_release(&parts);
@@ -260,8 +279,9 @@ out_of_memory:
 }
 
 void weivel_standard_identity_release(weivel_standard_identity *identity) {
+    weivel_standard_identity empty = WEIVEL_INIT(weivel_standard_identity);
     size_t at;
-    if (identity == NULL) {
+    if (identity == NULL || identity->size < sizeof *identity) {
         return;
     }
     for (at = 0; at < identity->segment_count; at++) {
@@ -271,7 +291,7 @@ void weivel_standard_identity_release(weivel_standard_identity *identity) {
     weivel_standard_memory_release(identity->name);
     weivel_standard_memory_release(identity->forge);
     weivel_standard_memory_release(identity->host);
-    memset(identity, 0, sizeof *identity);
+    weivel_standard_sized_write(identity, &empty, sizeof empty);
 }
 
 static int order_of(int difference) {

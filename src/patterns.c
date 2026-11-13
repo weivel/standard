@@ -124,7 +124,7 @@ static int is_lowercase_words(const char *text, size_t length) {
 }
 
 int weivel_standard_matches_import_name(const char *text, size_t length) {
-    return !equals_text(text, length, "package") && !names_a_reserved_device(text, length) &&
+    return !names_a_reserved_device(text, length) &&
            is_lowercase_words(text, length);
 }
 

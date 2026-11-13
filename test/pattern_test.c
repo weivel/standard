@@ -16,7 +16,7 @@ static void check_samples(const char *label, weivel_standard_pattern_matcher mat
 static const sample IMPORT_NAMES[] = {
     {TEXT("a"), 1},          {TEXT("store.cache-2"), 1}, {TEXT("package-lock"), 1}, {TEXT("packages"), 1},
     {TEXT("console.foo"), 1}, {TEXT("con-x"), 1},        {TEXT("com0"), 1},         {TEXT("com10"), 1},
-    {TEXT("lpt"), 1},        {TEXT("nulls"), 1},         {TEXT(""), 0},             {TEXT("package"), 0},
+    {TEXT("lpt"), 1},        {TEXT("nulls"), 1},         {TEXT(""), 0},             {TEXT("package"), 1},
     {TEXT("con"), 0},        {TEXT("con.foo"), 0},       {TEXT("nul.x"), 0},        {TEXT("aux"), 0},
     {TEXT("prn.a.b"), 0},    {TEXT("com1"), 0},          {TEXT("lpt9.x"), 0},       {TEXT("Upper"), 0},
     {TEXT("a--b"), 0},       {TEXT("a.-b"), 0},          {TEXT("-a"), 0},           {TEXT("a."), 0},

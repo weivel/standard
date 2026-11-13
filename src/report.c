@@ -1,6 +1,7 @@
 #include "report.h"
 
 #include "allocation.h"
+#include "sized.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -15,6 +16,95 @@ static size_t index_digits(size_t index) {
     return digits;
 }
 
+static int is_plain_key_character(char character) {
+    return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+           (character >= '0' && character <= '9') || character == '_' || character == '-';
+}
+
+static int is_plain_key(const char *key) {
+    if (key[0] == '\0') {
+        return 0;
+    }
+    for (; *key != '\0'; key++) {
+        if (!is_plain_key_character(*key)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static const char *short_escape(unsigned char character) {
+    switch (character) {
+    case '"':
+        return "\\\"";
+    case '\\':
+        return "\\\\";
+    case '\b':
+        return "\\b";
+    case '\f':
+        return "\\f";
+    case '\n':
+        return "\\n";
+    case '\r':
+        return "\\r";
+    case '\t':
+        return "\\t";
+    default:
+        return NULL;
+    }
+}
+
+/** Writes one key character as JSON escapes it, when `cursor` is not NULL, and answers how many bytes it takes. */
+static size_t write_escaped_character(unsigned char character, char *cursor) {
+    const char *escape = short_escape(character);
+    if (escape != NULL) {
+        if (cursor != NULL) {
+            memcpy(cursor, escape, 2);
+        }
+        return 2;
+    }
+    if (character < 0x20) {
+        if (cursor != NULL) {
+            snprintf(cursor, 7, "\\u%04x", character);
+        }
+        return 6;
+    }
+    if (cursor != NULL) {
+        *cursor = (char)character;
+    }
+    return 1;
+}
+
+/** A key segment as `.key`, or `key` first; any other key as `["<JSON-escaped key>"]`. Writes when `cursor` is set. */
+static size_t write_key(const char *key, int first, char *cursor) {
+    size_t written = 0;
+    const unsigned char *at;
+    if (is_plain_key(key)) {
+        size_t length = strlen(key);
+        if (!first) {
+            if (cursor != NULL) {
+                cursor[written] = '.';
+            }
+            written++;
+        }
+        if (cursor != NULL) {
+            memcpy(cursor + written, key, length);
+        }
+        return written + length;
+    }
+    if (cursor != NULL) {
+        memcpy(cursor, "[\"", 2);
+    }
+    written = 2;
+    for (at = (const unsigned char *)key; *at != '\0'; at++) {
+        written += write_escaped_character(*at, cursor == NULL ? NULL : cursor + written);
+    }
+    if (cursor != NULL) {
+        memcpy(cursor + written, "\"]", 2);
+    }
+    return written + 2;
+}
+
 static size_t path_length(const weivel_standard_field_path *path) {
     size_t before;
     if (path == NULL) {
@@ -24,7 +114,7 @@ static size_t path_length(const weivel_standard_field_path *path) {
     if (path->key == NULL) {
         return before + index_digits(path->index) + 2;
     }
-    return before + (before > 0 ? 1 : 0) + strlen(path->key);
+    return before + write_key(path->key, before == 0, NULL);
 }
 
 static char *path_write(const weivel_standard_field_path *path, char *cursor, const char *start) {
@@ -35,11 +125,7 @@ static char *path_write(const weivel_standard_field_path *path, char *cursor, co
     if (path->key == NULL) {
         return cursor + snprintf(cursor, index_digits(path->index) + 3, "[%zu]", path->index);
     }
-    if (cursor != start) {
-        *cursor++ = '.';
-    }
-    memcpy(cursor, path->key, strlen(path->key));
-    return cursor + strlen(path->key);
+    return cursor + write_key(path->key, cursor == start, cursor);
 }
 
 char *weivel_standard_path_text(const weivel_standard_field_path *path) {
@@ -80,7 +166,9 @@ void weivel_standard_release_texts(weivel_standard_refusal_texts *texts) {
 int weivel_standard_fill_refusal(weivel_standard_refusal *refusal, uint32_t code,
                                  weivel_standard_refusal_texts texts) {
     weivel_standard_refusal_texts *storage;
-    if (texts.detail == NULL || texts.fix == NULL || texts.path == NULL) {
+    weivel_standard_refusal filled = WEIVEL_INIT(weivel_standard_refusal);
+    if (texts.detail == NULL || texts.fix == NULL || texts.path == NULL ||
+        refusal->size < WEIVEL_STANDARD_REFUSAL_FIRST_SHAPE) {
         weivel_standard_release_texts(&texts);
         return 0;
     }
@@ -90,11 +178,12 @@ int weivel_standard_fill_refusal(weivel_standard_refusal *refusal, uint32_t code
         return 0;
     }
     *storage = texts;
-    refusal->code = code;
-    refusal->detail = storage->detail;
-    refusal->fix = storage->fix;
-    refusal->path = storage->path;
-    refusal->storage = storage;
+    filled.code = code;
+    filled.detail = storage->detail;
+    filled.fix = storage->fix;
+    filled.path = storage->path;
+    filled.storage = storage;
+    weivel_standard_sized_write(refusal, &filled, sizeof filled);
     return 1;
 }
 
@@ -114,7 +203,7 @@ weivel_status weivel_standard_refuse_malformed_json(weivel_standard_refusal *ref
 
 weivel_status weivel_standard_refuse_call(weivel_standard_refusal *refusal, const char *detail, const char *fix) {
     weivel_standard_refusal_texts texts = {NULL, NULL, NULL};
-    if (refusal == NULL) {
+    if (refusal == NULL || refusal->size < WEIVEL_STANDARD_REFUSAL_FIRST_SHAPE) {
         return WEIVEL_STATUS_MALFORMED;
     }
     texts.detail = weivel_standard_format_text("%s", detail);
@@ -126,7 +215,18 @@ weivel_status weivel_standard_refuse_call(weivel_standard_refusal *refusal, cons
 }
 
 int weivel_standard_refusal_holds_one(const weivel_standard_refusal *refusal) {
-    return refusal != NULL && (refusal->storage != NULL || refusal->code != WEIVEL_STANDARD_REFUSAL_NONE);
+    return refusal != NULL && refusal->size >= WEIVEL_STANDARD_REFUSAL_FIRST_SHAPE &&
+           (refusal->storage != NULL || refusal->code != WEIVEL_STANDARD_REFUSAL_NONE);
+}
+
+void weivel_standard_refusal_forget(weivel_standard_refusal *refusal) {
+    weivel_standard_refusal empty = WEIVEL_INIT(weivel_standard_refusal);
+    weivel_standard_sized_write(refusal, &empty, sizeof empty);
+}
+
+int weivel_standard_refusal_is_unusable(const weivel_standard_refusal *refusal) {
+    return refusal != NULL &&
+           (refusal->size < WEIVEL_STANDARD_REFUSAL_FIRST_SHAPE || weivel_standard_refusal_holds_one(refusal));
 }
 
 const char *weivel_standard_subject_of(const char *path) {
@@ -155,8 +255,8 @@ int weivel_standard_is_whole_number(double number) {
 }
 
 void weivel_standard_refusal_release(weivel_standard_refusal *refusal) {
-    weivel_standard_refusal empty = {0};
-    if (refusal == NULL) {
+    weivel_standard_refusal empty = WEIVEL_INIT(weivel_standard_refusal);
+    if (refusal == NULL || refusal->size < WEIVEL_STANDARD_REFUSAL_FIRST_SHAPE) {
         return;
     }
     if (refusal->storage != NULL) {
@@ -164,5 +264,5 @@ void weivel_standard_refusal_release(weivel_standard_refusal *refusal) {
         weivel_standard_release_texts(storage);
         weivel_standard_memory_release(storage);
     }
-    *refusal = empty;
+    weivel_standard_sized_write(refusal, &empty, sizeof empty);
 }

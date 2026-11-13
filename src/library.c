@@ -2,6 +2,7 @@
 
 #include "allocation.h"
 #include "report.h"
+#include "sized.h"
 
 #include <string.h>
 
@@ -414,6 +415,12 @@ static weivel_status refuse_malformed_call(const char *json, const weivel_standa
         return weivel_standard_refuse_call(refusal, "weivel_standard_read_library was given no JSON text",
                                            "pass the declaration's text");
     }
+    if (library->size < sizeof *library) {
+        return weivel_standard_refuse_call(refusal,
+                                           "weivel_standard_read_library was given a declaration smaller than its "
+                                           "first shape",
+                                           "set the declaration's size, as WEIVEL_INIT does");
+    }
     return weivel_standard_refuse_call(refusal,
                                        "weivel_standard_read_library was given a declaration still holding one",
                                        "release the declaration first, or pass an empty one");
@@ -421,15 +428,16 @@ static weivel_status refuse_malformed_call(const char *json, const weivel_standa
 
 weivel_status weivel_standard_read_library(const char *json, size_t length, weivel_standard_library *library,
                                            weivel_standard_refusal *refusal) {
-    weivel_json_error error = {0};
+    weivel_json_error error = {.size = (uint32_t)sizeof(weivel_json_error)};
     weivel_json_value *document;
     checking state;
-    if (weivel_standard_refusal_holds_one(refusal)) {
+    if (weivel_standard_refusal_is_unusable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
-    if (json == NULL || library == NULL || library->storage != NULL) {
+    if (json == NULL || library == NULL || library->size < sizeof *library || library->storage != NULL) {
         return refuse_malformed_call(json, library, refusal);
     }
+    weivel_standard_library_release(library);
     document = weivel_json_parse(json, length, &error);
     if (document == NULL) {
         return error.out_of_memory ? WEIVEL_STATUS_OUT_OF_MEMORY
@@ -445,10 +453,10 @@ weivel_status weivel_standard_read_library(const char *json, size_t length, weiv
 }
 
 void weivel_standard_library_release(weivel_standard_library *library) {
-    weivel_standard_library empty = {0};
-    if (library == NULL) {
+    weivel_standard_library empty = WEIVEL_INIT(weivel_standard_library);
+    if (library == NULL || library->size < sizeof *library) {
         return;
     }
     release_storage(library->storage);
-    *library = empty;
+    weivel_standard_sized_write(library, &empty, sizeof empty);
 }

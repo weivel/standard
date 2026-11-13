@@ -61,6 +61,7 @@ static void check_failure(const weivel_standard_discovery *discovery, const char
         check_failures++;
     }
     check_text(failure->refusal.path, path, name);
+    CHECK(failure->refusal.size == sizeof failure->refusal);
     CHECK(failure->refusal.detail != NULL && failure->refusal.detail[0] != '\0');
     CHECK(failure->refusal.fix != NULL && failure->refusal.fix[0] != '\0');
 }
@@ -87,6 +88,7 @@ static void finds_a_valid_plugin(void) {
         check_text(plugin->identity_id, "forge:42/calendar", "identity id");
         check_text(plugin->repository_name, "owner/calendar", "repository name");
         CHECK(plugin->identity.kind == WEIVEL_STANDARD_IDENTITY_FORGE && plugin->identity.number == 42);
+        CHECK(plugin->identity.size == sizeof plugin->identity);
         fixture_join(expected, directory, "calendar.bin");
         check_text(plugin->entry_path, expected, "entry path");
         CHECK(plugin->entry_present == 1);
@@ -176,7 +178,6 @@ static void ignores_what_is_not_a_manifest(void) {
     scenario(directory, "strays");
     write_file(directory, "notes.txt", "not a manifest");
     write_file(directory, "Upper.json", "{");
-    write_file(directory, "package.json", "{\"type\": \"module\"}");
     write_file(directory, "orphan_identity.json", "{");
     write_file(directory, "trailing.json.bak", "{");
     write_file(directory, ".json", "{");

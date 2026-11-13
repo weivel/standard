@@ -94,7 +94,7 @@ static int is_string_equal_to(const weivel_json_value *value, const char *expect
  * that string.
  */
 static int value_is_expected(const weivel_json_value *value, const char *expected) {
-    weivel_json_error error = {0};
+    weivel_json_error error = {.size = (uint32_t)sizeof(weivel_json_error)};
     weivel_json_value *parsed;
     int equal;
     if (expected == NULL) {
@@ -342,7 +342,7 @@ static char *read_file(const char *path, size_t *length) {
 int main(void) {
     size_t length = 0;
     char *text = read_file(WEIVEL_STANDARD_SCHEMA_PATH, &length);
-    weivel_json_error error = {0};
+    weivel_json_error error = {.size = (uint32_t)sizeof(weivel_json_error)};
     weivel_json_value *schema = text == NULL ? NULL : weivel_json_parse(text, length, &error);
     static walk state;
     if (schema == NULL) {

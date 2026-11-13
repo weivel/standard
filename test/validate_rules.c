@@ -13,7 +13,7 @@ const schema_rule SCHEMA_RULES[] = {
     {"/type", "object"},
     {"/properties/importName/type", "string"},
     {"/properties/importName/pattern",
-     "^(?!package(?![\\s\\S]))(?!(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:[\\.]|(?![\\s\\S])))[a-z0-9]+([-.][a-z0-9]+)*"
+     "^(?!(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:[\\.]|(?![\\s\\S])))[a-z0-9]+([-.][a-z0-9]+)*"
      "(?![\\s\\S])"},
     {"/properties/api/type", "integer"},
     {"/properties/api/minimum", "1"},
@@ -104,8 +104,6 @@ const rule_case RULE_CASES[] = {
     {"/properties/importName/type", "{'importName': 5, 'api': 2}", NULL, "['importName']",
      WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"/properties/importName/pattern", "{'importName': 'Upper', 'api': 2}", NULL, "['importName']",
-     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
-    {"/properties/importName/pattern", "{'importName': 'package', 'api': 2}", NULL, "['importName']",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"/properties/importName/pattern", "{'importName': 'com1.x', 'api': 2}", NULL, "['importName']",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},

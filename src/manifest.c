@@ -379,13 +379,13 @@ static weivel_status convert(const weivel_json_value *root, weivel_standard_mani
 
 weivel_status weivel_standard_read_manifest(const char *json, size_t length, weivel_standard_manifest **manifest,
                                             weivel_standard_refusal *refusal) {
-    weivel_json_error error = {0};
+    weivel_json_error error = {.size = (uint32_t)sizeof(weivel_json_error)};
     weivel_json_value *root;
     weivel_status status;
     if (manifest != NULL) {
         *manifest = NULL;
     }
-    if (weivel_standard_refusal_holds_one(refusal)) {
+    if (weivel_standard_refusal_is_unusable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
     if (manifest == NULL) {

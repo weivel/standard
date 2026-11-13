@@ -25,7 +25,7 @@ static void release_frees_everything(void) {
 
 static void a_refusal_release_frees_everything(void) {
     weivel_standard_manifest *manifest = NULL;
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(weivel_standard_read_manifest(DEEP_WRONG_TYPE, strlen(DEEP_WRONG_TYPE), &manifest, &refusal) ==
           WEIVEL_STATUS_REFUSED);
     CHECK(weivel_standard_memory_live_blocks() > 0);
@@ -38,7 +38,7 @@ static void every_failed_allocation_leaves_nothing(const char *text, weivel_stat
     uint64_t nth;
     for (nth = 1; nth < 100000; nth++) {
         weivel_standard_manifest *manifest = NULL;
-        weivel_standard_refusal refusal = {0};
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
         weivel_status status;
         int failed;
         weivel_standard_memory_fail_at(nth);

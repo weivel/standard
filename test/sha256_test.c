@@ -77,14 +77,14 @@ static void recognises_hex(void) {
 }
 
 static void accepts_a_match(void) {
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(weivel_standard_verify_download("abc", 3, ABC, &refusal) == WEIVEL_STATUS_OK);
     CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_NONE && refusal.storage == NULL);
     CHECK(weivel_standard_verify_download(NULL, 0, EMPTY, NULL) == WEIVEL_STATUS_OK);
 }
 
 static void refuses_a_mismatch_naming_both_hashes(void) {
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(weivel_standard_verify_download("abd", 3, ABC, &refusal) == WEIVEL_STATUS_REFUSED);
     CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_INVALID_VALUE);
     CHECK(refusal.detail != NULL && strstr(refusal.detail, ABC) != NULL);
@@ -98,7 +98,7 @@ static void refuses_a_mismatch_naming_both_hashes(void) {
 }
 
 static void refuses_uppercase_and_malformed_expectations(void) {
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(weivel_standard_verify_download("abc", 3, "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD",
                                           &refusal) == WEIVEL_STATUS_REFUSED);
     CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_INVALID_VALUE);
@@ -108,7 +108,7 @@ static void refuses_uppercase_and_malformed_expectations(void) {
 }
 
 static void refuses_a_malformed_call(void) {
-    weivel_standard_refusal refusal = {0};
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
     CHECK(weivel_standard_verify_download("abc", 3, NULL, &refusal) == WEIVEL_STATUS_MALFORMED);
     CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL);
     CHECK(weivel_standard_verify_download("abc", 3, ABC, &refusal) == WEIVEL_STATUS_MALFORMED);

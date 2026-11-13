@@ -3,6 +3,7 @@
 #include "allocation.h"
 #include "files.h"
 #include "report.h"
+#include "sized.h"
 #include "weivel/sha256.h"
 
 #include <string.h>
@@ -141,21 +142,27 @@ static weivel_status refuse_malformed_call(const char *json, const weivel_standa
         return weivel_standard_refuse_call(refusal, "weivel_standard_read_mirrors was given no JSON text",
                                            "pass the mirror list's text");
     }
+    if (list->size < sizeof *list) {
+        return weivel_standard_refuse_call(refusal,
+                                           "weivel_standard_read_mirrors was given a list smaller than its first shape",
+                                           "set the list's size, as WEIVEL_INIT does");
+    }
     return weivel_standard_refuse_call(refusal, "weivel_standard_read_mirrors was given a list still holding one",
                                        "release the list first, or pass an empty one");
 }
 
 weivel_status weivel_standard_read_mirrors(const char *json, size_t length, weivel_standard_mirror_list *list,
                                            weivel_standard_refusal *refusal) {
-    weivel_json_error error = {0};
+    weivel_json_error error = {.size = (uint32_t)sizeof(weivel_json_error)};
     weivel_json_value *document;
     weivel_status status;
-    if (weivel_standard_refusal_holds_one(refusal)) {
+    if (weivel_standard_refusal_is_unusable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
-    if (json == NULL || list == NULL || list->storage != NULL) {
+    if (json == NULL || list == NULL || list->size < sizeof *list || list->storage != NULL) {
         return refuse_malformed_call(json, list, refusal);
     }
+    weivel_standard_mirror_list_release(list);
     document = weivel_json_parse(json, length, &error);
     if (document == NULL) {
         return error.out_of_memory ? WEIVEL_STATUS_OUT_OF_MEMORY
@@ -204,10 +211,10 @@ weivel_status weivel_standard_load_mirrors(const char *path, weivel_standard_mir
     weivel_status status;
     char *bytes = NULL;
     size_t length = 0;
-    if (weivel_standard_refusal_holds_one(refusal)) {
+    if (weivel_standard_refusal_is_unusable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
-    if (path == NULL || list == NULL || list->storage != NULL) {
+    if (path == NULL || list == NULL || list->size < sizeof *list || list->storage != NULL) {
         return refuse_malformed_call(path, list, refusal);
     }
     outcome = weivel_standard_files_read(path, &bytes, &length);
@@ -222,12 +229,12 @@ weivel_status weivel_standard_load_mirrors(const char *path, weivel_standard_mir
 }
 
 void weivel_standard_mirror_list_release(weivel_standard_mirror_list *list) {
-    weivel_standard_mirror_list empty = {0};
-    if (list == NULL) {
+    weivel_standard_mirror_list empty = WEIVEL_INIT(weivel_standard_mirror_list);
+    if (list == NULL || list->size < sizeof *list) {
         return;
     }
     release_storage(list->storage);
-    *list = empty;
+    weivel_standard_sized_write(list, &empty, sizeof empty);
 }
 
 static weivel_status refuse_expansion(weivel_standard_refusal *refusal, const char *what, const char *fix) {
@@ -255,7 +262,7 @@ weivel_status weivel_standard_mirror_expand(const char *template_text, const cha
     if (url != NULL) {
         *url = NULL;
     }
-    if (weivel_standard_refusal_holds_one(refusal)) {
+    if (weivel_standard_refusal_is_unusable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
     if (template_text == NULL || hash_hex == NULL || url == NULL) {

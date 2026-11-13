@@ -32,7 +32,8 @@ WEIVEL_STANDARD_API int weivel_standard_is_sha256_hex(const char *text);
  * @param refusal the caller's empty refusal, or NULL for none; filled on every answer but OK.
  * @return WEIVEL_STATUS_OK on a match; WEIVEL_STATUS_REFUSED on a mismatch (INVALID_VALUE, the detail naming both
  * hashes) or an `expected_hex` that is not 64 lowercase hex characters; WEIVEL_STATUS_MALFORMED for a NULL
- * `expected_hex`, NULL `bytes` with a length, or a refusal still holding one; WEIVEL_STATUS_OUT_OF_MEMORY.
+ * `expected_hex`, NULL `bytes` with a length, or a refusal below its first shape or still holding one;
+ * WEIVEL_STATUS_OUT_OF_MEMORY.
  */
 WEIVEL_STANDARD_API weivel_status weivel_standard_verify_download(const void *bytes, size_t length,
                                                                   const char *expected_hex,

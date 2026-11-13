@@ -7,6 +7,8 @@ function(standard_test name source)
     set_tests_properties(${name} PROPERTIES TIMEOUT 60)
 endfunction()
 
+standard_test(abi_test abi_test weivel_standard)
+standard_test(abi_shared_test abi_test weivel_standard_shared)
 standard_test(json_test json_test weivel_standard)
 standard_test(json_shared_test json_test weivel_standard_shared)
 standard_test(json_equality_test json_equality_test weivel_standard)

@@ -13,9 +13,11 @@
 /**
  * An ordered list of places to fetch the core's binary from, as URL templates. The standard ships none: the list is
  * a user's file, and a user replaces it. Everything lives in `storage`, private to the standard, until
- * weivel_standard_mirror_list_release. An empty list is all zero, as a zeroed struct or a release leaves it.
+ * weivel_standard_mirror_list_release. An empty list has its `size` set and every other field zero, as WEIVEL_INIT or a
+ * release leaves it.
  */
 typedef struct weivel_standard_mirror_list {
+    uint32_t size;
     /** The templates in file order, each holding the placeholder once. */
     const char *const *templates;
     size_t count;
@@ -31,8 +33,8 @@ typedef struct weivel_standard_mirror_list {
  * @param refusal the caller's empty refusal, or NULL for none; filled on WEIVEL_STATUS_REFUSED with the field's
  * `path`, as `mirrors[1]`, and on WEIVEL_STATUS_MALFORMED.
  * @return WEIVEL_STATUS_OK; WEIVEL_STATUS_REFUSED for malformed JSON (path "") or a field the rules refuse;
- * WEIVEL_STATUS_MALFORMED for a NULL json or list, or a list or refusal still holding one, which is left as it was;
- * WEIVEL_STATUS_OUT_OF_MEMORY, with nothing allocated.
+ * WEIVEL_STATUS_MALFORMED for a NULL json or list, a list or refusal below its first shape, or one still holding an
+ * answer, which is left as it was; WEIVEL_STATUS_OUT_OF_MEMORY, with nothing allocated.
  */
 WEIVEL_STANDARD_API weivel_status weivel_standard_read_mirrors(const char *json, size_t length,
                                                                weivel_standard_mirror_list *list,
@@ -46,7 +48,7 @@ WEIVEL_STANDARD_API weivel_status weivel_standard_read_mirrors(const char *json,
 WEIVEL_STANDARD_API weivel_status weivel_standard_load_mirrors(const char *path, weivel_standard_mirror_list *list,
                                                                weivel_standard_refusal *refusal);
 
-/** Frees what a list holds and leaves it empty; a no-op for NULL or an empty one. */
+/** Frees what a list holds and leaves it empty with its `size` kept; a no-op for NULL or an empty one. */
 WEIVEL_STANDARD_API void weivel_standard_mirror_list_release(weivel_standard_mirror_list *list);
 
 /**
@@ -56,8 +58,8 @@ WEIVEL_STANDARD_API void weivel_standard_mirror_list_release(weivel_standard_mir
  * @param url on WEIVEL_STATUS_OK an owned NUL-terminated string, freed with weivel_standard_text_release; NULL
  * otherwise. Required.
  * @return WEIVEL_STATUS_OK; WEIVEL_STATUS_REFUSED for a hash that is not 64 lowercase hex characters or a template
- * without exactly one placeholder (INVALID_VALUE); WEIVEL_STATUS_MALFORMED for a NULL argument or a refusal still
- * holding one; WEIVEL_STATUS_OUT_OF_MEMORY.
+ * without exactly one placeholder (INVALID_VALUE); WEIVEL_STATUS_MALFORMED for a NULL argument or a refusal below its
+ * first shape or still holding one; WEIVEL_STATUS_OUT_OF_MEMORY.
  */
 WEIVEL_STANDARD_API weivel_status weivel_standard_mirror_expand(const char *template_text, const char *hash_hex,
                                                                 char **url, weivel_standard_refusal *refusal);
