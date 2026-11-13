@@ -2,10 +2,8 @@
 #include "patterns.h"
 #include "repository_id_samples.h"
 #include "weivel/identity.h"
-#include "weivel/json.h"
 
 #include <stdint.h>
-#include <stdlib.h>
 
 static weivel_status parse_text(const char *text, weivel_standard_identity *identity,
                                 weivel_standard_refusal *refusal) {
@@ -148,25 +146,6 @@ static void malformed_calls_and_missing_refusal(void) {
     weivel_standard_identity_release(NULL);
 }
 
-static char *read_file(const char *path, size_t *length) {
-    FILE *file = fopen(path, "rb");
-    char *text;
-    long size;
-    if (file == NULL) {
-        return NULL;
-    }
-    fseek(file, 0, SEEK_END);
-    size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    text = malloc((size_t)size + 1);
-    if (text != NULL) {
-        *length = fread(text, 1, (size_t)size, file);
-        text[*length] = '\0';
-    }
-    fclose(file);
-    return text;
-}
-
 static void check_parse_agrees_with_matcher(const char *label, const char *text, size_t length, int expected_valid) {
     weivel_standard_identity identity;
     weivel_status status = weivel_standard_identity_parse(text, length, &identity, NULL);
@@ -184,42 +163,34 @@ static void check_parse_agrees_with_matcher(const char *label, const char *text,
     }
 }
 
-static const char *const VECTOR_NAMES[] = {WEIVEL_STANDARD_IDENTITY_VECTOR_NAMES NULL};
+typedef struct identity_case {
+    const char *value;
+    int valid;
+} identity_case;
 
-static void check_vector(const char *name) {
-    char path[1024];
-    size_t length = 0;
-    char *text;
-    weivel_json_error error;
-    weivel_json_value *document;
-    const weivel_json_value *value;
-    int expected_valid = 0;
-    snprintf(path, sizeof path, "%s/%s.json", WEIVEL_STANDARD_IDENTITY_VECTORS, name);
-    text = read_file(path, &length);
-    if (text == NULL) {
-        fprintf(stderr, "cannot read %s\n", path);
-        check_failures++;
-        return;
-    }
-    document = weivel_json_parse(text, length, &error);
-    value = document == NULL ? NULL : weivel_json_object_get(weivel_json_object_get(document, "given"), "value");
-    CHECK(value != NULL && weivel_json_kind_of(value) == WEIVEL_JSON_STRING);
-    CHECK(weivel_json_as_bool(weivel_json_object_get(weivel_json_object_get(document, "then"), "valid"),
-                              &expected_valid));
-    if (value != NULL) {
-        check_parse_agrees_with_matcher(name, weivel_json_as_string(value), weivel_json_string_length(value),
-                                        expected_valid);
-    }
-    weivel_json_free(document);
-    free(text);
-}
+static const identity_case IDENTITY_CASES[] = {
+    {"forge:1434954468", 1},
+    {"gitea@git.example.com:123", 1},
+    {"local:plugin-stub", 1},
+    {"forge:1361969293/kernel", 1},
+    {"forge:1/a..b", 1},
+    {"forge:1/.hidden", 1},
+    {"calendar", 0},
+    {"forge:1/../calendar_identity", 0},
+    {"forge:1/a/../b", 0},
+    {"forge:1/..", 0},
+    {"forge:abc", 0},
+    {"forge:1/.", 0},
+    {"forge:", 0},
+    {"Forge:1", 0},
+};
 
-static void parse_agrees_with_the_vectors(void) {
+static void parse_agrees_with_the_identity_cases(void) {
     size_t at;
-    for (at = 0; VECTOR_NAMES[at] != NULL; at++) {
-        check_vector(VECTOR_NAMES[at]);
+    for (at = 0; at < sizeof IDENTITY_CASES / sizeof IDENTITY_CASES[0]; at++) {
+        check_parse_agrees_with_matcher(IDENTITY_CASES[at].value, IDENTITY_CASES[at].value,
+                                        strlen(IDENTITY_CASES[at].value), IDENTITY_CASES[at].valid);
     }
-    CHECK(at >= 14);
 }
 
 static void parse_agrees_with_every_pattern_sample(void) {
@@ -247,7 +218,7 @@ int main(void) {
     a_refusal_says_where_it_failed();
     a_number_past_64_bits_is_refused_on_its_own();
     malformed_calls_and_missing_refusal();
-    parse_agrees_with_the_vectors();
+    parse_agrees_with_the_identity_cases();
     parse_agrees_with_every_pattern_sample();
     return check_summary("identity_test");
 }
