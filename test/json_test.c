@@ -264,38 +264,6 @@ static void reads_a_missing_value_as_null(void) {
     CHECK(weivel_json_kind_of(NULL) == WEIVEL_JSON_NULL);
 }
 
-static int texts_equal(const char *left, const char *right) {
-    weivel_json_value *left_value = parse_text(left);
-    weivel_json_value *right_value = parse_text(right);
-    int equal;
-    CHECK(left_value != NULL && right_value != NULL);
-    equal = weivel_json_equal(left_value, right_value);
-    CHECK(equal == weivel_json_equal(right_value, left_value));
-    weivel_json_free(left_value);
-    weivel_json_free(right_value);
-    return equal;
-}
-
-static void compares_values_as_json_schema_does(void) {
-    CHECK(texts_equal("1", "1.0"));
-    CHECK(texts_equal("1", "1e0"));
-    CHECK(texts_equal("[1, \"a\", null, true]", "[1.0, \"a\", null, true]"));
-    CHECK(texts_equal("{\"a\": 1, \"b\": [2]}", "{\"b\": [2.0], \"a\": 1}"));
-    CHECK(texts_equal("\"a\\u0000b\"", "\"a\\u0000b\""));
-    CHECK(!texts_equal("\"a\\u0000b\"", "\"a\\u0000c\""));
-    CHECK(!texts_equal("\"a\\u0000b\"", "\"a\""));
-    CHECK(!texts_equal("1", "2"));
-    CHECK(!texts_equal("1", "\"1\""));
-    CHECK(!texts_equal("true", "false"));
-    CHECK(!texts_equal("[1, 2]", "[2, 1]"));
-    CHECK(!texts_equal("[1]", "[1, 1]"));
-    CHECK(!texts_equal("{\"a\": 1}", "{\"a\": 1, \"b\": 1}"));
-    CHECK(!texts_equal("{\"a\": 1}", "{\"b\": 1}"));
-    CHECK(!texts_equal("{\"a\": 1}", "{\"a\": 2}"));
-    CHECK(!texts_equal("9007199254740993", "9007199254740992"));
-    CHECK(weivel_json_equal(NULL, NULL));
-}
-
 int main(void) {
     reads_objects_and_arrays();
     reads_strings_with_escapes();
@@ -320,6 +288,5 @@ int main(void) {
     refuses_nesting_that_would_overflow_the_stack();
     reads_a_64_kilobyte_vector();
     reads_a_missing_value_as_null();
-    compares_values_as_json_schema_does();
     return check_summary("json_test");
 }

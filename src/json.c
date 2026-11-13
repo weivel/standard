@@ -1,6 +1,7 @@
 #include "weivel/json.h"
 
 #include "allocation.h"
+#include "json_equality.h"
 
 #include <locale.h>
 #include <math.h>
@@ -821,11 +822,26 @@ int weivel_json_as_double(const weivel_json_value *value, double *out) {
     return 1;
 }
 
+/**
+ * @implNote Beyond 2^53 a double no longer holds every integer, so two spellings there can round to one double; such
+ * numbers are equal only when both were read as the same 64-bit integer, never through a double.
+ */
+static int is_beyond_exact_doubles(const weivel_json_value *number) {
+    int64_t integer;
+    if (weivel_json_as_int64(number, &integer)) {
+        return integer > 9007199254740992LL || integer < -9007199254740992LL;
+    }
+    return number->real > 9007199254740992.0 || number->real < -9007199254740992.0;
+}
+
 static int numbers_equal(const weivel_json_value *left, const weivel_json_value *right) {
     int64_t left_integer;
     int64_t right_integer;
     if (weivel_json_as_int64(left, &left_integer) && weivel_json_as_int64(right, &right_integer)) {
         return left_integer == right_integer;
+    }
+    if (is_beyond_exact_doubles(left) || is_beyond_exact_doubles(right)) {
+        return 0;
     }
     return left->real == right->real;
 }
@@ -840,7 +856,7 @@ static int arrays_equal(const weivel_json_value *left, const weivel_json_value *
         return 0;
     }
     for (at = 0; at < left->count; at++) {
-        if (!weivel_json_equal(weivel_json_array_at(left, at), weivel_json_array_at(right, at))) {
+        if (!weivel_standard_json_equal(weivel_json_array_at(left, at), weivel_json_array_at(right, at))) {
             return 0;
         }
     }
@@ -854,14 +870,14 @@ static int objects_equal(const weivel_json_value *left, const weivel_json_value 
     }
     for (at = 0; at < left->count; at++) {
         const weivel_json_value *match = weivel_json_object_get(right, weivel_json_object_key_at(left, at));
-        if (match == NULL || !weivel_json_equal(weivel_json_object_value_at(left, at), match)) {
+        if (match == NULL || !weivel_standard_json_equal(weivel_json_object_value_at(left, at), match)) {
             return 0;
         }
     }
     return 1;
 }
 
-int weivel_json_equal(const weivel_json_value *left, const weivel_json_value *right) {
+int weivel_standard_json_equal(const weivel_json_value *left, const weivel_json_value *right) {
     if (left == NULL || right == NULL) {
         return left == right;
     }

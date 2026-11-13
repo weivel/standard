@@ -9,6 +9,8 @@ endfunction()
 
 standard_test(json_test json_test weivel_standard)
 standard_test(json_shared_test json_test weivel_standard_shared)
+standard_test(json_equality_test json_equality_test weivel_standard)
+target_include_directories(json_equality_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 standard_test(manifest_test manifest_test weivel_standard weivel_core)
 standard_test(manifest_shared_test manifest_test weivel_standard_shared weivel_core)
 standard_test(manifest_memory_test manifest_memory_test weivel_standard_testing)

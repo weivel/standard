@@ -1,6 +1,7 @@
 #include "weivel/standard.h"
 
 #include "allocation.h"
+#include "json_equality.h"
 #include "patterns.h"
 #include "report.h"
 #include "weivel/json.h"
@@ -247,7 +248,7 @@ static void check_unique_items(validating *state, const weivel_json_value *array
     size_t earlier;
     for (at = 1; at < length; at++) {
         for (earlier = 0; earlier < at; earlier++) {
-            if (weivel_json_equal(weivel_json_array_at(array, earlier), weivel_json_array_at(array, at))) {
+            if (weivel_standard_json_equal(weivel_json_array_at(array, earlier), weivel_json_array_at(array, at))) {
                 field_path item = {path, NULL, at};
                 report_duplicate(state, &item, earlier);
                 break;
@@ -466,13 +467,17 @@ static void report_not_well_known(validating *state, const field_path *path, con
     weivel_standard_memory_release(known);
 }
 
-/** V2, applied only when the host passed a well-known list. */
+static int holds_nul(const weivel_json_value *entry, const char *id) {
+    return strlen(id) != service_id_length(entry);
+}
+
+/** V2, only when the host passed a well-known list; an id holding a NUL is neither well-known nor namespaced. */
 static void check_namespaced(validating *state, const weivel_json_value *entry, const field_path *path) {
     const char *id = service_id_of(entry);
-    if (state->well_known == NULL || id == NULL || strlen(id) != service_id_length(entry)) {
+    if (state->well_known == NULL || id == NULL) {
         return;
     }
-    if (!is_well_known(state->well_known, id) && !is_namespaced(state->import_name, id)) {
+    if (holds_nul(entry, id) || (!is_well_known(state->well_known, id) && !is_namespaced(state->import_name, id))) {
         report_not_well_known(state, path, id);
     }
 }
