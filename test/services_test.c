@@ -1,11 +1,42 @@
+/**
+ * Drives the config, secrets and paths definitions through in-memory providers. The providers are single-threaded
+ * and exist for this test alone: they take no lock, so they are not the safe-from-any-thread provider services.h
+ * requires and are never offered as a reference implementation.
+ */
 #include "check.h"
 #include "weivel/services.h"
 
+#include <math.h>
 #include <stdlib.h>
 
 #define TABLE_CAPACITY 8
 
-/** Every answer and refusal of the in-memory providers lives in one block, so `release` frees it whole. */
+#define FIRST_SHAPE(type, last) (offsetof(type, last) + sizeof(((type *)0)->last))
+#define REFUSAL_FIRST_SHAPE FIRST_SHAPE(weivel_standard_service_refusal, storage)
+#define SETTINGS_FIRST_SHAPE FIRST_SHAPE(weivel_standard_settings, storage)
+#define ANSWER_FIRST_SHAPE FIRST_SHAPE(weivel_standard_setting_answer, storage)
+#define SECRET_FIRST_SHAPE FIRST_SHAPE(weivel_standard_secret, storage)
+
+static uint32_t size_of(const void *sized) {
+    uint32_t size;
+    memcpy(&size, sized, sizeof size);
+    return size;
+}
+
+/** Zeroes whatever a newer consumer's struct has beyond the provider's own, as the size convention requires. */
+static void zero_beyond(void *sized, size_t own) {
+    uint32_t size = size_of(sized);
+    if (size > own) {
+        memset((char *)sized + own, 0, size - own);
+    }
+}
+
+/** Leaves a struct empty within the consumer's size, its `size` kept. */
+static void empty_within(void *sized) {
+    uint32_t size = size_of(sized);
+    memset((char *)sized + sizeof size, 0, size - sizeof size);
+}
+
 static void *allocate_block(size_t length) {
     return calloc(1, length == 0 ? 1 : length);
 }
@@ -18,39 +49,36 @@ static char *copy_text(const char *text, size_t length) {
     return copy;
 }
 
-static void release_block(void *context, void *storage) {
-    (void)context;
-    free(storage);
-}
-
 static int refusal_is_unusable(const weivel_standard_service_refusal *refusal) {
-    return refusal != NULL && (refusal->size < sizeof *refusal || refusal->storage != NULL);
+    return refusal != NULL && (refusal->size < REFUSAL_FIRST_SHAPE || refusal->storage != NULL);
 }
 
-/** `header` zeroed bytes lead the block, so a provider whose blocks open with their own header releases them alike. */
-static weivel_status refuse_after(size_t header, weivel_standard_service_refusal *refusal, const char *detail,
-                                  const char *fix) {
+static weivel_status refuse(weivel_standard_service_refusal *refusal, const char *detail, const char *fix) {
     size_t detail_length = strlen(detail);
     char *block;
-    char *texts;
     if (refusal == NULL) {
         return WEIVEL_STATUS_REFUSED;
     }
-    block = allocate_block(header + detail_length + strlen(fix) + 2);
+    block = allocate_block(detail_length + strlen(fix) + 2);
     if (block == NULL) {
         return WEIVEL_STATUS_OUT_OF_MEMORY;
     }
-    texts = block + header;
-    memcpy(texts, detail, detail_length);
-    memcpy(texts + detail_length + 1, fix, strlen(fix));
-    refusal->detail = texts;
-    refusal->fix = texts + detail_length + 1;
+    memcpy(block, detail, detail_length);
+    memcpy(block + detail_length + 1, fix, strlen(fix));
+    zero_beyond(refusal, sizeof *refusal);
+    refusal->detail = block;
+    refusal->fix = block + detail_length + 1;
     refusal->storage = block;
     return WEIVEL_STATUS_REFUSED;
 }
 
-static weivel_status refuse(weivel_standard_service_refusal *refusal, const char *detail, const char *fix) {
-    return refuse_after(0, refusal, detail, fix);
+static void release_refusal(void *context, weivel_standard_service_refusal *refusal) {
+    (void)context;
+    if (refusal == NULL || refusal->size < REFUSAL_FIRST_SHAPE) {
+        return;
+    }
+    free(refusal->storage);
+    empty_within(refusal);
 }
 
 typedef struct memory_config {
@@ -75,15 +103,24 @@ static const weivel_standard_setting *effective_setting(const memory_config *con
     return stored != NULL ? stored : find_setting(config->defaults, config->default_count, key);
 }
 
-static int is_known_kind(uint32_t kind) {
-    return kind == WEIVEL_STANDARD_SETTING_TEXT || kind == WEIVEL_STANDARD_SETTING_NUMBER ||
-           kind == WEIVEL_STANDARD_SETTING_BOOLEAN;
+static int is_storable_value(const weivel_standard_setting_value *value) {
+    switch (value->kind) {
+    case WEIVEL_STANDARD_SETTING_TEXT:
+        return value->text != NULL;
+    case WEIVEL_STANDARD_SETTING_NUMBER:
+        return isfinite(value->number);
+    case WEIVEL_STANDARD_SETTING_BOOLEAN:
+        return value->boolean == 0 || value->boolean == 1;
+    default:
+        return 0;
+    }
 }
 
 static weivel_status config_get(void *context, const char *key, weivel_standard_setting_answer *answer,
                                 weivel_standard_service_refusal *refusal) {
     const weivel_standard_setting *setting;
-    if (key == NULL || answer == NULL || answer->size < sizeof *answer || answer->storage != NULL ||
+    char *text = NULL;
+    if (key == NULL || answer == NULL || answer->size < ANSWER_FIRST_SHAPE || answer->storage != NULL ||
         refusal_is_unusable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
@@ -91,16 +128,16 @@ static weivel_status config_get(void *context, const char *key, weivel_standard_
     if (setting == NULL) {
         return WEIVEL_STATUS_NONE;
     }
-    answer->value = setting->value;
     if (setting->value.kind == WEIVEL_STANDARD_SETTING_TEXT) {
-        char *text = copy_text(setting->value.text, setting->value.text_length);
+        text = copy_text(setting->value.text, setting->value.text_length);
         if (text == NULL) {
-            memset(&answer->value, 0, sizeof answer->value);
             return WEIVEL_STATUS_OUT_OF_MEMORY;
         }
-        answer->value.text = text;
-        answer->storage = text;
     }
+    zero_beyond(answer, sizeof *answer);
+    answer->value = setting->value;
+    answer->value.text = text;
+    answer->storage = text;
     return WEIVEL_STATUS_OK;
 }
 
@@ -141,7 +178,7 @@ static weivel_status config_all(void *context, weivel_standard_settings *setting
     size_t text_bytes = 0;
     size_t at;
     char *cursor;
-    if (settings == NULL || settings->size < sizeof *settings || settings->storage != NULL ||
+    if (settings == NULL || settings->size < SETTINGS_FIRST_SHAPE || settings->storage != NULL ||
         refusal_is_unusable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
@@ -161,6 +198,7 @@ static weivel_status config_all(void *context, weivel_standard_settings *setting
             cursor = place_text(cursor, chosen[at]->value.text, chosen[at]->value.text_length, &array[at].value.text);
         }
     }
+    zero_beyond(settings, sizeof *settings);
     settings->settings = array;
     settings->count = count;
     settings->storage = array;
@@ -177,7 +215,7 @@ static weivel_status config_set(void *context, const char *key, const weivel_sta
     memory_config *config = context;
     weivel_standard_setting *slot;
     weivel_standard_setting replacement;
-    if (key == NULL || value == NULL || !is_known_kind(value->kind) || refusal_is_unusable(refusal)) {
+    if (key == NULL || value == NULL || !is_storable_value(value) || refusal_is_unusable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
     if (strncmp(key, "locked.", 7) == 0) {
@@ -204,6 +242,24 @@ static weivel_status config_set(void *context, const char *key, const weivel_sta
     return WEIVEL_STATUS_OK;
 }
 
+static void config_release_settings(void *context, weivel_standard_settings *settings) {
+    (void)context;
+    if (settings == NULL || settings->size < SETTINGS_FIRST_SHAPE) {
+        return;
+    }
+    free(settings->storage);
+    empty_within(settings);
+}
+
+static void config_release_answer(void *context, weivel_standard_setting_answer *answer) {
+    (void)context;
+    if (answer == NULL || answer->size < ANSWER_FIRST_SHAPE) {
+        return;
+    }
+    free(answer->storage);
+    empty_within(answer);
+}
+
 static void config_drop(memory_config *config) {
     size_t at;
     for (at = 0; at < config->stored_count; at++) {
@@ -222,26 +278,6 @@ typedef struct memory_secrets {
     size_t count;
     int unwritable;
 } memory_secrets;
-
-/** A secret's answer block: its length first, so the release can overwrite exactly the bytes before freeing. */
-typedef struct secret_block {
-    size_t length;
-    uint8_t bytes[1];
-} secret_block;
-
-/** A refusal block opens with a zero length, so release_secret_block frees it like an answer. */
-static weivel_status refuse_secret(weivel_standard_service_refusal *refusal, const char *detail, const char *fix) {
-    return refuse_after(offsetof(secret_block, bytes), refusal, detail, fix);
-}
-
-static void release_secret_block(void *context, void *storage) {
-    secret_block *block = storage;
-    (void)context;
-    if (block != NULL) {
-        memset(block->bytes, 0, block->length);
-    }
-    free(block);
-}
 
 static secret_entry *find_secret(memory_secrets *secrets, const char *name) {
     size_t at;
@@ -266,7 +302,7 @@ static weivel_status secrets_remove(void *context, const char *name, weivel_stan
         return WEIVEL_STATUS_MALFORMED;
     }
     if (secrets->unwritable) {
-        return refuse_secret(refusal, "the secret store is read-only", "unlock the secret store");
+        return refuse(refusal, "the secret store is read-only", "unlock the secret store");
     }
     entry = find_secret(secrets, name);
     if (entry != NULL) {
@@ -279,8 +315,8 @@ static weivel_status secrets_remove(void *context, const char *name, weivel_stan
 static weivel_status secrets_get(void *context, const char *name, weivel_standard_secret *secret,
                                  weivel_standard_service_refusal *refusal) {
     secret_entry *entry;
-    secret_block *block;
-    if (name == NULL || secret == NULL || secret->size < sizeof *secret || secret->storage != NULL ||
+    uint8_t *bytes;
+    if (name == NULL || secret == NULL || secret->size < SECRET_FIRST_SHAPE || secret->storage != NULL ||
         refusal_is_unusable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
@@ -288,15 +324,15 @@ static weivel_status secrets_get(void *context, const char *name, weivel_standar
     if (entry == NULL) {
         return WEIVEL_STATUS_NONE;
     }
-    block = allocate_block(sizeof *block + entry->length);
-    if (block == NULL) {
+    bytes = allocate_block(entry->length);
+    if (bytes == NULL) {
         return WEIVEL_STATUS_OUT_OF_MEMORY;
     }
-    block->length = entry->length;
-    memcpy(block->bytes, entry->bytes, entry->length);
-    secret->bytes = block->bytes;
+    memcpy(bytes, entry->bytes, entry->length);
+    zero_beyond(secret, sizeof *secret);
+    secret->bytes = bytes;
     secret->length = entry->length;
-    secret->storage = block;
+    secret->storage = bytes;
     return WEIVEL_STATUS_OK;
 }
 
@@ -309,11 +345,11 @@ static weivel_status secrets_set(void *context, const char *name, const uint8_t 
         return WEIVEL_STATUS_MALFORMED;
     }
     if (secrets->unwritable) {
-        return refuse_secret(refusal, "the secret store is read-only", "unlock the secret store");
+        return refuse(refusal, "the secret store is read-only", "unlock the secret store");
     }
     entry = find_secret(secrets, name);
     if (entry == NULL && secrets->count == TABLE_CAPACITY) {
-        return refuse_secret(refusal, "the secret store is full", "remove a secret first");
+        return refuse(refusal, "the secret store is full", "remove a secret first");
     }
     replacement.name = copy_text(name, strlen(name));
     replacement.bytes = allocate_block(length);
@@ -333,6 +369,18 @@ static weivel_status secrets_set(void *context, const char *name, const uint8_t 
     }
     *entry = replacement;
     return WEIVEL_STATUS_OK;
+}
+
+static void secrets_release_secret(void *context, weivel_standard_secret *secret) {
+    (void)context;
+    if (secret == NULL || secret->size < SECRET_FIRST_SHAPE) {
+        return;
+    }
+    if (secret->storage != NULL) {
+        memset(secret->storage, 0, secret->length);
+    }
+    free(secret->storage);
+    empty_within(secret);
 }
 
 static void secrets_drop(memory_secrets *secrets) {
@@ -388,8 +436,15 @@ static weivel_standard_config config_over(memory_config *config) {
     definition.all = config_all;
     definition.get = config_get;
     definition.set = config_set;
-    definition.release = release_block;
+    definition.release_settings = config_release_settings;
+    definition.release_answer = config_release_answer;
+    definition.release_refusal = release_refusal;
     return definition;
+}
+
+static int answer_is_empty(const weivel_standard_setting_answer *answer) {
+    return answer->size == sizeof *answer && answer->value.kind == WEIVEL_STANDARD_SETTING_NONE &&
+           answer->value.text == NULL && answer->value.text_length == 0 && answer->storage == NULL;
 }
 
 static void check_text_setting(const weivel_standard_config *config, const char *key, const char *expected) {
@@ -398,7 +453,8 @@ static void check_text_setting(const weivel_standard_config *config, const char 
     CHECK(answer.value.kind == WEIVEL_STANDARD_SETTING_TEXT);
     CHECK(answer.value.text_length == strlen(expected));
     check_text(answer.value.text, expected, key);
-    config->release(config->context, answer.storage);
+    config->release_answer(config->context, &answer);
+    CHECK(answer_is_empty(&answer));
 }
 
 static const weivel_standard_setting *setting_named(const weivel_standard_settings *settings, const char *key) {
@@ -436,7 +492,7 @@ static void config_reads_defaults_and_writes(void) {
 
     check_text_setting(config, "theme", "dark");
     CHECK(config->get(config->context, "absent", &answer, NULL) == WEIVEL_STATUS_NONE);
-    CHECK(answer.value.kind == WEIVEL_STANDARD_SETTING_NONE && answer.storage == NULL);
+    CHECK(answer_is_empty(&answer));
     CHECK(config->all(config->context, &before, NULL) == WEIVEL_STATUS_OK);
     CHECK(before.count == 2);
 
@@ -447,7 +503,8 @@ static void config_reads_defaults_and_writes(void) {
     CHECK(config->set(config->context, "wrap", &value, NULL) == WEIVEL_STATUS_OK);
     CHECK(config->get(config->context, "wrap", &answer, NULL) == WEIVEL_STATUS_OK);
     CHECK(answer.value.kind == WEIVEL_STANDARD_SETTING_BOOLEAN && answer.value.boolean == 1);
-    CHECK(answer.storage == NULL);
+    config->release_answer(config->context, &answer);
+    CHECK(answer_is_empty(&answer));
     value = number_value(2.5);
     CHECK(config->set(config->context, "width", &value, NULL) == WEIVEL_STATUS_OK);
 
@@ -456,9 +513,13 @@ static void config_reads_defaults_and_writes(void) {
     if (setting_named(&before, "theme") != NULL) {
         check_text(setting_named(&before, "theme")->value.text, "dark", "an answer outlives a later set");
     }
-    config->release(config->context, before.storage);
-    config->release(config->context, after.storage);
-    config->release(config->context, NULL);
+    config->release_settings(config->context, &before);
+    config->release_settings(config->context, &after);
+    CHECK(after.size == sizeof after && after.settings == NULL && after.count == 0 && after.storage == NULL);
+    config->release_settings(config->context, &after);
+    config->release_settings(config->context, NULL);
+    config->release_answer(config->context, NULL);
+    config->release_refusal(config->context, NULL);
     config_drop(&memory);
 }
 
@@ -467,9 +528,18 @@ static void config_refuses_and_rejects_malformed_calls(void) {
     weivel_standard_config definition;
     weivel_standard_service_refusal refusal = WEIVEL_INIT(weivel_standard_service_refusal);
     weivel_standard_setting_answer answer = WEIVEL_INIT(weivel_standard_setting_answer);
-    weivel_standard_setting_value none = {WEIVEL_STANDARD_SETTING_NONE, 0, 0.0, NULL, 0};
-    weivel_standard_setting_value unknown = {WEIVEL_STANDARD_SETTING_BOOLEAN + 1, 0, 0.0, NULL, 0};
     weivel_standard_setting_value value = text_value("x");
+    weivel_standard_setting_value not_values[] = {
+        {WEIVEL_STANDARD_SETTING_NONE, 0, 0.0, NULL, 0},
+        {WEIVEL_STANDARD_SETTING_BOOLEAN + 1, 0, 0.0, NULL, 0},
+        {WEIVEL_STANDARD_SETTING_TEXT, 0, 0.0, NULL, 0},
+        {WEIVEL_STANDARD_SETTING_BOOLEAN, 2, 0.0, NULL, 0},
+        {WEIVEL_STANDARD_SETTING_NUMBER, 0, 0.0, NULL, 0},
+        {WEIVEL_STANDARD_SETTING_NUMBER, 0, 0.0, NULL, 0},
+    };
+    size_t at;
+    not_values[4].number = strtod("inf", NULL);
+    not_values[5].number = strtod("nan", NULL);
     memset(&memory, 0, sizeof memory);
     definition = config_over(&memory);
 
@@ -477,18 +547,24 @@ static void config_refuses_and_rejects_malformed_calls(void) {
     check_text(refusal.detail, "the setting is locked by the host", "config refusal");
     CHECK(refusal.fix != NULL && refusal.storage != NULL);
     CHECK(definition.set(definition.context, "locked.theme", &value, &refusal) == WEIVEL_STATUS_MALFORMED);
-    definition.release(definition.context, refusal.storage);
+    definition.release_refusal(definition.context, &refusal);
+    CHECK(refusal.size == sizeof refusal && refusal.detail == NULL && refusal.fix == NULL && refusal.storage == NULL);
     CHECK(definition.set(definition.context, "locked.theme", &value, NULL) == WEIVEL_STATUS_REFUSED);
 
-    CHECK(definition.set(definition.context, "theme", &none, NULL) == WEIVEL_STATUS_MALFORMED);
-    CHECK(definition.set(definition.context, "theme", &unknown, NULL) == WEIVEL_STATUS_MALFORMED);
+    for (at = 0; at < sizeof not_values / sizeof not_values[0]; at++) {
+        if (definition.set(definition.context, "theme", &not_values[at], NULL) != WEIVEL_STATUS_MALFORMED) {
+            fprintf(stderr, "set stored a value that is not one, case %u\n", (unsigned)at);
+            check_failures++;
+        }
+    }
+    CHECK(memory.stored_count == 0);
     CHECK(definition.set(definition.context, "theme", NULL, NULL) == WEIVEL_STATUS_MALFORMED);
     CHECK(definition.get(definition.context, "theme", NULL, NULL) == WEIVEL_STATUS_MALFORMED);
     CHECK(definition.all(definition.context, NULL, NULL) == WEIVEL_STATUS_MALFORMED);
     CHECK(definition.set(definition.context, "theme", &value, NULL) == WEIVEL_STATUS_OK);
     CHECK(definition.get(definition.context, "theme", &answer, NULL) == WEIVEL_STATUS_OK);
     CHECK(definition.get(definition.context, "theme", &answer, NULL) == WEIVEL_STATUS_MALFORMED);
-    definition.release(definition.context, answer.storage);
+    definition.release_answer(definition.context, &answer);
     config_drop(&memory);
 }
 
@@ -498,7 +574,8 @@ static weivel_standard_secrets secrets_over(memory_secrets *secrets) {
     definition.remove = secrets_remove;
     definition.get = secrets_get;
     definition.set = secrets_set;
-    definition.release = release_secret_block;
+    definition.release_secret = secrets_release_secret;
+    definition.release_refusal = release_refusal;
     return definition;
 }
 
@@ -520,16 +597,18 @@ static void secrets_keep_bytes(void) {
     CHECK(secret.length == sizeof token && memcmp(secret.bytes, token, sizeof token) == 0);
     CHECK(secrets->set(secrets->context, "token", (const uint8_t *)"new", 3, NULL) == WEIVEL_STATUS_OK);
     CHECK(secret.length == sizeof token && memcmp(secret.bytes, token, sizeof token) == 0);
-    secrets->release(secrets->context, secret.storage);
+    secrets->release_secret(secrets->context, &secret);
+    CHECK(secret.size == sizeof secret && secret.bytes == NULL && secret.length == 0 && secret.storage == NULL);
 
     CHECK(secrets->set(secrets->context, "blank", NULL, 0, NULL) == WEIVEL_STATUS_OK);
     CHECK(secrets->get(secrets->context, "blank", &empty, NULL) == WEIVEL_STATUS_OK);
     CHECK(empty.length == 0 && empty.storage != NULL);
-    secrets->release(secrets->context, empty.storage);
+    secrets->release_secret(secrets->context, &empty);
 
     CHECK(secrets->remove(secrets->context, "token", NULL) == WEIVEL_STATUS_OK);
     CHECK(secrets->remove(secrets->context, "token", NULL) == WEIVEL_STATUS_OK);
     CHECK(secrets->get(secrets->context, "token", &gone, NULL) == WEIVEL_STATUS_NONE);
+    secrets->release_secret(secrets->context, NULL);
     secrets_drop(&memory);
 }
 
@@ -537,7 +616,6 @@ static void secrets_refuse_and_reject_malformed_calls(void) {
     memory_secrets memory;
     weivel_standard_secrets definition;
     weivel_standard_service_refusal refusal = WEIVEL_INIT(weivel_standard_service_refusal);
-    weivel_standard_service_refusal second = WEIVEL_INIT(weivel_standard_service_refusal);
     weivel_standard_service_refusal small = {(uint32_t)offsetof(weivel_standard_service_refusal, fix), NULL, NULL,
                                              NULL};
     memset(&memory, 0, sizeof memory);
@@ -546,14 +624,46 @@ static void secrets_refuse_and_reject_malformed_calls(void) {
 
     CHECK(definition.set(definition.context, "token", (const uint8_t *)"x", 1, &refusal) == WEIVEL_STATUS_REFUSED);
     check_text(refusal.detail, "the secret store is read-only", "secrets refusal");
-    definition.release(definition.context, refusal.storage);
-    CHECK(definition.remove(definition.context, "token", &second) == WEIVEL_STATUS_REFUSED);
-    CHECK(second.detail != NULL && second.fix != NULL);
-    definition.release(definition.context, second.storage);
+    definition.release_refusal(definition.context, &refusal);
+    CHECK(refusal.storage == NULL && refusal.detail == NULL);
+    CHECK(definition.remove(definition.context, "token", &refusal) == WEIVEL_STATUS_REFUSED);
+    CHECK(refusal.detail != NULL && refusal.fix != NULL);
+    definition.release_refusal(definition.context, &refusal);
     CHECK(definition.remove(definition.context, "token", &small) == WEIVEL_STATUS_MALFORMED);
     CHECK(small.storage == NULL);
     CHECK(definition.set(definition.context, "token", NULL, 1, NULL) == WEIVEL_STATUS_MALFORMED);
     CHECK(definition.get(definition.context, NULL, NULL, NULL) == WEIVEL_STATUS_MALFORMED);
+    secrets_drop(&memory);
+}
+
+/** A consumer compiled against a later header, whose answer has grown a field the provider does not know. */
+typedef struct newer_secret {
+    weivel_standard_secret secret;
+    uint64_t appended_later;
+} newer_secret;
+
+static void answers_follow_the_size_convention(void) {
+    memory_secrets memory;
+    weivel_standard_secrets definition;
+    newer_secret newer;
+    weivel_standard_secret below = WEIVEL_INIT(weivel_standard_secret);
+    memset(&memory, 0, sizeof memory);
+    definition = secrets_over(&memory);
+    CHECK(definition.set(definition.context, "token", (const uint8_t *)"abc", 3, NULL) == WEIVEL_STATUS_OK);
+
+    memset(&newer, 0xab, sizeof newer);
+    newer.secret.size = (uint32_t)sizeof newer;
+    newer.secret.storage = NULL;
+    CHECK(definition.get(definition.context, "token", &newer.secret, NULL) == WEIVEL_STATUS_OK);
+    CHECK(newer.secret.size == sizeof newer && newer.secret.length == 3);
+    CHECK(newer.appended_later == 0);
+    newer.appended_later = 7;
+    definition.release_secret(definition.context, &newer.secret);
+    CHECK(newer.secret.size == sizeof newer && newer.secret.storage == NULL && newer.appended_later == 0);
+
+    below.size = (uint32_t)offsetof(weivel_standard_secret, storage);
+    CHECK(definition.get(definition.context, "token", &below, NULL) == WEIVEL_STATUS_MALFORMED);
+    CHECK(below.bytes == NULL);
     secrets_drop(&memory);
 }
 
@@ -584,13 +694,13 @@ static void an_older_definition_offers_only_what_its_size_covers(void) {
     memset(&memory, 0, sizeof memory);
     definition = config_over(&memory);
     CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, set));
-    CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release));
+    CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release_refusal));
     definition.size = (uint32_t)offsetof(weivel_standard_config, set);
     CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, get));
     CHECK(!WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, set));
     definition.size = (uint32_t)sizeof definition;
-    definition.release = NULL;
-    CHECK(!WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release));
+    definition.release_refusal = NULL;
+    CHECK(!WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release_refusal));
 }
 
 /** A published number read through a table, so a compiler that warns on a constant condition still builds it. */
@@ -636,6 +746,7 @@ int main(void) {
     config_refuses_and_rejects_malformed_calls();
     secrets_keep_bytes();
     secrets_refuse_and_reject_malformed_calls();
+    answers_follow_the_size_convention();
     paths_answer_their_directories();
     an_older_definition_offers_only_what_its_size_covers();
     the_published_numbers_and_shapes_hold();
