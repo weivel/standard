@@ -1,5 +1,7 @@
 #include "weivel/json.h"
 
+#include "allocation.h"
+
 #include <locale.h>
 #include <math.h>
 #include <stdio.h>
@@ -103,7 +105,7 @@ static void skip_whitespace(parser *state) {
 }
 
 static weivel_json_value *new_value(weivel_json_kind kind) {
-    weivel_json_value *value = calloc(1, sizeof(*value));
+    weivel_json_value *value = weivel_standard_memory_allocate_zeroed(1, sizeof(*value));
     if (value != NULL) {
         value->kind = kind;
     }
@@ -117,7 +119,7 @@ static int buffer_append(text_buffer *buffer, const char *bytes, size_t count) {
         while (wanted < buffer->length + count + 1) {
             wanted *= 2;
         }
-        grown = realloc(buffer->data, wanted);
+        grown = weivel_standard_memory_reallocate(buffer->data, wanted);
         if (grown == NULL) {
             return 0;
         }
@@ -296,12 +298,12 @@ static weivel_json_value *parse_string(parser *state) {
     text_buffer buffer = {NULL, 0, 0};
     weivel_json_value *value;
     if (!read_string(state, &buffer)) {
-        free(buffer.data);
+        weivel_standard_memory_release(buffer.data);
         return NULL;
     }
     value = new_value(WEIVEL_JSON_STRING);
     if (value == NULL) {
-        free(buffer.data);
+        weivel_standard_memory_release(buffer.data);
         return fail(state, "out of memory");
     }
     value->text = buffer.data;
@@ -436,18 +438,18 @@ static weivel_json_value *parse_number(parser *state) {
         return NULL;
     }
     length = end - state->position;
-    copy = malloc(length + strlen(decimal_point()) + 1);
+    copy = weivel_standard_memory_allocate(length + strlen(decimal_point()) + 1);
     value = new_value(WEIVEL_JSON_NUMBER);
     if (copy == NULL || value == NULL) {
-        free(copy);
-        free(value);
+        weivel_standard_memory_release(copy);
+        weivel_standard_memory_release(value);
         return fail(state, "out of memory");
     }
     memcpy(copy, state->text + state->position, length);
     copy[length] = '\0';
     value->real = read_real(copy);
     if (!isfinite(value->real)) {
-        free(copy);
+        weivel_standard_memory_release(copy);
         weivel_json_free(value);
         return fail(state, "number is not finite");
     }
@@ -455,7 +457,7 @@ static weivel_json_value *parse_number(parser *state) {
         int negative = copy[0] == '-';
         value->is_integer = accumulate_integer(copy + negative, negative, &value->integer);
     }
-    free(copy);
+    weivel_standard_memory_release(copy);
     state->position = end;
     return value;
 }
@@ -463,7 +465,7 @@ static weivel_json_value *parse_number(parser *state) {
 static int append_member(weivel_json_value *container, char *key, weivel_json_value *member) {
     if (container->count == container->capacity) {
         size_t wanted = container->capacity == 0 ? 4 : container->capacity * 2;
-        weivel_json_member *grown = realloc(container->members, wanted * sizeof(*grown));
+        weivel_json_member *grown = weivel_standard_memory_reallocate(container->members, wanted * sizeof(*grown));
         if (grown == NULL) {
             return 0;
         }
@@ -493,11 +495,11 @@ static int read_object_key(parser *state, char **key) {
         return 0;
     }
     if (!read_string(state, &buffer)) {
-        free(buffer.data);
+        weivel_standard_memory_release(buffer.data);
         return 0;
     }
     if (memchr(buffer.data, '\0', buffer.length) != NULL) {
-        free(buffer.data);
+        weivel_standard_memory_release(buffer.data);
         state->position = key_position;
         fail(state, "object key contains a NUL character");
         return 0;
@@ -525,23 +527,23 @@ static int read_object_member(parser *state, weivel_json_value *object) {
     }
     if (has_member(object, key)) {
         fail_naming_key(state, key_position, key);
-        free(key);
+        weivel_standard_memory_release(key);
         return 0;
     }
     skip_whitespace(state);
     if (peek(state) != ':') {
-        free(key);
+        weivel_standard_memory_release(key);
         fail(state, "expected ':' after key");
         return 0;
     }
     state->position++;
     member = parse_value(state);
     if (member == NULL) {
-        free(key);
+        weivel_standard_memory_release(key);
         return 0;
     }
     if (!append_member(object, key, member)) {
-        free(key);
+        weivel_standard_memory_release(key);
         weivel_json_free(member);
         fail(state, "out of memory");
         return 0;
@@ -736,12 +738,12 @@ void weivel_json_free(weivel_json_value *value) {
         return;
     }
     for (index = 0; index < value->count; index++) {
-        free(value->members[index].key);
+        weivel_standard_memory_release(value->members[index].key);
         weivel_json_free(value->members[index].value);
     }
-    free(value->members);
-    free(value->text);
-    free(value);
+    weivel_standard_memory_release(value->members);
+    weivel_standard_memory_release(value->text);
+    weivel_standard_memory_release(value);
 }
 
 weivel_json_kind weivel_json_kind_of(const weivel_json_value *value) {

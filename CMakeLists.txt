@@ -16,17 +16,33 @@ function(standard_strict_warnings target)
     endif()
 endfunction()
 
+if(NOT TARGET weivel_core)
+    if(NOT EXISTS ${PROJECT_SOURCE_DIR}/siblings/core/CMakeLists.txt)
+        message(FATAL_ERROR "siblings/core is missing: link or clone the core checkout there "
+            "(for example a directory junction or symlink named siblings/core pointing at the core repository)")
+    endif()
+    add_subdirectory(siblings/core core EXCLUDE_FROM_ALL)
+endif()
+
 set(WEIVEL_STANDARD_SOURCES
-    src/json.c)
+    src/allocation.c
+    src/json.c
+    src/manifest.c)
 
 function(standard_target target)
-    target_include_directories(${target} PUBLIC include)
+    target_include_directories(${target} PUBLIC include
+        $<TARGET_PROPERTY:weivel_core,INTERFACE_INCLUDE_DIRECTORIES>)
     standard_strict_warnings(${target})
 endfunction()
 
 add_library(weivel_standard STATIC ${WEIVEL_STANDARD_SOURCES})
 standard_target(weivel_standard)
 set_target_properties(weivel_standard PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+add_library(weivel_standard_testing STATIC EXCLUDE_FROM_ALL ${WEIVEL_STANDARD_SOURCES})
+standard_target(weivel_standard_testing)
+target_include_directories(weivel_standard_testing PUBLIC src)
+target_compile_definitions(weivel_standard_testing PUBLIC WEIVEL_STANDARD_TESTING)
 
 add_library(weivel_standard_shared SHARED ${WEIVEL_STANDARD_SOURCES})
 standard_target(weivel_standard_shared)
