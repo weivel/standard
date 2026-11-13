@@ -177,14 +177,14 @@ static void unknown_fields_are_ignored(void) {
     const weivel_manifest *view = read_view(
         "{\"importName\": \"open\", \"ui\": {\"screens\": [1, 2]}, \"settings\": null, \"dependencies\": 5,"
         " \"capabilities\": {\"provides\": [\"a\"], \"later\": true},"
-        " \"services\": {\"other\": null, \"provides\": [{\"id\": \"open:x\", \"weight\": \"heavy\"}],"
+        " \"services\": {\"other\": null, \"provides\": [{\"id\": \"open:x\", \"attributes\": {\"latency\": 1}, \"weight\": \"heavy\"}],"
         "   \"consumes\": [{\"id\": \"y\", \"note\": [null]}]}}",
         &manifest);
     CHECK(view != NULL);
     if (view != NULL) {
         check_text(view->import_name, "open", "importName");
         CHECK(view->capabilities.provides.count == 1);
-        CHECK(view->services.provides.count == 1 && view->services.provides.items[0].attributes.count == 0);
+        CHECK(view->services.provides.count == 1 && view->services.provides.items[0].attributes.count == 1);
         CHECK(view->services.consumes.count == 1);
         if (view->services.consumes.count == 1) {
             check_text(view->services.consumes.items[0].id, "y", "services.consumes[0].id");
