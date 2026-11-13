@@ -145,11 +145,25 @@ void fixture_unlock(const char *path) {
     }
 }
 
+#ifndef SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
+#define SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE 0x2
+#endif
+
 int fixture_link(const char *directory, const char *name, const char *target) {
-    (void)directory;
-    (void)name;
-    (void)target;
-    return 0;
+    char path[FIXTURE_PATH_CAPACITY];
+    wchar_t *wide_path;
+    wchar_t *wide_target;
+    int linked = 0;
+    fixture_join(path, directory, name);
+    wide_path = wide_of(path);
+    wide_target = wide_of(target);
+    if (wide_path != NULL && wide_target != NULL) {
+        DeleteFileW(wide_path);
+        linked = CreateSymbolicLinkW(wide_path, wide_target, SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0;
+    }
+    free(wide_path);
+    free(wide_target);
+    return linked;
 }
 
 #else
