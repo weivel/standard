@@ -21,13 +21,15 @@ typedef enum {
 
 /**
  * message points at a string literal, or into detail when the refusal names part of the input (a
- * duplicate key), so it stays valid for as long as the weivel_json_error itself does.
+ * duplicate key), so it stays valid for as long as the weivel_json_error itself does. out_of_memory
+ * is 1 when the text could not be read because memory ran out, and 0 when the text is malformed.
  */
 typedef struct {
     int line;
     int column;
     const char *message;
     char detail[WEIVEL_JSON_ERROR_DETAIL_CAPACITY];
+    int out_of_memory;
 } weivel_json_error;
 
 /**

@@ -40,10 +40,13 @@ static void every_failed_allocation_leaves_nothing(const char *text, weivel_stat
         weivel_standard_manifest *manifest = NULL;
         weivel_standard_refusal refusal = {0};
         weivel_status status;
+        int failed;
         weivel_standard_memory_fail_at(nth);
         status = weivel_standard_read_manifest(text, strlen(text), &manifest, &refusal);
+        failed = weivel_standard_memory_failed();
         weivel_standard_memory_fail_at(0);
-        if (status == settled && !weivel_standard_memory_failed()) {
+        if (!failed) {
+            CHECK(status == settled);
             weivel_standard_manifest_release(manifest);
             weivel_standard_refusal_release(&refusal);
             CHECK(weivel_standard_memory_live_blocks() == 0);

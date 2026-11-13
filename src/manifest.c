@@ -484,11 +484,6 @@ static int read_document(reading *state, const weivel_json_value *root, weivel_m
            read_strings(state, member_of(root, "permissions"), &permissions, &view->permissions);
 }
 
-/** The reader answers no status of its own, so running out of memory is told apart from malformed text by its message. */
-static int parse_ran_out_of_memory(const weivel_json_error *error) {
-    return error->message != NULL && strcmp(error->message, "out of memory") == 0;
-}
-
 static weivel_status refuse_malformed_json(weivel_standard_refusal *refusal, const weivel_json_error *error) {
     refusal_texts texts = {NULL, NULL, NULL};
     if (refusal == NULL) {
@@ -539,7 +534,7 @@ static weivel_status convert(const weivel_json_value *root, weivel_standard_mani
 
 weivel_status weivel_standard_read_manifest(const char *json, size_t length, weivel_standard_manifest **manifest,
                                             weivel_standard_refusal *refusal) {
-    weivel_json_error error = {0, 0, NULL, {0}};
+    weivel_json_error error = {0};
     weivel_json_value *root;
     weivel_status status;
     if (manifest != NULL) {
@@ -557,7 +552,7 @@ weivel_status weivel_standard_read_manifest(const char *json, size_t length, wei
     }
     root = weivel_json_parse(json, length, &error);
     if (root == NULL) {
-        return parse_ran_out_of_memory(&error) ? WEIVEL_STATUS_OUT_OF_MEMORY : refuse_malformed_json(refusal, &error);
+        return error.out_of_memory ? WEIVEL_STATUS_OUT_OF_MEMORY : refuse_malformed_json(refusal, &error);
     }
     status = convert(root, manifest, refusal);
     weivel_json_free(root);

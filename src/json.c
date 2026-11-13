@@ -68,6 +68,12 @@ static weivel_json_value *fail(parser *state, const char *message) {
     return NULL;
 }
 
+static weivel_json_value *fail_out_of_memory(parser *state) {
+    fail(state, "out of memory");
+    state->failure.out_of_memory = 1;
+    return NULL;
+}
+
 static size_t whole_character_prefix(const char *text, size_t maximum) {
     size_t length = strlen(text);
     if (length <= maximum) {
@@ -221,7 +227,7 @@ static int read_unicode_escape(parser *state, text_buffer *buffer) {
         unit = 0x10000 + ((unit - 0xD800) << 10) + (low - 0xDC00);
     }
     if (!append_code_point(buffer, unit)) {
-        fail(state, "out of memory");
+        fail_out_of_memory(state);
         return 0;
     }
     return 1;
@@ -251,7 +257,7 @@ static int read_escape(parser *state, text_buffer *buffer) {
     }
     state->position++;
     if (!buffer_append(buffer, simple, 1)) {
-        fail(state, "out of memory");
+        fail_out_of_memory(state);
         return 0;
     }
     return 1;
@@ -277,7 +283,7 @@ static int read_string_body(parser *state, text_buffer *buffer) {
                 return 0;
             }
         } else if (!buffer_append(buffer, &current, 1)) {
-            fail(state, "out of memory");
+            fail_out_of_memory(state);
             return 0;
         }
     }
@@ -288,7 +294,7 @@ static int read_string_body(parser *state, text_buffer *buffer) {
 static int read_string(parser *state, text_buffer *buffer) {
     state->position++;
     if (!buffer_append(buffer, "", 0)) {
-        fail(state, "out of memory");
+        fail_out_of_memory(state);
         return 0;
     }
     return read_string_body(state, buffer);
@@ -304,7 +310,7 @@ static weivel_json_value *parse_string(parser *state) {
     value = new_value(WEIVEL_JSON_STRING);
     if (value == NULL) {
         weivel_standard_memory_release(buffer.data);
-        return fail(state, "out of memory");
+        return fail_out_of_memory(state);
     }
     value->text = buffer.data;
     value->text_length = buffer.length;
@@ -323,7 +329,7 @@ static weivel_json_value *parse_literal(parser *state, const char *literal, weiv
     }
     value = new_value(kind);
     if (value == NULL) {
-        return fail(state, "out of memory");
+        return fail_out_of_memory(state);
     }
     state->position += strlen(literal);
     value->boolean = boolean;
@@ -443,7 +449,7 @@ static weivel_json_value *parse_number(parser *state) {
     if (copy == NULL || value == NULL) {
         weivel_standard_memory_release(copy);
         weivel_standard_memory_release(value);
-        return fail(state, "out of memory");
+        return fail_out_of_memory(state);
     }
     memcpy(copy, state->text + state->position, length);
     copy[length] = '\0';
@@ -545,7 +551,7 @@ static int read_object_member(parser *state, weivel_json_value *object) {
     if (!append_member(object, key, member)) {
         weivel_standard_memory_release(key);
         weivel_json_free(member);
-        fail(state, "out of memory");
+        fail_out_of_memory(state);
         return 0;
     }
     return 1;
@@ -558,7 +564,7 @@ static int read_array_element(parser *state, weivel_json_value *array) {
     }
     if (!append_member(array, NULL, element)) {
         weivel_json_free(element);
-        fail(state, "out of memory");
+        fail_out_of_memory(state);
         return 0;
     }
     return 1;
@@ -601,7 +607,7 @@ static weivel_json_value *parse_container(parser *state, weivel_json_kind kind, 
     }
     container = new_value(kind);
     if (container == NULL) {
-        return fail(state, "out of memory");
+        return fail_out_of_memory(state);
     }
     state->position++;
     if (!read_container_items(state, container, closing)) {

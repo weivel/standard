@@ -9,7 +9,7 @@ static weivel_json_value *parse_text(const char *text) {
 }
 
 static void check_refused(const char *text, int line, int column, const char *message) {
-    weivel_json_error error = {0, 0, NULL};
+    weivel_json_error error = {0};
     weivel_json_value *value = weivel_json_parse(text, strlen(text), &error);
     CHECK(value == NULL);
     check_text(error.message, message, text);
@@ -218,7 +218,7 @@ static void reads_numbers_the_same_in_a_decimal_comma_locale(void) {
 static void refuses_nesting_that_would_overflow_the_stack(void) {
     size_t depth = 1000;
     char *text = malloc(depth + 1);
-    weivel_json_error error = {0, 0, NULL};
+    weivel_json_error error = {0};
     CHECK(text != NULL);
     memset(text, '[', depth);
     text[depth] = '\0';
