@@ -58,9 +58,9 @@ typedef struct weivel_standard_library {
 
 /**
  * Reads a library declaration and checks it by the declaration's rules, answering the first field that breaks one.
- * The format is closed: a field it does not define is refused. `$schema` is accepted as a string, for an editor, and
- * not kept, since where a schema is published is no part of what a library is. How a language binds the functions is
- * the language layer's business, not the declaration's.
+ * A field the format does not define is ignored at every level, so a declaration written for a later version still
+ * loads; `$schema` is one of them, as where a schema is published is no part of what a library is. How a language
+ * binds the functions is the language layer's business, not the declaration's.
  *
  * @param json the document, read only during the call; it need not be NUL-terminated. Required.
  * @param library the caller's empty declaration; filled on WEIVEL_STATUS_OK and left empty on every other answer.

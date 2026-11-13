@@ -149,7 +149,7 @@ void fixture_unlock(const char *path) {
 #define SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE 0x2
 #endif
 
-int fixture_link(const char *directory, const char *name, const char *target) {
+static int make_link(const char *directory, const char *name, const char *target, DWORD flags) {
     char path[FIXTURE_PATH_CAPACITY];
     wchar_t *wide_path;
     wchar_t *wide_target;
@@ -159,11 +159,20 @@ int fixture_link(const char *directory, const char *name, const char *target) {
     wide_target = wide_of(target);
     if (wide_path != NULL && wide_target != NULL) {
         DeleteFileW(wide_path);
-        linked = CreateSymbolicLinkW(wide_path, wide_target, SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0;
+        RemoveDirectoryW(wide_path);
+        linked = CreateSymbolicLinkW(wide_path, wide_target, flags | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0;
     }
     free(wide_path);
     free(wide_target);
     return linked;
+}
+
+int fixture_link(const char *directory, const char *name, const char *target) {
+    return make_link(directory, name, target, 0);
+}
+
+int fixture_link_directory(const char *directory, const char *name, const char *target) {
+    return make_link(directory, name, target, SYMBOLIC_LINK_FLAG_DIRECTORY);
 }
 
 #else
@@ -241,6 +250,10 @@ int fixture_link(const char *directory, const char *name, const char *target) {
     fixture_join(path, directory, name);
     unlink(path);
     return symlink(target, path) == 0;
+}
+
+int fixture_link_directory(const char *directory, const char *name, const char *target) {
+    return fixture_link(directory, name, target);
 }
 
 #endif

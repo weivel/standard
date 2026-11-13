@@ -7,8 +7,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#define READ_CHUNK ((DWORD)1 << 30)
-
 /** `text` with `suffix` appended, as UTF-16, into `*wide`; UNREADABLE when `text` is not UTF-8. */
 static weivel_standard_files_outcome wide_of(const char *text, const wchar_t *suffix, wchar_t **wide) {
     int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, NULL, 0);
@@ -117,8 +115,10 @@ static weivel_standard_file_kind kind_of(const wchar_t *path) {
     if (attributes == INVALID_FILE_ATTRIBUTES) {
         return is_not_found(GetLastError()) ? WEIVEL_STANDARD_FILE_NOTHING : WEIVEL_STANDARD_FILE_UNKNOWN;
     }
-    return (attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) ? WEIVEL_STANDARD_FILE_OTHER
-                                                                                     : WEIVEL_STANDARD_FILE_REGULAR;
+    if (attributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+        return WEIVEL_STANDARD_FILE_LINK;
+    }
+    return (attributes & FILE_ATTRIBUTE_DIRECTORY) ? WEIVEL_STANDARD_FILE_DIRECTORY : WEIVEL_STANDARD_FILE_REGULAR;
 }
 
 weivel_standard_files_outcome weivel_standard_files_kind(const char *path, weivel_standard_file_kind *kind) {
@@ -140,8 +140,11 @@ static weivel_standard_files_outcome read_open(HANDLE handle, char **bytes, size
     size_t total;
     size_t done = 0;
     char *buffer;
-    if (!GetFileSizeEx(handle, &size) || size.QuadPart < 0 || (unsigned long long)size.QuadPart >= SIZE_MAX) {
+    if (!GetFileSizeEx(handle, &size) || size.QuadPart < 0) {
         return WEIVEL_STANDARD_FILES_UNREADABLE;
+    }
+    if ((unsigned long long)size.QuadPart > WEIVEL_STANDARD_FILES_LARGEST_READ) {
+        return WEIVEL_STANDARD_FILES_TOO_LARGE;
     }
     total = (size_t)size.QuadPart;
     buffer = weivel_standard_memory_allocate(total + 1);
@@ -149,9 +152,8 @@ static weivel_standard_files_outcome read_open(HANDLE handle, char **bytes, size
         return WEIVEL_STANDARD_FILES_OUT_OF_MEMORY;
     }
     while (done < total) {
-        DWORD wanted = total - done > READ_CHUNK ? READ_CHUNK : (DWORD)(total - done);
         DWORD read = 0;
-        if (!ReadFile(handle, buffer + done, wanted, &read, NULL) || read == 0) {
+        if (!ReadFile(handle, buffer + done, (DWORD)(total - done), &read, NULL) || read == 0) {
             weivel_standard_memory_release(buffer);
             return WEIVEL_STANDARD_FILES_UNREADABLE;
         }
