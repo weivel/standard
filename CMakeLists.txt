@@ -32,8 +32,11 @@ set(WEIVEL_STANDARD_SOURCES
     src/layout.c
     src/library.c
     src/manifest.c
+    src/mirrors.c
     src/patterns.c
     src/report.c
+    src/services.c
+    src/sha256.c
     src/validate.c)
 if(WIN32)
     list(APPEND WEIVEL_STANDARD_SOURCES src/files_windows.c)
