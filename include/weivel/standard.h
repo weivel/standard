@@ -14,7 +14,7 @@ typedef enum weivel_standard_refusal_code {
     WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL = 1,
     /** The text is not one well-formed JSON document; detail gives the line and column. */
     WEIVEL_STANDARD_REFUSAL_MALFORMED_JSON = 2,
-    /** A field the core's manifest carries holds a JSON value of the wrong type; path names it. */
+    /** A field holds a JSON value of the wrong type; path names it. */
     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE = 3,
     /**
      * A field has the right type and a value the core's manifest cannot hold: an api outside 0 to 4294967295, a
@@ -25,12 +25,23 @@ typedef enum weivel_standard_refusal_code {
     WEIVEL_STANDARD_REFUSAL_MISSING_FIELD = 5,
     /** A field has the right type and a value its rule refuses (a pattern, a minimum, a length); path names it. */
     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE = 6,
-    /** A list item repeats an earlier one (V1, or `uniqueItems`); path names the later occurrence. */
+    /**
+     * A list item repeats an earlier one (V1, or `uniqueItems`); path names the later occurrence. Discovery also
+     * answers it for a plugin whose identity another plugin of the directory already holds.
+     */
     WEIVEL_STANDARD_REFUSAL_DUPLICATE = 7,
     /** A provided service id is neither namespaced by the plugin's importName nor well-known to the host (V2). */
     WEIVEL_STANDARD_REFUSAL_NOT_WELL_KNOWN = 8,
     /** A field is present beside one that excludes it, as a dependency's `name` beside its `id`; path names it. */
-    WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD = 9
+    WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD = 9,
+    /** A field a closed format does not define, as a library declaration's; path names it. */
+    WEIVEL_STANDARD_REFUSAL_UNKNOWN_FIELD = 10,
+    /** A file or directory exists and could not be read, or is not the kind of thing that was needed. */
+    WEIVEL_STANDARD_REFUSAL_UNREADABLE = 11,
+    /** The directory named does not exist. */
+    WEIVEL_STANDARD_REFUSAL_NOT_FOUND = 12,
+    /** A manifest's file name is not `<importName>.json` for the importName it states. */
+    WEIVEL_STANDARD_REFUSAL_NAME_MISMATCH = 13
 } weivel_standard_refusal_code;
 
 /**

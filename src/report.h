@@ -32,6 +32,15 @@ void weivel_standard_release_texts(weivel_standard_refusal_texts *texts);
 int weivel_standard_fill_refusal(weivel_standard_refusal *refusal, uint32_t code,
                                  weivel_standard_refusal_texts texts);
 
+/** Fills a MALFORMED_JSON refusal at path "" from the reader's error; REFUSED, or OUT_OF_MEMORY. */
+weivel_status weivel_standard_refuse_malformed_json(weivel_standard_refusal *refusal, const weivel_json_error *error);
+
+/** Fills a MALFORMED_CALL refusal at path "" when `refusal` is given; MALFORMED, or OUT_OF_MEMORY. */
+weivel_status weivel_standard_refuse_call(weivel_standard_refusal *refusal, const char *detail, const char *fix);
+
+/** 1 when a refusal the caller passed already holds one, which a call refuses to overwrite. */
+int weivel_standard_refusal_holds_one(const weivel_standard_refusal *refusal);
+
 /** How a field is named in a sentence: its path, or "the manifest" for the root. */
 const char *weivel_standard_subject_of(const char *path);
 

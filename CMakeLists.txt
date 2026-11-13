@@ -26,12 +26,20 @@ endif()
 
 set(WEIVEL_STANDARD_SOURCES
     src/allocation.c
+    src/file_names.c
     src/identity.c
     src/json.c
+    src/layout.c
+    src/library.c
     src/manifest.c
     src/patterns.c
     src/report.c
     src/validate.c)
+if(WIN32)
+    list(APPEND WEIVEL_STANDARD_SOURCES src/files_windows.c)
+else()
+    list(APPEND WEIVEL_STANDARD_SOURCES src/files_posix.c)
+endif()
 
 function(standard_target target)
     target_include_directories(${target} PUBLIC include

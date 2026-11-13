@@ -358,37 +358,6 @@ static int read_document(reading *state, const weivel_json_value *root, weivel_m
            read_strings(state, member_of(root, "permissions"), &permissions, &view->permissions);
 }
 
-static weivel_status refuse_malformed_json(weivel_standard_refusal *refusal, const weivel_json_error *error) {
-    refusal_texts texts = {NULL, NULL, NULL};
-    if (refusal == NULL) {
-        return WEIVEL_STATUS_REFUSED;
-    }
-    texts.detail = weivel_standard_format_text("line %d, column %d: %s", error->line, error->column,
-                               error->message == NULL ? "malformed JSON" : error->message);
-    texts.fix = weivel_standard_format_text("correct the JSON at line %d, column %d", error->line, error->column);
-    texts.path = weivel_standard_format_text("%s", "");
-    return weivel_standard_fill_refusal(refusal, WEIVEL_STANDARD_REFUSAL_MALFORMED_JSON, texts)
-               ? WEIVEL_STATUS_REFUSED
-               : WEIVEL_STATUS_OUT_OF_MEMORY;
-}
-
-static weivel_status refuse_call(weivel_standard_refusal *refusal, const char *detail, const char *fix) {
-    refusal_texts texts = {NULL, NULL, NULL};
-    if (refusal == NULL) {
-        return WEIVEL_STATUS_MALFORMED;
-    }
-    texts.detail = weivel_standard_format_text("%s", detail);
-    texts.fix = weivel_standard_format_text("%s", fix);
-    texts.path = weivel_standard_format_text("%s", "");
-    return weivel_standard_fill_refusal(refusal, WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL, texts)
-               ? WEIVEL_STATUS_MALFORMED
-               : WEIVEL_STATUS_OUT_OF_MEMORY;
-}
-
-static int refusal_holds_one(const weivel_standard_refusal *refusal) {
-    return refusal != NULL && (refusal->storage != NULL || refusal->code != WEIVEL_STANDARD_REFUSAL_NONE);
-}
-
 static weivel_status convert(const weivel_json_value *root, weivel_standard_manifest **manifest,
                              weivel_standard_refusal *refusal) {
     reading state;
@@ -416,19 +385,22 @@ weivel_status weivel_standard_read_manifest(const char *json, size_t length, wei
     if (manifest != NULL) {
         *manifest = NULL;
     }
-    if (refusal_holds_one(refusal)) {
+    if (weivel_standard_refusal_holds_one(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
     if (manifest == NULL) {
-        return refuse_call(refusal, "weivel_standard_read_manifest was given no place to put the manifest",
-                           "pass the address of a weivel_standard_manifest pointer");
+        return weivel_standard_refuse_call(refusal,
+                                           "weivel_standard_read_manifest was given no place to put the manifest",
+                                           "pass the address of a weivel_standard_manifest pointer");
     }
     if (json == NULL) {
-        return refuse_call(refusal, "weivel_standard_read_manifest was given no JSON text", "pass the manifest's text");
+        return weivel_standard_refuse_call(refusal, "weivel_standard_read_manifest was given no JSON text",
+                                           "pass the manifest's text");
     }
     root = weivel_json_parse(json, length, &error);
     if (root == NULL) {
-        return error.out_of_memory ? WEIVEL_STATUS_OUT_OF_MEMORY : refuse_malformed_json(refusal, &error);
+        return error.out_of_memory ? WEIVEL_STATUS_OUT_OF_MEMORY
+                                   : weivel_standard_refuse_malformed_json(refusal, &error);
     }
     status = convert(root, manifest, refusal);
     weivel_json_free(root);
