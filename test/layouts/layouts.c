@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "weivel/identity.h"
+#include "weivel/json.h"
 #include "weivel/layout.h"
 #include "weivel/library.h"
 #include "weivel/mirrors.h"
@@ -18,7 +19,12 @@
  *     <struct> sizeof <size>
  *
  * A struct's field lines come in declaration order and are followed by its sizeof line. A field of struct type is one
- * line; that struct is listed by its own name. An opaque struct has no layout and is not listed.
+ * line; that struct is listed by its own name. An opaque struct has no layout and is not listed. A struct a header
+ * declares only by its typedef name, as json.h does weivel_json_error, is listed by that name.
+ *
+ * An array field is one line carrying the array's total size and no element count, as `weivel_json_error detail`
+ * does, so a consumer takes the element type and count from its own declaration. Lines end in CRLF on Windows, where
+ * stdout is a text stream, and in LF elsewhere, so a consumer strips a trailing carriage return before splitting.
  */
 
 static void print_field(const char *type, const char *field, const void *instance, const void *member,
@@ -168,7 +174,18 @@ static void print_validation_layouts(void) {
     SIZE(weivel_standard_validation);
 }
 
+static void print_json_layouts(void) {
+    FIELD(weivel_json_error, size);
+    FIELD(weivel_json_error, line);
+    FIELD(weivel_json_error, column);
+    FIELD(weivel_json_error, message);
+    FIELD(weivel_json_error, detail);
+    FIELD(weivel_json_error, out_of_memory);
+    SIZE(weivel_json_error);
+}
+
 int main(void) {
+    print_json_layouts();
     print_discovery_layouts();
     print_library_layouts();
     print_service_layouts();
