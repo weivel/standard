@@ -57,3 +57,14 @@ foreach(mirrors_target mirrors_test mirrors_shared_test)
     target_compile_definitions(${mirrors_target} PRIVATE
         WEIVEL_STANDARD_MIRRORS_FIXTURE="${CMAKE_CURRENT_BINARY_DIR}/${mirrors_target}-fixture.json")
 endforeach()
+
+add_executable(layouts layouts/layouts.c)
+target_include_directories(layouts PRIVATE ${PROJECT_SOURCE_DIR}/include
+    $<TARGET_PROPERTY:weivel_core,INTERFACE_INCLUDE_DIRECTORIES>)
+standard_strict_warnings(layouts)
+add_test(NAME layouts_end_every_field_within_its_struct
+    COMMAND ${CMAKE_COMMAND} -DLAYOUTS=$<TARGET_FILE:layouts> -DCHECK=fit
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/layouts/layouts_check.cmake)
+add_test(NAME layouts_list_every_public_struct
+    COMMAND ${CMAKE_COMMAND} -DLAYOUTS=$<TARGET_FILE:layouts> -DCHECK=complete
+        -DHEADERS=${PROJECT_SOURCE_DIR}/include -P ${CMAKE_CURRENT_SOURCE_DIR}/layouts/layouts_check.cmake)
