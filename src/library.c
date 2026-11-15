@@ -317,11 +317,22 @@ static int check_context(checking *state, const weivel_json_value *function, con
     return 1;
 }
 
+/** A definition carries its context inside its own struct, so it reads no facts of the calling process. */
+static int check_definition_context(checking *state, const weivel_json_value *function, const field_path *parent) {
+    field_path path = {parent, "context", 0};
+    if (!is_definition(function) || weivel_json_object_get(function, "context") == NULL) {
+        return 1;
+    }
+    return refuse(state, WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, &path,
+                  "sits beside the kind \"definition\", whose context is inside its own struct",
+                  "remove %s from the definition");
+}
+
 static int check_function(checking *state, const weivel_json_value *function, const field_path *path) {
     return check_object(state, function, path) &&
            check_text_field(state, function, path, &FUNCTION_NAME) &&
            check_text_field(state, function, path, &FUNCTION_SYMBOL) && check_kind(state, function, path) &&
-           check_context(state, function, path);
+           check_definition_context(state, function, path) && check_context(state, function, path);
 }
 
 /** Refuses, at the function that brings them together, a definition beside any other function of its service. */

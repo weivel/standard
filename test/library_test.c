@@ -154,6 +154,14 @@ static const refused_case REFUSED[] = {
      "{'name': 'a', 'symbol': 'a', 'kind': 'bytes'}, {'name': 'b', 'symbol': 'b', 'kind': 'bytes'},"
      "{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'}]}]}",
      WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, "services[0].functions[2]"},
+    {"context facts on a definition",
+     "{'importName': 'echo', 'version': '1', 'services': [{'id': 'echo', 'functions': ["
+     "{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition', 'context': ['home']}]}]}",
+     WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, "services[0].functions[0].context"},
+    {"an empty context on a definition",
+     "{'importName': 'echo', 'version': '1', 'services': [{'id': 'echo', 'functions': ["
+     "{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition', 'context': []}]}]}",
+     WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, "services[0].functions[0].context"},
     {"two definitions in one service",
      "{'importName': 'echo', 'version': '1', 'services': [{'id': 'echo', 'functions': ["
      "{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'},"
