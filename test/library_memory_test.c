@@ -21,6 +21,9 @@ static const char *const SAMPLES[] = {
     "{\"importName\": \"echo\", \"version\": \"1\", \"release\": \"r\", \"services\": ["
     "{\"id\": \"echo\", \"functions\": [{\"name\": \"echo\", \"symbol\": \"echo_echo\", \"kind\": \"bytes\"},"
     " {\"name\": \"definition\", \"symbol\": \"echo_definition\", \"kind\": \"definition\"}]}]}",
+    "{\"importName\": \"echo\", \"version\": \"1\", \"services\": ["
+    "{\"id\": \"echo\", \"functions\": [{\"name\": \"definition\", \"symbol\": \"echo_definition\","
+    " \"kind\": \"definition\", \"context\": [\"home\"]}]}]}",
     "{\"importName\": \"echo\", \"version\": \"1\", \"release\": \"r\", \"services\": [{\"id\": \"Echo\"}]}",
     "{\"importName\": "};
 
