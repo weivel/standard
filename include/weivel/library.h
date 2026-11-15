@@ -17,7 +17,14 @@ typedef enum weivel_standard_function_kind {
      * body is the library's, freed by its `release` symbol as `void release(uint8_t *buffer)`; the input is the
      * caller's, borrowed for the call only.
      */
-    WEIVEL_STANDARD_FUNCTION_BYTES = 2
+    WEIVEL_STANDARD_FUNCTION_BYTES = 2,
+    /**
+     * One service's whole definition, as `const void *f(void)`: answers a static struct of function pointers that
+     * begins with its `uint32_t size` and lives until the library is unloaded. The struct's layout is the library's,
+     * published in its own header; the host never reads past `size`. Its operations and their memory rules are the
+     * library's too. A service that declares one declares it as its only function.
+     */
+    WEIVEL_STANDARD_FUNCTION_DEFINITION = 3
 } weivel_standard_function_kind;
 
 /** The facts of the calling process a library function reads, as bits of its `context`. */
@@ -46,8 +53,9 @@ typedef struct weivel_standard_library_service {
 } weivel_standard_library_service;
 
 /**
- * A C library's declaration: the name plugins import it by, its version, the symbol that frees what it returns, and
- * the services its functions offer. Everything it points at lives in `storage`, private to the standard, until
+ * A C library's declaration: the name plugins import it by, its version, the symbol that frees what its bytes
+ * functions return, NULL when it declares none and every service is a definition, and the services its functions
+ * offer. Everything it points at lives in `storage`, private to the standard, until
  * weivel_standard_library_release. An empty declaration has its `size` set and every other field zero, as WEIVEL_INIT
  * or a release leaves it.
  */
