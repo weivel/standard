@@ -101,8 +101,15 @@ static const refused_case REFUSED[] = {
      WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, "importName"},
     {"empty version", "{'importName': 'echo', 'version': '', 'release': 'r', 'services': []}",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "version"},
-    {"no release", "{'importName': 'echo', 'version': '1', 'services': []}", WEIVEL_STANDARD_REFUSAL_MISSING_FIELD,
-     "release"},
+    {"no release beside a bytes function",
+     "{'importName': 'echo', 'version': '1', 'services': [{'id': 'echo', 'functions': ["
+     "{'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'bytes'}]}]}",
+     WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, "release"},
+    {"no release beside a service of definitions",
+     "{'importName': 'echo', 'version': '1', 'services': ["
+     "{'id': 'whole', 'functions': [{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'}]},"
+     "{'id': 'echo', 'functions': [{'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'bytes'}]}]}",
+     WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, "release"},
     {"release not an identifier", "{'importName': 'echo', 'version': '1', 'release': '9free', 'services': []}",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "release"},
     {"no services", "{'importName': 'echo', 'version': '1', 'release': 'r'}", WEIVEL_STANDARD_REFUSAL_MISSING_FIELD,
@@ -133,6 +140,31 @@ static const refused_case REFUSED[] = {
      "services[0].functions[1].kind"},
     {"a kind in another case", WITH_FUNCTION("'kind': 'Bytes'"), WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
      "services[0].functions[1].kind"},
+    {"a struct function", WITH_FUNCTION("'kind': 'struct'"), WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
+     "services[0].functions[1].kind"},
+    {"a definition after a bytes function", WITH_FUNCTION("'kind': 'definition'"),
+     WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, "services[0].functions[1]"},
+    {"a bytes function after a definition",
+     "{'importName': 'echo', 'version': '1', 'release': 'r', 'services': [{'id': 'echo', 'functions': ["
+     "{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'},"
+     "{'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'bytes'}]}]}",
+     WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, "services[0].functions[1]"},
+    {"a definition third in its service",
+     "{'importName': 'echo', 'version': '1', 'release': 'r', 'services': [{'id': 'echo', 'functions': ["
+     "{'name': 'a', 'symbol': 'a', 'kind': 'bytes'}, {'name': 'b', 'symbol': 'b', 'kind': 'bytes'},"
+     "{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'}]}]}",
+     WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, "services[0].functions[2]"},
+    {"two definitions in one service",
+     "{'importName': 'echo', 'version': '1', 'services': [{'id': 'echo', 'functions': ["
+     "{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'},"
+     "{'name': 'again', 'symbol': 'echo_again', 'kind': 'definition'}]}]}",
+     WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, "services[0].functions[1]"},
+    {"a definition beside another function in a later service",
+     "{'importName': 'echo', 'version': '1', 'services': ["
+     "{'id': 'echo', 'functions': [{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'}]},"
+     "{'id': 'other', 'functions': [{'name': 'definition', 'symbol': 'other_definition', 'kind': 'definition'},"
+     "{'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'bytes'}]}]}",
+     WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, "services[1].functions[1]"},
     {"a context fact named twice", WITH_FUNCTION("'kind': 'bytes', 'context': ['home', 'environment', 'home']"),
      WEIVEL_STANDARD_REFUSAL_DUPLICATE, "services[0].functions[1].context[2]"},
     {"an unknown context fact", WITH_FUNCTION("'kind': 'bytes', 'context': ['clock']"),
@@ -170,6 +202,57 @@ static void ignores_fields_it_does_not_define(void) {
     CHECK(weivel_standard_read_library(json, strlen(json), &library, &refusal) == WEIVEL_STATUS_OK);
     CHECK(refusal.storage == NULL);
     CHECK(library.service_count == 1 && library.services[0].function_count == 1);
+    weivel_standard_library_release(&library);
+}
+
+static const char *const DEFINITIONS_ALONE =
+    "{'importName': 'echo', 'version': '0.2.0', 'services': ["
+    " {'id': 'echo', 'functions': [{'name': 'definition', 'symbol': 'echo_service_definition', 'kind': 'definition'}]},"
+    " {'id': 'echo-twice', 'functions': [{'name': 'definition', 'symbol': 'echo_twice_definition',"
+    " 'kind': 'definition'}]}]}";
+
+static void reads_a_library_of_definitions_with_no_release(void) {
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    const char *json = json_of(DEFINITIONS_ALONE);
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, &refusal) == WEIVEL_STATUS_OK);
+    CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_NONE && refusal.storage == NULL);
+    CHECK(library.release == NULL);
+    CHECK(library.service_count == 2);
+    if (library.service_count == 2) {
+        CHECK(library.services[0].function_count == 1 && library.services[1].function_count == 1);
+        check_text(library.services[0].functions[0].name, "definition", "definition name");
+        check_text(library.services[0].functions[0].symbol, "echo_service_definition", "definition symbol");
+        CHECK(library.services[0].functions[0].kind == WEIVEL_STANDARD_FUNCTION_DEFINITION);
+        CHECK(library.services[1].functions[0].kind == WEIVEL_STANDARD_FUNCTION_DEFINITION);
+    }
+    weivel_standard_library_release(&library);
+    weivel_standard_refusal_release(&refusal);
+}
+
+static void reads_a_release_beside_definitions_alone(void) {
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    const char *json = json_of(
+        "{'importName': 'echo', 'version': '1', 'release': 'echo_release', 'services': [{'id': 'echo', 'functions': ["
+        "{'name': 'definition', 'symbol': 'echo_service_definition', 'kind': 'definition'}]}]}");
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, NULL) == WEIVEL_STATUS_OK);
+    check_text(library.release, "echo_release", "a release beside definitions");
+    weivel_standard_library_release(&library);
+}
+
+static void reads_a_definition_service_beside_a_bytes_service(void) {
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    const char *json = json_of(
+        "{'importName': 'echo', 'version': '1', 'release': 'echo_release', 'services': ["
+        "{'id': 'whole', 'functions': [{'name': 'definition', 'symbol': 'echo_service_definition',"
+        " 'kind': 'definition'}]},"
+        "{'id': 'echo', 'functions': [{'name': 'echo', 'symbol': 'echo_echo', 'kind': 'bytes'}]}]}");
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, NULL) == WEIVEL_STATUS_OK);
+    CHECK(library.service_count == 2);
+    if (library.service_count == 2) {
+        CHECK(library.services[0].functions[0].kind == WEIVEL_STANDARD_FUNCTION_DEFINITION);
+        CHECK(library.services[1].functions[0].kind == WEIVEL_STANDARD_FUNCTION_BYTES);
+    }
     weivel_standard_library_release(&library);
 }
 
@@ -216,6 +299,9 @@ int main(void) {
         refuses_by_path(&REFUSED[at]);
     }
     ignores_fields_it_does_not_define();
+    reads_a_library_of_definitions_with_no_release();
+    reads_a_release_beside_definitions_alone();
+    reads_a_definition_service_beside_a_bytes_service();
     refuses_a_nul_in_a_name();
     refuses_without_a_refusal_to_fill();
     refuses_a_malformed_call();

@@ -42,7 +42,8 @@ typedef struct kind_name {
     uint32_t kind;
 } kind_name;
 
-static const kind_name KIND_NAMES[] = {{"bytes", WEIVEL_STANDARD_FUNCTION_BYTES}};
+static const kind_name KIND_NAMES[] = {{"bytes", WEIVEL_STANDARD_FUNCTION_BYTES},
+                                       {"definition", WEIVEL_STANDARD_FUNCTION_DEFINITION}};
 
 static const context_name CONTEXT_NAMES[] = {{"environment", WEIVEL_STANDARD_CONTEXT_ENVIRONMENT},
                                              {"home", WEIVEL_STANDARD_CONTEXT_HOME},
@@ -260,10 +261,14 @@ static int check_kind(checking *state, const weivel_json_value *function, const 
         return 0;
     }
     if (kind_named(weivel_json_as_string(value)) == 0) {
-        return refuse(state, WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, &path, "is not \"bytes\"",
-                      "set \"kind\" to \"bytes\"");
+        return refuse(state, WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, &path, "is not \"bytes\" or \"definition\"",
+                      "set \"kind\" to \"bytes\" or \"definition\"");
     }
     return 1;
+}
+
+static int is_definition(const weivel_json_value *function) {
+    return kind_of(function) == WEIVEL_STANDARD_FUNCTION_DEFINITION;
 }
 
 static uint32_t context_fact_of(const char *name) {
@@ -319,16 +324,59 @@ static int check_function(checking *state, const weivel_json_value *function, co
            check_context(state, function, path);
 }
 
+/** Refuses, at the function that brings them together, a definition beside any other function of its service. */
+static int check_definition_alone(checking *state, const weivel_json_value *service, const field_path *parent) {
+    const weivel_json_value *functions = weivel_json_object_get(service, "functions");
+    field_path path = {parent, "functions", 0};
+    int definition_seen = is_definition(weivel_json_array_at(functions, 0));
+    size_t at;
+    for (at = 1; at < weivel_json_array_length(functions); at++) {
+        field_path item = {&path, NULL, at};
+        definition_seen = definition_seen || is_definition(weivel_json_array_at(functions, at));
+        if (definition_seen) {
+            return refuse(state, WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, &item,
+                          "sits beside a definition, which must be its service's only function",
+                          "declare a definition as the only function of its service, and move %s to another service");
+        }
+    }
+    return 1;
+}
+
 static int check_service(checking *state, const weivel_json_value *service, const field_path *path) {
     return check_object(state, service, path) &&
            check_text_field(state, service, path, &SERVICE_ID) &&
-           check_list(state, service, path, "functions", check_function);
+           check_list(state, service, path, "functions", check_function) &&
+           check_definition_alone(state, service, path);
+}
+
+static int declares_only_definitions(const weivel_json_value *root) {
+    const weivel_json_value *services = weivel_json_object_get(root, "services");
+    size_t at;
+    for (at = 0; at < weivel_json_array_length(services); at++) {
+        const weivel_json_value *functions = weivel_json_object_get(weivel_json_array_at(services, at), "functions");
+        if (!is_definition(weivel_json_array_at(functions, 0))) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int check_release_if_present(checking *state, const weivel_json_value *root) {
+    return weivel_json_object_get(root, RELEASE.key) == NULL || check_text_field(state, root, NULL, &RELEASE);
+}
+
+/** A definition carries its own release, so only a library declaring a bytes function needs the symbol. */
+static int check_release_needed(checking *state, const weivel_json_value *root) {
+    field_path path = {NULL, "release", 0};
+    return weivel_json_object_get(root, RELEASE.key) != NULL || declares_only_definitions(root) ||
+           refuse_missing(state, &path);
 }
 
 static int check_library(checking *state, const weivel_json_value *root) {
     return check_object(state, root, NULL) &&
            check_text_field(state, root, NULL, &IMPORT_NAME) && check_text_field(state, root, NULL, &VERSION) &&
-           check_text_field(state, root, NULL, &RELEASE) && check_list(state, root, NULL, "services", check_service);
+           check_release_if_present(state, root) && check_list(state, root, NULL, "services", check_service) &&
+           check_release_needed(state, root);
 }
 
 static uint32_t context_of(const weivel_json_value *function) {
