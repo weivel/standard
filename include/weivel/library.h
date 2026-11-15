@@ -22,7 +22,8 @@ typedef enum weivel_standard_function_kind {
      * One service's whole definition, as `const void *f(void)`: answers a static struct of function pointers that
      * begins with its `uint32_t size` and lives until the library is unloaded. The struct's layout is the library's,
      * published in its own header; the host never reads past `size`. Its operations and their memory rules are the
-     * library's too. A service that declares one declares it as its only function.
+     * library's too. A service that declares one declares it as its only function, and it declares no `context`,
+     * since its struct carries its own.
      */
     WEIVEL_STANDARD_FUNCTION_DEFINITION = 3
 } weivel_standard_function_kind;
