@@ -10,6 +10,9 @@
 # refuse it; the headers that use them include it.
 # A relative header is read from the calling directory. The generated sources include weivel/description.h and each
 # header by its absolute path, so <target> is given weivel/standard's include directories.
+# It is called from the directory that defines <target>: a generated source is known as generated only to its own
+# directory under the policies of the standard's minimum CMake (CMP0118 OLD), so a call from elsewhere is refused.
+# weivel-describe runs on the build machine, so a cross-compiled library cannot be described.
 
 include_guard(GLOBAL)
 
@@ -19,6 +22,11 @@ function(weivel_describe target)
     endif()
     if(NOT TARGET weivel-describe OR NOT TARGET weivel_standard)
         message(FATAL_ERROR "weivel_describe: add weivel/standard first, which builds weivel-describe")
+    endif()
+    get_target_property(defined_in ${target} SOURCE_DIR)
+    if(NOT defined_in STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+        message(FATAL_ERROR "weivel_describe: ${target} is defined in ${defined_in}, so call weivel_describe there; "
+            "a source generated in ${CMAKE_CURRENT_SOURCE_DIR} would not be known as generated to ${target}")
     endif()
     set(single_keywords PREFIX EXPORT STATUS REFUSAL VALUE TREE)
     set(headers)

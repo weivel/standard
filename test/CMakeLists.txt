@@ -45,7 +45,10 @@ endforeach()
 standard_test(describe_test describe_test weivel_describe_reader)
 standard_test(describe_memory_test describe_memory_test weivel_describe_writer_testing)
 standard_test(describe_write_test describe_write_test weivel_describe_writer)
-foreach(describe_target describe_test describe_memory_test describe_write_test)
+standard_test(describe_program_memory_test describe_program_memory_test weivel_describe_writer_testing)
+target_compile_definitions(describe_program_memory_test PRIVATE
+    WEIVEL_DESCRIBE_PROGRAM_OUTPUT="${CMAKE_CURRENT_BINARY_DIR}/describe-program-memory.c")
+foreach(describe_target describe_test describe_memory_test describe_write_test describe_program_memory_test)
     target_compile_definitions(${describe_target} PRIVATE
         WEIVEL_DESCRIBE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/describe"
         WEIVEL_DESCRIBE_SERVICES_HEADER="${PROJECT_SOURCE_DIR}/include/weivel/services.h")
@@ -70,6 +73,17 @@ foreach(scenario refused usage)
             -DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/describe -DWORK=${CMAKE_CURRENT_BINARY_DIR}/describe-program
             -P ${CMAKE_CURRENT_SOURCE_DIR}/describe/program_check.cmake)
 endforeach()
+
+set(describe_compiler)
+if(NOT CMAKE_GENERATOR MATCHES "Visual Studio|Xcode")
+    set(describe_compiler -DCOMPILER=${CMAKE_C_COMPILER})
+endif()
+add_test(NAME describe_function_refuses_another_directory
+    COMMAND ${CMAKE_COMMAND} -DSTANDARD=${PROJECT_SOURCE_DIR} -DCORE=${WEIVEL_CORE_SOURCE_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/describe-elsewhere -DGENERATOR=${CMAKE_GENERATOR}
+        -DPLATFORM=${CMAKE_GENERATOR_PLATFORM} -DTOOLSET=${CMAKE_GENERATOR_TOOLSET} ${describe_compiler}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/describe/function_check.cmake)
+set_tests_properties(describe_function_refuses_another_directory PROPERTIES TIMEOUT 300)
 
 function(layout_test name source)
     standard_test(${name} ${source} ${ARGN})
