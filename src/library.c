@@ -3,6 +3,7 @@
 #include "weivel/json.h"
 
 #include "allocation.h"
+#include "patterns.h"
 #include "report.h"
 #include "sized.h"
 
@@ -62,7 +63,7 @@ static int is_letter_or_digit(char byte) {
     return is_lowercase_or_digit(byte) || (byte >= 'A' && byte <= 'Z');
 }
 
-/** `^[a-z0-9]+([-.][a-z0-9]+)*$`, the rule of an import name and of a service id alike. */
+/** `^[a-z0-9]+([-.][a-z0-9]+)*$`, the rule of a service id, and of an import name before its device-name check. */
 static int matches_words(const char *text, size_t length) {
     size_t at;
     int after_separator = 1;
@@ -109,9 +110,11 @@ static int is_not_empty(const char *text, size_t length) {
     return length > 0;
 }
 
-static const text_field IMPORT_NAME = {"importName", matches_words,
-                                       "is not lowercase words joined by single hyphens or dots",
-                                       "use lowercase words joined by single hyphens or dots, for example \"echo\""};
+static const text_field IMPORT_NAME = {"importName", weivel_standard_matches_import_name,
+                                       "is not lowercase words joined by single hyphens or dots, or names a Windows "
+                                       "device",
+                                       "use lowercase words joined by single hyphens or dots that do not begin with a "
+                                       "Windows device name such as \"con\" or \"com1\", for example \"echo\""};
 static const text_field VERSION = {"version", is_not_empty, "is empty",
                                    "set \"version\" to the library's version, for example \"0.1.0\""};
 static const text_field RELEASE = {"release", matches_c_identifier, "is not a C identifier",

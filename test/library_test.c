@@ -101,6 +101,10 @@ static const refused_case REFUSED[] = {
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "importName"},
     {"importName with an underscore", "{'importName': 'echo_x', 'version': '1', 'release': 'r', 'services': []}",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "importName"},
+    {"importName a Windows device name", "{'importName': 'nul', 'version': '1', 'release': 'r', 'services': []}",
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "importName"},
+    {"importName a Windows device name before a dot", "{'importName': 'com1.x', 'version': '1', 'release': 'r', 'services': []}",
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "importName"},
     {"importName a number", "{'importName': 7, 'version': '1', 'release': 'r', 'services': []}",
      WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, "importName"},
     {"empty version", "{'importName': 'echo', 'version': '', 'release': 'r', 'services': []}",
@@ -260,6 +264,16 @@ static void reads_a_library_of_definitions_with_no_release(void) {
     weivel_standard_refusal_release(&refusal);
 }
 
+static void reads_an_import_name_that_only_starts_with_a_device_name(void) {
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    const char *json = json_of(
+        "{'importName': 'console.x', 'version': '1', 'services': [{'id': 'echo', 'functions': ["
+        "{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'}]}]}");
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, NULL) == WEIVEL_STATUS_OK);
+    check_text(library.import_name, "console.x", "an import name beginning like a device name");
+    weivel_standard_library_release(&library);
+}
+
 static void reads_a_service_id_of_dotted_words(void) {
     weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
     const char *json = json_of(
@@ -403,6 +417,7 @@ int main(void) {
     reads_a_library_of_definitions_with_no_release();
     reads_a_release_beside_definitions_alone();
     reads_a_service_id_of_dotted_words();
+    reads_an_import_name_that_only_starts_with_a_device_name();
     reads_a_definition_service_beside_a_bytes_service();
     reads_a_description_beside_a_definition();
     reads_no_descriptions_where_none_is_declared();
