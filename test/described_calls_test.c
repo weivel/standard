@@ -19,6 +19,7 @@ typedef struct sample_parts {
     weivel_standard_value held_items[3];
     weivel_standard_entry extra_entries[1];
     weivel_standard_value extra;
+    weivel_standard_value values[2];
 } sample_parts;
 
 static described_sample rich_sample(sample_parts *parts) {
@@ -54,6 +55,12 @@ static described_sample rich_sample(sample_parts *parts) {
     parts->extra.kind = WEIVEL_STANDARD_VALUE_RECORD;
     parts->extra.entries = parts->extra_entries;
     parts->extra.count = 1;
+    parts->values[0].kind = WEIVEL_STANDARD_VALUE_TEXT;
+    parts->values[0].text = "first value";
+    parts->values[0].length = 11;
+    parts->values[1].kind = WEIVEL_STANDARD_VALUE_LIST;
+    parts->values[1].items = parts->held_items;
+    parts->values[1].count = 2;
     sample.shade = DESCRIBED_SHADE_DARK;
     sample.tier = DESCRIBED_TIER_HIGH;
     sample.flags = 5;
@@ -77,6 +84,8 @@ static described_sample rich_sample(sample_parts *parts) {
     sample.held.items = parts->held_items;
     sample.held.count = COUNT_OF(parts->held_items);
     sample.extra = &parts->extra;
+    sample.values = parts->values;
+    sample.value_count = COUNT_OF(parts->values);
     return sample;
 }
 
@@ -150,6 +159,9 @@ static void check_arrays(const described_sample *actual, const described_sample 
 static void check_values(const described_sample *actual, const described_sample *expected) {
     CHECK(actual->held.items != expected->held.items && same_value(&actual->held, &expected->held));
     CHECK(actual->extra != NULL && actual->extra != expected->extra && same_value(actual->extra, expected->extra));
+    CHECK(actual->value_count == expected->value_count && actual->values != expected->values);
+    CHECK(actual->value_count == 2 && same_value(&actual->values[0], &expected->values[0]) &&
+          same_value(&actual->values[1], &expected->values[1]));
 }
 
 static described_releases releases_of(const described_mirror *mirror) {
@@ -204,6 +216,61 @@ static void answers_malformed_for_what_it_cannot_read(const described_mirror *mi
     sample.tags = NULL;
     CHECK(mirror->reflect(mirror->context, &sample, &reflection, NULL) == WEIVEL_STATUS_MALFORMED);
     CHECK(reflection.storage == NULL && holding.storage == &storage);
+}
+
+/**
+ * Both reflect and tree, each into a fresh answer, must refuse the sample as MALFORMED and fill nothing; an answer that
+ * was filled anyway is released, so one fault cannot pass a later case for it.
+ */
+static void check_refused_copy(const described_mirror *mirror, const described_sample *sample, const char *what) {
+    described_reflection reflection = WEIVEL_INIT(described_reflection);
+    weivel_standard_value_tree tree = WEIVEL_INIT(weivel_standard_value_tree);
+    weivel_status reflected = mirror->reflect(mirror->context, sample, &reflection, NULL);
+    weivel_status built = mirror->tree(mirror->context, sample, &tree, NULL);
+    if (reflected != WEIVEL_STATUS_MALFORMED || built != WEIVEL_STATUS_MALFORMED || reflection.storage != NULL ||
+        tree.storage != NULL) {
+        fprintf(stderr, "%s: reflect answered %d and tree %d, expected MALFORMED with nothing filled\n", what,
+                (int)reflected, (int)built);
+        check_failures++;
+    }
+    mirror->release_reflection(mirror->context, &reflection);
+    mirror->release_tree(mirror->context, &tree);
+}
+
+static weivel_standard_value empty_value(uint32_t kind) {
+    weivel_standard_value value;
+    memset(&value, 0, sizeof value);
+    value.kind = kind;
+    return value;
+}
+
+/** Each sample breaks one rule of `weivel/value.h` that a copy has to read past, so the mirror refuses it. */
+static void refuses_a_value_it_cannot_copy(const described_mirror *mirror) {
+    weivel_standard_value none_item[1];
+    weivel_standard_entry nameless[1];
+    sample_parts parts;
+    described_sample sample = rich_sample(&parts);
+    none_item[0] = empty_value(WEIVEL_STANDARD_VALUE_NONE);
+    memset(nameless, 0, sizeof nameless);
+    nameless[0].key_length = 2;
+    nameless[0].value = empty_value(WEIVEL_STANDARD_VALUE_NULL);
+    sample.held = empty_value(WEIVEL_STANDARD_VALUE_TEXT);
+    sample.held.length = 3;
+    check_refused_copy(mirror, &sample, "a NULL text with a length");
+    sample.held.text = "wraps";
+    sample.held.length = SIZE_MAX;
+    check_refused_copy(mirror, &sample, "a text of length SIZE_MAX");
+    sample.held = empty_value(WEIVEL_STANDARD_VALUE_LIST);
+    sample.held.items = none_item;
+    sample.held.count = 1;
+    check_refused_copy(mirror, &sample, "a NONE nested in held");
+    sample.held = empty_value(WEIVEL_STANDARD_VALUE_RECORD);
+    sample.held.entries = nameless;
+    sample.held.count = 1;
+    check_refused_copy(mirror, &sample, "a NULL key with a length");
+    nameless[0].key = "wraps";
+    nameless[0].key_length = SIZE_MAX;
+    check_refused_copy(mirror, &sample, "a key of length SIZE_MAX");
 }
 
 static void check_refusal(weivel_standard_service_refusal *refusal) {
@@ -275,6 +342,60 @@ static void answers_a_value_tree_built_from_its_input(const described_mirror *mi
     CHECK(tree.size == sizeof tree && tree.storage == NULL && tree.root.kind == WEIVEL_STANDARD_VALUE_NONE);
     CHECK(releases_of(mirror).trees == before.trees + 1);
     CHECK(mirror->tree(mirror->context, NULL, &tree, NULL) == WEIVEL_STATUS_MALFORMED);
+}
+
+static void answers_null_for_a_held_value_of_none(const described_mirror *mirror) {
+    described_sample sample = WEIVEL_INIT(described_sample);
+    weivel_standard_value_tree tree = WEIVEL_INIT(weivel_standard_value_tree);
+    CHECK(mirror->tree(mirror->context, &sample, &tree, NULL) == WEIVEL_STATUS_OK);
+    CHECK(tree.root.kind == WEIVEL_STANDARD_VALUE_RECORD && tree.root.count == 4);
+    if (tree.root.count == 4) {
+        CHECK(tree.root.entries[0].value.kind == WEIVEL_STANDARD_VALUE_NULL);
+        CHECK(tree.root.entries[3].value.kind == WEIVEL_STANDARD_VALUE_NULL);
+    }
+    mirror->release_tree(mirror->context, &tree);
+}
+
+static void marshals_every_scalar_by_value_and_as_an_answer(const described_mirror *mirror) {
+    int64_t negated = 0;
+    double half = 0;
+    uint32_t inverted = 0;
+    uint32_t other = 0;
+    size_t grown = 0;
+    CHECK(mirror->negate(mirror->context, -7, &negated) == WEIVEL_STATUS_OK && negated == 7);
+    CHECK(mirror->negate(mirror->context, INT64_MAX, &negated) == WEIVEL_STATUS_OK && negated == -INT64_MAX);
+    CHECK(mirror->negate(mirror->context, INT64_MIN, &negated) == WEIVEL_STATUS_MALFORMED);
+    CHECK(mirror->negate(mirror->context, 1, NULL) == WEIVEL_STATUS_MALFORMED);
+    CHECK(mirror->halve(mirror->context, -3.0, &half) == WEIVEL_STATUS_OK && half == -1.5);
+    CHECK(mirror->halve(mirror->context, 1e300, &half) == WEIVEL_STATUS_OK && half == 5e299);
+    CHECK(mirror->halve(mirror->context, 1.0, NULL) == WEIVEL_STATUS_MALFORMED);
+    CHECK(mirror->invert(mirror->context, 0x0F0F0F0Fu, &inverted) == WEIVEL_STATUS_OK && inverted == 0xF0F0F0F0u);
+    CHECK(mirror->invert(mirror->context, 0, NULL) == WEIVEL_STATUS_MALFORMED);
+    CHECK(mirror->swap_shade(mirror->context, DESCRIBED_SHADE_LIGHT, &other) == WEIVEL_STATUS_OK &&
+          other == DESCRIBED_SHADE_DARK);
+    CHECK(mirror->swap_shade(mirror->context, DESCRIBED_SHADE_DARK, &other) == WEIVEL_STATUS_OK &&
+          other == DESCRIBED_SHADE_LIGHT);
+    CHECK(mirror->swap_shade(mirror->context, 3, &other) == WEIVEL_STATUS_MALFORMED);
+    CHECK(mirror->swap_shade(mirror->context, DESCRIBED_SHADE_DARK, NULL) == WEIVEL_STATUS_MALFORMED);
+    CHECK(mirror->grow(mirror->context, SIZE_MAX - 1, &grown) == WEIVEL_STATUS_OK && grown == SIZE_MAX);
+    CHECK(mirror->grow(mirror->context, SIZE_MAX, &grown) == WEIVEL_STATUS_MALFORMED);
+    CHECK(mirror->grow(mirror->context, 0, NULL) == WEIVEL_STATUS_MALFORMED);
+}
+
+static void weighs_a_value_handed_by_pointer(const described_mirror *mirror) {
+    sample_parts parts;
+    described_sample sample = rich_sample(&parts);
+    weivel_standard_value broken;
+    uint64_t nodes = 0;
+    memset(&broken, 0, sizeof broken);
+    broken.kind = WEIVEL_STANDARD_VALUE_LIST;
+    broken.count = 2;
+    CHECK(mirror->weigh(mirror->context, &sample.held, &nodes) == WEIVEL_STATUS_OK && nodes == 4);
+    CHECK(mirror->weigh(mirror->context, sample.extra, &nodes) == WEIVEL_STATUS_OK && nodes == 2);
+    CHECK(mirror->weigh(mirror->context, &parts.values[0], &nodes) == WEIVEL_STATUS_OK && nodes == 1);
+    CHECK(mirror->weigh(mirror->context, &broken, &nodes) == WEIVEL_STATUS_MALFORMED);
+    CHECK(mirror->weigh(mirror->context, NULL, &nodes) == WEIVEL_STATUS_MALFORMED);
+    CHECK(mirror->weigh(mirror->context, &sample.held, NULL) == WEIVEL_STATUS_MALFORMED);
 }
 
 static void finds_none_and_refuses_by_key(const described_mirror *mirror) {
@@ -381,6 +502,10 @@ static void calls_every_operation(described_library library) {
     answers_malformed_for_what_it_cannot_read(mirror);
     refuses_with_its_known_texts(mirror);
     answers_a_value_tree_built_from_its_input(mirror);
+    answers_null_for_a_held_value_of_none(mirror);
+    refuses_a_value_it_cannot_copy(mirror);
+    marshals_every_scalar_by_value_and_as_an_answer(mirror);
+    weighs_a_value_handed_by_pointer(mirror);
     finds_none_and_refuses_by_key(mirror);
     measures_bytes_by_pointer_and_length(mirror);
     walks_through_a_handle(mirror, walker);

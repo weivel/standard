@@ -77,6 +77,11 @@ static int copy_text(described_arena *arena, const char *text, const char **copy
     return copy_bytes_of(arena, text, text == NULL ? 0 : strlen(text), copy);
 }
 
+/** Whether a text of `length` bytes can be copied: NULL only when empty, and short enough for its NUL. */
+static int is_copyable_text(const char *text, size_t length) {
+    return length != SIZE_MAX && (text != NULL || length == 0);
+}
+
 static int is_refused(const char *text) {
     return text != NULL && strcmp(text, "refuse") == 0;
 }
@@ -148,6 +153,9 @@ static weivel_status copy_entries(described_arena *arena, const weivel_standard_
     }
     for (at = 0; at < from->count; at++) {
         weivel_status status;
+        if (!is_copyable_text(from->entries[at].key, from->entries[at].key_length)) {
+            return WEIVEL_STATUS_MALFORMED;
+        }
         entries[at].key_length = from->entries[at].key_length;
         if (!copy_bytes_of(arena, from->entries[at].key, from->entries[at].key_length, &entries[at].key)) {
             return WEIVEL_STATUS_OUT_OF_MEMORY;
@@ -163,7 +171,7 @@ static weivel_status copy_entries(described_arena *arena, const weivel_standard_
 
 static weivel_status copy_value(described_arena *arena, const weivel_standard_value *from, weivel_standard_value *to,
                                 size_t depth) {
-    if (depth > WEIVEL_STANDARD_VALUE_DEPTH_LIMIT) {
+    if (depth > WEIVEL_STANDARD_VALUE_DEPTH_LIMIT || (depth > 0 && from->kind == WEIVEL_STANDARD_VALUE_NONE)) {
         return WEIVEL_STATUS_MALFORMED;
     }
     *to = *from;
@@ -171,6 +179,9 @@ static weivel_status copy_value(described_arena *arena, const weivel_standard_va
     to->items = NULL;
     to->entries = NULL;
     if (from->kind == WEIVEL_STANDARD_VALUE_TEXT) {
+        if (!is_copyable_text(from->text, from->length)) {
+            return WEIVEL_STATUS_MALFORMED;
+        }
         return copy_bytes_of(arena, from->text, from->length, &to->text) ? WEIVEL_STATUS_OK
                                                                           : WEIVEL_STATUS_OUT_OF_MEMORY;
     }
@@ -269,6 +280,29 @@ static weivel_status copy_extra(described_arena *arena, const described_sample *
     return status;
 }
 
+static weivel_status copy_values(described_arena *arena, const described_sample *from, described_sample *to) {
+    weivel_standard_value *values;
+    size_t at;
+    if (from->value_count == 0) {
+        return WEIVEL_STATUS_OK;
+    }
+    if (from->values == NULL) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    values = arena_take(arena, from->value_count, sizeof *values);
+    if (values == NULL) {
+        return WEIVEL_STATUS_OUT_OF_MEMORY;
+    }
+    for (at = 0; at < from->value_count; at++) {
+        weivel_status status = copy_value(arena, &from->values[at], &values[at], 0);
+        if (status != WEIVEL_STATUS_OK) {
+            return status;
+        }
+    }
+    to->values = values;
+    return WEIVEL_STATUS_OK;
+}
+
 static weivel_status copy_scalar_arrays(described_arena *arena, const described_sample *from, described_sample *to) {
     void *bytes;
     void *numbers;
@@ -292,6 +326,7 @@ static weivel_status copy_sample(described_arena *arena, const described_sample 
     to->points = NULL;
     to->numbers = NULL;
     to->extra = NULL;
+    to->values = NULL;
     memset(&to->held, 0, sizeof to->held);
     if (!copy_text(arena, from->label, &to->label) || !copy_point(arena, &from->origin, &to->origin)) {
         return WEIVEL_STATUS_OUT_OF_MEMORY;
@@ -300,7 +335,8 @@ static weivel_status copy_sample(described_arena *arena, const described_sample 
         (status = copy_scalar_arrays(arena, from, to)) != WEIVEL_STATUS_OK ||
         (status = copy_best(arena, from, to)) != WEIVEL_STATUS_OK ||
         (status = copy_points(arena, from, to)) != WEIVEL_STATUS_OK ||
-        (status = copy_value(arena, &from->held, &to->held, 0)) != WEIVEL_STATUS_OK) {
+        (status = copy_value(arena, &from->held, &to->held, 0)) != WEIVEL_STATUS_OK ||
+        (status = copy_values(arena, from, to)) != WEIVEL_STATUS_OK) {
         return status;
     }
     return copy_extra(arena, from, to);
@@ -400,12 +436,13 @@ static weivel_status build_record(described_arena *arena, const described_sample
     }
     entries[TREE_RATIO].value.kind = WEIVEL_STANDARD_VALUE_NUMBER;
     entries[TREE_RATIO].value.number = sample->ratio;
-    if ((status = tags_node(arena, sample, &entries[TREE_TAGS].value)) != WEIVEL_STATUS_OK ||
-        (status = copy_value(arena, &sample->held, &entries[TREE_HELD].value, 1)) != WEIVEL_STATUS_OK) {
+    if ((status = tags_node(arena, sample, &entries[TREE_TAGS].value)) != WEIVEL_STATUS_OK) {
         return status;
     }
-    if (entries[TREE_HELD].value.kind == WEIVEL_STANDARD_VALUE_NONE) {
+    if (sample->held.kind == WEIVEL_STANDARD_VALUE_NONE) {
         entries[TREE_HELD].value.kind = WEIVEL_STANDARD_VALUE_NULL;
+    } else if ((status = copy_value(arena, &sample->held, &entries[TREE_HELD].value, 1)) != WEIVEL_STATUS_OK) {
+        return status;
     }
     memset(root, 0, sizeof *root);
     root->kind = WEIVEL_STANDARD_VALUE_RECORD;
@@ -470,6 +507,89 @@ static weivel_status mirror_measure(void *context, const uint8_t *bytes, size_t 
     }
     *sum = total;
     return WEIVEL_STATUS_OK;
+}
+
+static weivel_status mirror_negate(void *context, int64_t number, int64_t *negated) {
+    (void)context;
+    if (negated == NULL || number == INT64_MIN) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    *negated = -number;
+    return WEIVEL_STATUS_OK;
+}
+
+static weivel_status mirror_halve(void *context, double number, double *half) {
+    (void)context;
+    if (half == NULL) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    *half = number / 2;
+    return WEIVEL_STATUS_OK;
+}
+
+static weivel_status mirror_invert(void *context, uint32_t flags, uint32_t *inverted) {
+    (void)context;
+    if (inverted == NULL) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    *inverted = ~flags;
+    return WEIVEL_STATUS_OK;
+}
+
+static weivel_status mirror_swap_shade(void *context, uint32_t shade, uint32_t *other) {
+    (void)context;
+    if (other == NULL || (shade != DESCRIBED_SHADE_LIGHT && shade != DESCRIBED_SHADE_DARK)) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    *other = shade == DESCRIBED_SHADE_LIGHT ? DESCRIBED_SHADE_DARK : DESCRIBED_SHADE_LIGHT;
+    return WEIVEL_STATUS_OK;
+}
+
+static weivel_status mirror_grow(void *context, size_t amount, size_t *grown) {
+    (void)context;
+    if (grown == NULL || amount == SIZE_MAX) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    *grown = amount + 1;
+    return WEIVEL_STATUS_OK;
+}
+
+static weivel_status count_nodes(const weivel_standard_value *value, size_t depth, uint64_t *nodes) {
+    size_t at;
+    if (depth > WEIVEL_STANDARD_VALUE_DEPTH_LIMIT) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    (*nodes)++;
+    if (value->kind != WEIVEL_STANDARD_VALUE_LIST && value->kind != WEIVEL_STANDARD_VALUE_RECORD) {
+        return WEIVEL_STATUS_OK;
+    }
+    if (value->count != 0 && (value->kind == WEIVEL_STANDARD_VALUE_LIST ? value->items == NULL
+                                                                        : value->entries == NULL)) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    for (at = 0; at < value->count; at++) {
+        const weivel_standard_value *child =
+            value->kind == WEIVEL_STANDARD_VALUE_LIST ? &value->items[at] : &value->entries[at].value;
+        weivel_status status = count_nodes(child, depth + 1, nodes);
+        if (status != WEIVEL_STATUS_OK) {
+            return status;
+        }
+    }
+    return WEIVEL_STATUS_OK;
+}
+
+static weivel_status mirror_weigh(void *context, const weivel_standard_value *value, uint64_t *nodes) {
+    uint64_t counted = 0;
+    weivel_status status;
+    (void)context;
+    if (value == NULL || nodes == NULL) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    status = count_nodes(value, 0, &counted);
+    if (status == WEIVEL_STATUS_OK) {
+        *nodes = counted;
+    }
+    return status;
 }
 
 static weivel_status mirror_count_releases(void *context, described_releases *releases) {
@@ -577,6 +697,12 @@ static const described_mirror mirror = {.size = (uint32_t)sizeof(described_mirro
                                         .tree = mirror_tree,
                                         .find = mirror_find,
                                         .measure = mirror_measure,
+                                        .negate = mirror_negate,
+                                        .halve = mirror_halve,
+                                        .invert = mirror_invert,
+                                        .swap_shade = mirror_swap_shade,
+                                        .grow = mirror_grow,
+                                        .weigh = mirror_weigh,
                                         .count_releases = mirror_count_releases,
                                         .release_reflection = mirror_release_reflection,
                                         .release_tree = mirror_release_tree,
