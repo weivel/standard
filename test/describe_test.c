@@ -455,6 +455,8 @@ static void counts_y_plurals_and_releases_only_what_owns_storage(void) {
     static const expected_item peek[] = {CONTEXT_PARAMETER,
                                          {"walk", K(HANDLE), K(INPUT), NO, "probe_walk", NULL, "release_walk"},
                                          {"seen", K(U64), K(ANSWER), NO, NULL, NULL, NULL}};
+    static const expected_item measure[] = {CONTEXT_PARAMETER,
+                                            {"entry_count", K(SIZE), K(ANSWER), NO, NULL, NULL, NULL}};
     static const expected_item release_count[] = {
         CONTEXT_PARAMETER, {"counted", K(POINTER), K(ANSWER), K(STRUCT), "probe_count", NULL, NULL}};
     static const expected_item release_outer[] = {
@@ -466,6 +468,7 @@ static void counts_y_plurals_and_releases_only_what_owns_storage(void) {
         OPERATION("count", STATUS, NULL, count),
         OPERATION("nest", STATUS, NULL, nest),
         OPERATION("peek", STATUS, NULL, peek),
+        OPERATION("measure", STATUS, NULL, measure),
         OPERATION("release_count", NOTHING, "probe_count", release_count),
         OPERATION("release_outer", NOTHING, "probe_outer", release_outer),
         OPERATION("release_walk", NOTHING, "probe_walk", release_walk)};
@@ -475,6 +478,39 @@ static void counts_y_plurals_and_releases_only_what_owns_storage(void) {
     }
     check_members(&model, "probe_index", index, COUNT_OF(index));
     check_operations(&model, "probe_indexer", operations, COUNT_OF(operations));
+    describe_model_release(&model);
+}
+
+static void walks_what_an_answer_holds_once_through_cycles(void) {
+    describe_model model;
+    const char *paths[] = {FIXTURE("cycles.h")};
+    describe_names names = describe_names_of_the_standard();
+    static const expected_item ring[] = {
+        CONTEXT_PARAMETER, {"ring", K(POINTER), K(ANSWER), K(STRUCT), "probe_ring_00", NULL, NULL}};
+    static const expected_item far[] = {
+        CONTEXT_PARAMETER, {"far", K(POINTER), K(ANSWER), K(STRUCT), "probe_far_00", NULL, "release_far"}};
+    static const expected_item holder[] = {
+        CONTEXT_PARAMETER,
+        {"holder", K(POINTER), K(ANSWER), K(STRUCT), "probe_loop_holder", NULL, "release_loop_holder"}};
+    static const expected_item back[] = {
+        CONTEXT_PARAMETER, {"back", K(POINTER), K(ANSWER), K(STRUCT), "probe_loop_back", NULL, "release_loop_back"}};
+    const describe_type *graph;
+    if (read_all(&model, paths, COUNT_OF(paths), &names) != DESCRIBE_DONE) {
+        CHECK(0);
+        return;
+    }
+    graph = type_checked(&model, "probe_graph");
+    if (graph != NULL && graph->operation_count == 7) {
+        check_items("ring", graph->operations[0].parameters, graph->operations[0].parameter_count, ring,
+                    COUNT_OF(ring));
+        check_items("far", graph->operations[1].parameters, graph->operations[1].parameter_count, far, COUNT_OF(far));
+        check_items("holder", graph->operations[2].parameters, graph->operations[2].parameter_count, holder,
+                    COUNT_OF(holder));
+        check_items("back", graph->operations[3].parameters, graph->operations[3].parameter_count, back,
+                    COUNT_OF(back));
+    } else {
+        CHECK(0);
+    }
     describe_model_release(&model);
 }
 
@@ -676,6 +712,8 @@ static const refused_case REFUSED_CASES[] = {
                                          "release of `probe_service` frees it"},
     {REFUSED("nested_storage_unreleased.h"), 16, "`outer` of `nest` is a `probe_outer`, which holds storage, and no "
                                                  "release of `probe_service` frees it"},
+    {REFUSED("cycle_storage_unreleased.h"), 15, "`back` of `back` is a `probe_loop_back`, which holds storage, and "
+                                                "no release of `probe_graph` frees it"},
     {REFUSED("count_counting_nothing.h"), 7, "`child_count` is named as a count and counts nothing beside it"},
     {REFUSED("length_counting_nothing.h"), 3, "`label_length` is named as a count and counts nothing beside it"},
     {REFUSED("two_releases.h"), 21, "the release `release_two` frees `probe_answer`, as `release_one` already does"},
@@ -828,6 +866,7 @@ int main(void) {
     skips_what_declares_nothing();
     reads_restated_names_across_headers();
     counts_y_plurals_and_releases_only_what_owns_storage();
+    walks_what_an_answer_holds_once_through_cycles();
     reads_every_struct_and_definition_of_services_h();
     reaches_what_each_service_of_services_h_uses();
     refuses_each_form_outside_the_grammar_at_its_line();

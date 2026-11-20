@@ -45,6 +45,7 @@ typedef struct probe_indexer {
     weivel_status (*count)(void *context, probe_count *counted);
     weivel_status (*nest)(void *context, probe_outer *outer);
     weivel_status (*peek)(void *context, const probe_walk *walk, uint64_t *seen);
+    weivel_status (*measure)(void *context, size_t *entry_count);
     void (*release_count)(void *context, probe_count *counted);
     void (*release_outer)(void *context, probe_outer *outer);
     void (*release_walk)(void *context, probe_walk *walk);

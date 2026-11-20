@@ -34,7 +34,7 @@
  * `count`; BYTES named N by `N_length` or `length`. Exactly one may exist, a candidate that is not a size_t is
  * refused, and a size_t counts one thing at most. A size_t named `<x>_count` or `<x>_length` that counts nothing is
  * refused, so a name that misses its array never passes as an unrelated size, unless it is `<x>_length` beside a
- * text `<x>`.
+ * text `<x>` or a parameter answered through `size_t *`, which counts nothing beside it by design.
  *
  * Enums. A uint32_t holds an enum E of the scanned headers when its own doc names E, a parameter's own doc being its
  * `@param` paragraph. Otherwise, the doc of its struct, or of its operation up to the first `@` tag, is split into

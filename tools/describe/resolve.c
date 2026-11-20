@@ -7,10 +7,15 @@
 #define GRAMMAR " is not in weivel's description grammar"
 #define KIND(name) WEIVEL_STANDARD_DESCRIBED_##name
 
+enum { STORAGE_UNKNOWN = 0, STORAGE_HELD = 1, STORAGE_NOT_HELD = 2 };
+
+/** `visited` and `holds` have one byte per type: whether the current walk entered it, and its memoised answer. */
 typedef struct resolving {
     describe_model *model;
     const describe_names *names;
     describe_refusal *refusal;
+    unsigned char *visited;
+    unsigned char *holds;
 } resolving;
 
 typedef enum referent {
@@ -655,8 +660,8 @@ static describe_outcome refuse_counting_nothing(resolving *state, const describe
     for (at = 0; at < count; at++) {
         const describe_item *size = &items[at];
         size_t length = strlen(size->name);
-        if (size->kind != KIND(SIZE) || !(ends_with(size->name, length, "_count") ||
-                                         ends_with(size->name, length, "_length"))) {
+        if (size->kind != KIND(SIZE) || size->role == KIND(ANSWER) ||
+            !(ends_with(size->name, length, "_count") || ends_with(size->name, length, "_length"))) {
             continue;
         }
         if (!counts_something(items, count, size->name) && !is_text_length(items, count, size)) {
@@ -988,21 +993,41 @@ static int names_a_struct(const describe_item *item) {
            ((item->kind == KIND(POINTER) || item->kind == KIND(ARRAY)) && item->element == KIND(STRUCT));
 }
 
-/** @implNote `depth` bounds the walk, since a struct may point back at one that holds it. */
-static int holds_storage(const describe_model *model, const char *name, size_t depth) {
-    const describe_type *type = describe_model_type(model, name);
+/** Whether a struct not yet visited in this walk reaches storage, marking each struct it enters. */
+static int reaches_storage(const resolving *state, const char *name) {
+    const describe_type *type = describe_model_type(state->model, name);
     size_t at;
-    if (type == NULL || depth > model->type_count) {
+    if (type == NULL || state->visited[type - state->model->types]) {
         return 0;
     }
+    state->visited[type - state->model->types] = 1;
     for (at = 0; at < type->member_count; at++) {
         const describe_item *member = &type->members[at];
         if (member->kind == KIND(STORAGE) || member->kind == KIND(HANDLE) ||
-            (names_a_struct(member) && holds_storage(model, member->type, depth + 1))) {
+            (names_a_struct(member) && reaches_storage(state, member->type))) {
             return 1;
         }
     }
     return 0;
+}
+
+/**
+ * @implNote Each answer is a fresh walk visiting every struct at most once and is memoised for its root alone: a
+ * struct's answer found while an enclosing struct is still being walked can be wrong, since the cycle back to that
+ * struct is cut there.
+ */
+static int holds_storage(const resolving *state, const char *name) {
+    const describe_type *type = describe_model_type(state->model, name);
+    size_t index;
+    if (type == NULL) {
+        return 0;
+    }
+    index = (size_t)(type - state->model->types);
+    if (state->holds[index] == STORAGE_UNKNOWN) {
+        memset(state->visited, 0, state->model->type_count);
+        state->holds[index] = reaches_storage(state, name) ? STORAGE_HELD : STORAGE_NOT_HELD;
+    }
+    return state->holds[index] == STORAGE_HELD;
 }
 
 static int may_name_release(const describe_item *parameter) {
@@ -1014,7 +1039,7 @@ static int needs_release(const resolving *state, const describe_item *parameter)
     if (parameter->kind == KIND(HANDLE) || (parameter->role == KIND(ANSWER) && parameter->kind == KIND(VALUE))) {
         return 1;
     }
-    return may_name_release(parameter) && holds_storage(state->model, parameter->type, 0);
+    return may_name_release(parameter) && holds_storage(state, parameter->type);
 }
 
 static describe_outcome resolve_releases(resolving *state, const describe_type *definition) {
@@ -1138,7 +1163,9 @@ describe_outcome describe_resolve(describe_model *model, const describe_names *n
     state.model = model;
     state.names = names;
     state.refusal = refusal;
-    outcome = every_type(&state, resolve_shape);
+    state.visited = weivel_standard_memory_allocate_zeroed(model->type_count + 1, 1);
+    state.holds = weivel_standard_memory_allocate_zeroed(model->type_count + 1, 1);
+    outcome = state.visited == NULL || state.holds == NULL ? DESCRIBE_OUT_OF_MEMORY : every_type(&state, resolve_shape);
     if (outcome == DESCRIBE_DONE) {
         outcome = every_type(&state, resolve_kinds);
     }
@@ -1151,5 +1178,10 @@ describe_outcome describe_resolve(describe_model *model, const describe_names *n
     for (at = 0; outcome == DESCRIBE_DONE && at < model->handle_count; at++) {
         outcome = resolve_handle(&state, &model->handles[at]);
     }
-    return outcome == DESCRIBE_DONE ? every_type(&state, resolve_handle_members) : outcome;
+    if (outcome == DESCRIBE_DONE) {
+        outcome = every_type(&state, resolve_handle_members);
+    }
+    weivel_standard_memory_release(state.visited);
+    weivel_standard_memory_release(state.holds);
+    return outcome;
 }
