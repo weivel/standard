@@ -450,6 +450,305 @@ static int check_operation(checking *state, const described_type *definition, co
     return 1;
 }
 
+static int is_scalar(uint32_t kind) {
+    return kind >= WEIVEL_STANDARD_DESCRIBED_U32 && kind <= WEIVEL_STANDARD_DESCRIBED_SIZE;
+}
+
+static int reaches_an_element(uint32_t kind) {
+    return kind == WEIVEL_STANDARD_DESCRIBED_POINTER || kind == WEIVEL_STANDARD_DESCRIBED_ARRAY;
+}
+
+static int may_name_a_type(const reference *slot) {
+    return names_a_struct(slot) || slot->kind == WEIVEL_STANDARD_DESCRIBED_U32 ||
+           slot->kind == WEIVEL_STANDARD_DESCRIBED_HANDLE;
+}
+
+static int refuse_unused(checking *state, const field_path *parent, const char *key, const char *fix) {
+    field_path path = {parent, key, 0};
+    return refuse_invalid(state, &path, "%s is set, and its kind leaves it unused", fix);
+}
+
+/** Every field the header says is NULL, or NONE, for a slot's kind is. `may_release` is whether it may name one. */
+static int leaves_unused_fields_empty(checking *state, const reference *slot, int may_release,
+                                      const field_path *parent) {
+    if (!reaches_an_element(slot->kind) && slot->element != WEIVEL_STANDARD_DESCRIBED_NONE) {
+        return refuse_unused(state, parent, "element", "set %s to NONE: only a POINTER or an ARRAY reaches one");
+    }
+    if (!may_name_a_type(slot) && slot->type != NULL) {
+        return refuse_unused(state, parent, "type",
+                             "set %s to NULL: only a struct, a U32 holding an enum or a handle names a type");
+    }
+    if (!is_counted(slot->kind) && slot->count != NULL) {
+        return refuse_unused(state, parent, "count", "set %s to NULL: only texts, bytes or an array is counted");
+    }
+    return may_release || slot->release == NULL ||
+           refuse_unused(state, parent, "release",
+                         "set %s to NULL: only a handle, an answer or a refusal is freed by a release");
+}
+
+/** A release named anywhere is one: an operation answering NOTHING, never one answering a status. */
+static int names_a_release(checking *state, const char *release, const field_path *parent) {
+    field_path path = {parent, "release", 0};
+    return release == NULL ||
+           operation_named(state->description, release)->returns == WEIVEL_STANDARD_DESCRIBED_NOTHING ||
+           refuse_invalid(state, &path, "%s names an operation answering a status, where a release answers nothing",
+                          "name in %s the release that frees it, an operation answering NOTHING");
+}
+
+static int ranges_overlap(size_t first, size_t first_size, size_t second, size_t second_size) {
+    return first < second + second_size && second < first + first_size;
+}
+
+/** The definition's one context, read from every provider, so it lies where every provider's struct reaches. */
+static int places_the_context(checking *state, const described_type *type, int is_definition,
+                              const described_member *member, size_t *contexts, const field_path *parent) {
+    field_path kind = {parent, "kind", 0};
+    field_path offset = {parent, "offset", 0};
+    if (member->kind != WEIVEL_STANDARD_DESCRIBED_CONTEXT) {
+        return 1;
+    }
+    if (!is_definition) {
+        return refuse_invalid(state, &kind, "%s is CONTEXT outside the definition's struct, which alone holds one",
+                              "describe %s by the kind of what it holds, or move the context to the definition");
+    }
+    if (++*contexts > 1) {
+        return refuse_invalid(state, &kind, "%s is a second CONTEXT, where the definition holds one",
+                              "describe the definition's one context once, and %s by the kind of what it holds");
+    }
+    return member->offset + member->size <= type->first_shape ||
+           refuse_invalid(state, &offset, "%s puts the context past the definition's first shape",
+                          "declare the context, which %s places, inside the definition's first shape");
+}
+
+static int type_follows_convention(checking *state, const described_type *type, int is_definition,
+                                   const field_path *parent) {
+    field_path members = {parent, "members", 0};
+    size_t contexts = 0;
+    size_t at;
+    for (at = 0; at < type->member_count; at++) {
+        const described_member *member = &type->members[at];
+        field_path item = {&members, NULL, at};
+        reference slot = {member->kind, member->element, member->type, member->count, member->release, NULL, NULL};
+        if (!leaves_unused_fields_empty(state, &slot, member->kind == WEIVEL_STANDARD_DESCRIBED_HANDLE, &item) ||
+            !names_a_release(state, member->release, &item) ||
+            !places_the_context(state, type, is_definition, member, &contexts, &item)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/** No operation shares a name with a data member, or a byte with a member or another operation. */
+static int lays_out_the_definition(checking *state, const weivel_standard_description *description,
+                                   const described_type *definition) {
+    field_path operations = {NULL, "operations", 0};
+    const size_t pointer_size = sizeof(void (*)(void));
+    size_t at;
+    size_t other;
+    for (at = 0; at < description->operation_count; at++) {
+        const described_operation *operation = &description->operations[at];
+        field_path item = {&operations, NULL, at};
+        field_path name = {&item, "name", 0};
+        field_path offset = {&item, "offset", 0};
+        for (other = 0; other < definition->member_count; other++) {
+            const described_member *member = &definition->members[other];
+            if (strcmp(member->name, operation->name) == 0) {
+                return refuse(state, WEIVEL_STANDARD_REFUSAL_DUPLICATE, &name,
+                              "%s repeats the name of a member of the definition's struct",
+                              "give %s a name no member of the definition's struct has");
+            }
+            if (ranges_overlap(operation->offset, pointer_size, member->offset, member->size)) {
+                return refuse_invalid(state, &offset, "%s overlaps a data member of the definition's struct",
+                                      "set %s to offsetof the operation's own function pointer");
+            }
+        }
+        for (other = 0; other < at; other++) {
+            if (ranges_overlap(operation->offset, pointer_size, description->operations[other].offset, pointer_size)) {
+                return refuse_invalid(state, &offset, "%s overlaps an operation listed before it",
+                                      "set %s to offsetof the operation's own function pointer");
+            }
+        }
+    }
+    return 1;
+}
+
+static int is_input_kind(uint32_t kind) {
+    return kind == WEIVEL_STANDARD_DESCRIBED_CONTEXT || is_scalar(kind) || kind == WEIVEL_STANDARD_DESCRIBED_TEXT ||
+           is_counted(kind) || kind == WEIVEL_STANDARD_DESCRIBED_POINTER || kind == WEIVEL_STANDARD_DESCRIBED_HANDLE;
+}
+
+static int is_answer_kind(uint32_t kind) {
+    return is_scalar(kind) || kind == WEIVEL_STANDARD_DESCRIBED_TEXT || kind == WEIVEL_STANDARD_DESCRIBED_POINTER ||
+           kind == WEIVEL_STANDARD_DESCRIBED_VALUE || kind == WEIVEL_STANDARD_DESCRIBED_HANDLE;
+}
+
+/** The kinds each role takes, as weivel/description.h passes each kind as a parameter. */
+static int takes_its_kind_in_its_role(checking *state, const described_parameter *parameter,
+                                      const field_path *parent) {
+    field_path kind = {parent, "kind", 0};
+    field_path element = {parent, "element", 0};
+    if (parameter->role == WEIVEL_STANDARD_DESCRIBED_INPUT) {
+        return is_input_kind(parameter->kind) ||
+               refuse_invalid(state, &kind, "%s is a kind an input does not take",
+                              "describe the input in %s as the context, a scalar, a text, texts, bytes, a pointer, "
+                              "an array or a handle");
+    }
+    if (parameter->role == WEIVEL_STANDARD_DESCRIBED_ANSWER) {
+        if (!is_answer_kind(parameter->kind)) {
+            return refuse_invalid(state, &kind, "%s is a kind an answer does not take",
+                                  "describe the answer in %s as a scalar, a text, a pointer to a struct, a value "
+                                  "tree or a handle");
+        }
+        return parameter->kind != WEIVEL_STANDARD_DESCRIBED_POINTER ||
+               parameter->element == WEIVEL_STANDARD_DESCRIBED_STRUCT ||
+               refuse_invalid(state, &element, "%s is VALUE on a pointer answer, where an answer tree is a VALUE",
+                              "describe the answer as a VALUE, and %s as NONE");
+    }
+    return (parameter->kind == WEIVEL_STANDARD_DESCRIBED_POINTER &&
+            parameter->element == WEIVEL_STANDARD_DESCRIBED_STRUCT) ||
+           refuse_invalid(state, &kind, "%s is not a POINTER of STRUCT, the one form a refusal takes",
+                          "describe the refusal in %s as a POINTER of STRUCT");
+}
+
+static int may_name_a_release(const described_parameter *parameter) {
+    return parameter->kind == WEIVEL_STANDARD_DESCRIBED_HANDLE || parameter->role != WEIVEL_STANDARD_DESCRIBED_INPUT;
+}
+
+/** A scalar's or a text's answer is the provider's own value, so no release is handed anything of it. */
+static int frees_only_what_owns_storage(checking *state, const described_parameter *parameter,
+                                        const field_path *parent) {
+    field_path release = {parent, "release", 0};
+    int owns_nothing = is_scalar(parameter->kind) || parameter->kind == WEIVEL_STANDARD_DESCRIBED_TEXT;
+    return parameter->role != WEIVEL_STANDARD_DESCRIBED_ANSWER || !owns_nothing || parameter->release == NULL ||
+           refuse_invalid(state, &release, "%s names a release for a scalar or a text answer, which owns nothing",
+                          "set %s to NULL");
+}
+
+static int carries_a_text(const described_type *type, const char *name) {
+    size_t at;
+    for (at = 0; at < type->member_count; at++) {
+        if (strcmp(type->members[at].name, name) == 0) {
+            return type->members[at].kind == WEIVEL_STANDARD_DESCRIBED_TEXT;
+        }
+    }
+    return 0;
+}
+
+static int refuses_with_texts(checking *state, const described_parameter *parameter, const field_path *parent) {
+    field_path type_path = {parent, "type", 0};
+    const described_type *type;
+    if (parameter->role != WEIVEL_STANDARD_DESCRIBED_REFUSAL) {
+        return 1;
+    }
+    type = type_named(state->description, parameter->type);
+    if (!carries_a_text(type, "detail")) {
+        return refuse_invalid(state, &type_path, "%s names a struct carrying no TEXT member named detail",
+                              "name in %s a refusal struct carrying `detail` and `fix` texts");
+    }
+    return carries_a_text(type, "fix") ||
+           refuse_invalid(state, &type_path, "%s names a struct carrying no TEXT member named fix",
+                          "name in %s a refusal struct carrying `detail` and `fix` texts");
+}
+
+static int parameter_follows_convention(checking *state, const described_parameter *parameter, size_t at,
+                                        const field_path *parent) {
+    field_path kind = {parent, "kind", 0};
+    reference slot = {parameter->kind, parameter->element, parameter->type, parameter->count, parameter->release,
+                      NULL, NULL};
+    if (at > 0 && parameter->kind == WEIVEL_STANDARD_DESCRIBED_CONTEXT) {
+        return refuse_invalid(state, &kind, "%s is CONTEXT past the first parameter, the one the context is",
+                              "describe %s by the kind of what it is");
+    }
+    return takes_its_kind_in_its_role(state, parameter, parent) &&
+           leaves_unused_fields_empty(state, &slot, may_name_a_release(parameter), parent) &&
+           names_a_release(state, parameter->release, parent) &&
+           frees_only_what_owns_storage(state, parameter, parent) && refuses_with_texts(state, parameter, parent);
+}
+
+static int takes_the_context_first(checking *state, const described_operation *operation, const field_path *parent) {
+    field_path parameters = {parent, "parameters", 0};
+    field_path first = {&parameters, NULL, 0};
+    field_path kind = {&first, "kind", 0};
+    if (operation->parameter_count == 0) {
+        return refuse_invalid(state, &parameters, "%s is empty, where every operation takes the context first",
+                              "describe the context as the first of %s");
+    }
+    return operation->parameters[0].kind == WEIVEL_STANDARD_DESCRIBED_CONTEXT ||
+           refuse_invalid(state, &kind, "%s is not CONTEXT, which every operation takes first",
+                          "describe the context as the operation's first parameter, so %s is CONTEXT");
+}
+
+/** A status operation's refusal, when it takes one, is its last parameter, and it takes no second. */
+static int refuses_last(checking *state, const described_operation *operation, const field_path *parent) {
+    field_path parameters = {parent, "parameters", 0};
+    size_t at;
+    for (at = 0; at + 1 < operation->parameter_count; at++) {
+        field_path item = {&parameters, NULL, at};
+        field_path role = {&item, "role", 0};
+        if (operation->parameters[at].role == WEIVEL_STANDARD_DESCRIBED_REFUSAL) {
+            return refuse_invalid(state, &role, "%s is a REFUSAL before the operation's last parameter",
+                                  "take the one refusal last, so no parameter follows %s");
+        }
+    }
+    return 1;
+}
+
+static int frees_one_thing(checking *state, const described_operation *operation, const field_path *parent) {
+    field_path parameters = {parent, "parameters", 0};
+    return operation->parameter_count == 2 ||
+           refuse_invalid(state, &parameters,
+                          "%s is not two parameters, where a release takes the context and the one thing it frees",
+                          "describe %s as the context and the one thing the release frees");
+}
+
+static int operation_follows_convention(checking *state, const described_operation *operation,
+                                        const field_path *parent) {
+    field_path parameters = {parent, "parameters", 0};
+    size_t at;
+    if (!takes_the_context_first(state, operation, parent)) {
+        return 0;
+    }
+    if (operation->returns == WEIVEL_STANDARD_DESCRIBED_STATUS ? !refuses_last(state, operation, parent)
+                                                                : !frees_one_thing(state, operation, parent)) {
+        return 0;
+    }
+    for (at = 0; at < operation->parameter_count; at++) {
+        field_path item = {&parameters, NULL, at};
+        if (!parameter_follows_convention(state, &operation->parameters[at], at, &item)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/**
+ * The standard's convention for a definition, which every binding builds on, checked once a description has passed
+ * every rule of its form, so each fault here is a sound description shaped against the convention.
+ */
+static int follows_the_convention(checking *state, const weivel_standard_description *description,
+                                  const described_type *definition) {
+    field_path types = {NULL, "types", 0};
+    field_path operations = {NULL, "operations", 0};
+    size_t at;
+    for (at = 0; at < description->type_count; at++) {
+        field_path item = {&types, NULL, at};
+        if (!type_follows_convention(state, &description->types[at], &description->types[at] == definition,
+                                     &item)) {
+            return 0;
+        }
+    }
+    if (!lays_out_the_definition(state, description, definition)) {
+        return 0;
+    }
+    for (at = 0; at < description->operation_count; at++) {
+        field_path item = {&operations, NULL, at};
+        if (!operation_follows_convention(state, &description->operations[at], &item)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static int check_described(checking *state, const weivel_standard_description *description) {
     field_path definition_path = {NULL, "definition", 0};
     field_path types = {NULL, "types", 0};
@@ -476,7 +775,7 @@ static int check_described(checking *state, const weivel_standard_description *d
             return 0;
         }
     }
-    return 1;
+    return follows_the_convention(state, description, definition);
 }
 
 weivel_status weivel_standard_description_check(const weivel_standard_description *description,

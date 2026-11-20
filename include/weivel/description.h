@@ -173,8 +173,12 @@ typedef struct weivel_standard_described_enum {
 
 /**
  * One parameter of an operation, in the order the C prototype takes them, the context first. `type` and `count` are
- * as a member's, `count` naming a SIZE parameter of the same operation. `release` names, for an ANSWER or a REFUSAL,
- * the operation that frees it, and is NULL for an answer nothing frees, as a text the provider keeps.
+ * as a member's, `count` naming a SIZE parameter of the same operation. `release` names, for an ANSWER, a REFUSAL or
+ * a HANDLE, the release that frees it; it is NULL for an answer nothing frees, as a scalar or a text the provider
+ * keeps, and for an input that is no handle.
+ *
+ * An input takes the context, a scalar, a text, texts, bytes, a POINTER, an ARRAY or a HANDLE; an answer a scalar, a
+ * text, a POINTER of STRUCT, a VALUE or a HANDLE; a refusal a POINTER of STRUCT alone.
  */
 typedef struct weivel_standard_described_parameter {
     const char *name;
@@ -191,8 +195,9 @@ typedef struct weivel_standard_described_parameter {
 
 /**
  * One function pointer of the definition, an operation or a release, at `offset` in the definition's struct. An
- * operation of the standard's convention takes the context, its inputs, its answer and a refusal, and answers a
- * STATUS; a release takes the context and the struct it frees, and answers NOTHING.
+ * operation of the standard's convention takes the context first, then its inputs and its answers, and at most one
+ * refusal, which is its last parameter, and answers a STATUS; a release takes the context and the one thing it frees,
+ * and answers NOTHING.
  */
 typedef struct weivel_standard_described_operation {
     const char *name;
@@ -226,7 +231,16 @@ typedef struct weivel_standard_description {
  * allow; `definition` and every `type` it requires name a struct or an enum it holds; every member lies inside its
  * struct, with the size its kind has; every count names a SIZE member of the same struct, or a SIZE parameter of the
  * same operation; every release names one of its operations; every first shape lies within its struct; and every
- * operation lies inside the definition's struct. It reads only, and stops at the first fault.
+ * operation lies inside the definition's struct.
+ *
+ * It then checks the description against the convention every binding builds on: an `element`, `type`, `count` or
+ * `release` its kind or role leaves unused is NONE or NULL, as the member and parameter docs above say; every release
+ * named is an operation answering NOTHING; a scalar or a text answer names no release; only the definition's struct
+ * holds a CONTEXT, at most one, inside its first shape; no operation shares a name with a member of the definition's
+ * struct, or a byte with one of its members or another operation; every operation takes the CONTEXT first and nowhere
+ * else; each role takes only the kinds weivel_standard_described_parameter lists for it; an operation answering a
+ * STATUS takes no REFUSAL but as its last parameter; a release takes exactly two parameters; and every REFUSAL's
+ * struct carries `detail` and `fix` TEXT members. It reads only, and stops at the first fault.
  *
  * @param description Required.
  * @param refusal the caller's empty refusal, or NULL for none; filled on WEIVEL_STATUS_MALFORMED with the fault's
