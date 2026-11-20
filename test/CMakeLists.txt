@@ -45,7 +45,10 @@ endforeach()
 standard_test(describe_test describe_test weivel_describe_reader)
 standard_test(describe_memory_test describe_memory_test weivel_describe_writer_testing)
 standard_test(describe_write_test describe_write_test weivel_describe_writer)
-foreach(describe_target describe_test describe_memory_test describe_write_test)
+standard_test(describe_program_memory_test describe_program_memory_test weivel_describe_writer_testing)
+target_compile_definitions(describe_program_memory_test PRIVATE
+    WEIVEL_DESCRIBE_PROGRAM_OUTPUT="${CMAKE_CURRENT_BINARY_DIR}/describe-program-memory.c")
+foreach(describe_target describe_test describe_memory_test describe_write_test describe_program_memory_test)
     target_compile_definitions(${describe_target} PRIVATE
         WEIVEL_DESCRIBE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/describe"
         WEIVEL_DESCRIBE_SERVICES_HEADER="${PROJECT_SOURCE_DIR}/include/weivel/services.h")
@@ -64,12 +67,48 @@ weivel_describe(describe_services_test
     SERVICE weivel_standard_secrets SYMBOL services_described_secrets
     SERVICE weivel_standard_paths SYMBOL services_described_paths)
 
+add_library(weivel_standard_described SHARED described/described.c described/broken.c)
+target_compile_definitions(weivel_standard_described PRIVATE DESCRIBED_BUILDING)
+standard_strict_warnings(weivel_standard_described)
+set_target_properties(weivel_standard_described PROPERTIES
+    C_VISIBILITY_PRESET hidden
+    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/shared)
+weivel_describe(weivel_standard_described
+    HEADERS ${PROJECT_SOURCE_DIR}/include/weivel/services.h described/described.h
+    PREFIX described_generated_
+    EXPORT DESCRIBED_API
+    SERVICE described_mirror SYMBOL described_mirror_description
+    SERVICE described_walker SYMBOL described_walker_description)
+
+foreach(described_test described_description_test described_calls_test)
+    add_executable(${described_test} ${described_test}.c described/loader.c)
+    target_link_libraries(${described_test} PRIVATE weivel_standard ${CMAKE_DL_LIBS})
+    target_include_directories(${described_test} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src)
+    add_dependencies(${described_test} weivel_standard_described)
+    standard_strict_warnings(${described_test})
+    add_test(NAME ${described_test} COMMAND ${described_test} $<TARGET_FILE:weivel_standard_described>)
+    set_tests_properties(${described_test} PROPERTIES TIMEOUT 60)
+endforeach()
+target_compile_definitions(described_description_test PRIVATE
+    WEIVEL_DESCRIBED_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/described")
+
 foreach(scenario refused usage)
     add_test(NAME describe_program_${scenario}
         COMMAND ${CMAKE_COMMAND} -DSCENARIO=${scenario} -DDESCRIBE=$<TARGET_FILE:weivel-describe>
             -DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/describe -DWORK=${CMAKE_CURRENT_BINARY_DIR}/describe-program
             -P ${CMAKE_CURRENT_SOURCE_DIR}/describe/program_check.cmake)
 endforeach()
+
+set(describe_compiler)
+if(NOT CMAKE_GENERATOR MATCHES "Visual Studio|Xcode")
+    set(describe_compiler -DCOMPILER=${CMAKE_C_COMPILER})
+endif()
+add_test(NAME describe_function_refuses_another_directory
+    COMMAND ${CMAKE_COMMAND} -DSTANDARD=${PROJECT_SOURCE_DIR} -DCORE=${WEIVEL_CORE_SOURCE_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/describe-elsewhere -DGENERATOR=${CMAKE_GENERATOR}
+        -DPLATFORM=${CMAKE_GENERATOR_PLATFORM} -DTOOLSET=${CMAKE_GENERATOR_TOOLSET} ${describe_compiler}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/describe/function_check.cmake)
+set_tests_properties(describe_function_refuses_another_directory PROPERTIES TIMEOUT 300)
 
 function(layout_test name source)
     standard_test(${name} ${source} ${ARGN})

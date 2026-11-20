@@ -22,7 +22,8 @@ else()
 endif()
 
 function(describe_writer target reader)
-    add_library(${target} STATIC ${ARGN} ${CMAKE_CURRENT_SOURCE_DIR}/writer.c ${WEIVEL_DESCRIBE_PLATFORM_SOURCE})
+    add_library(${target} STATIC ${ARGN} ${CMAKE_CURRENT_SOURCE_DIR}/writer.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/program.c ${WEIVEL_DESCRIBE_PLATFORM_SOURCE})
     target_link_libraries(${target} PUBLIC ${reader})
     if(WIN32)
         target_link_libraries(${target} PUBLIC shell32)
