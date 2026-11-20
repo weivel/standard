@@ -1,0 +1,108 @@
+# weivel_describe(<target> HEADERS <header>... PREFIX <identifier prefix>
+#                 SERVICE <definition struct> SYMBOL <description symbol> [SERVICE <struct> SYMBOL <symbol>]...
+#                 [EXPORT <macro>] [STATUS <type>] [REFUSAL <type>] [VALUE <type>] [TREE <type>])
+#
+# Runs weivel-describe at build time over HEADERS, in the order given, once per SERVICE, and adds each generated
+# source, which defines SYMBOL answering the description of that definition, to <target>. PREFIX begins every other
+# name a generated source declares. EXPORT is the macro SYMBOL is declared with, such as the library's export macro.
+# STATUS, REFUSAL, VALUE and TREE name the types the headers use in those roles, defaulting to weivel/standard's own.
+# The value and tree types are known by name alone, so the header declaring them is not one of HEADERS, which would
+# refuse it; the headers that use them include it.
+# A relative header is read from the calling directory. The generated sources include weivel/description.h and each
+# header by its absolute path, so <target> is given weivel/standard's include directories.
+
+include_guard(GLOBAL)
+
+function(weivel_describe target)
+    if(NOT TARGET ${target})
+        message(FATAL_ERROR "weivel_describe: ${target} is not a target")
+    endif()
+    if(NOT TARGET weivel-describe OR NOT TARGET weivel_standard)
+        message(FATAL_ERROR "weivel_describe: add weivel/standard first, which builds weivel-describe")
+    endif()
+    set(single_keywords PREFIX EXPORT STATUS REFUSAL VALUE TREE)
+    set(headers)
+    set(services)
+    set(symbols)
+    set(keyword)
+    foreach(argument IN LISTS ARGN)
+        if(argument STREQUAL "HEADERS" OR argument STREQUAL "SERVICE" OR argument IN_LIST single_keywords)
+            if(keyword STREQUAL "SERVICE_NAMED")
+                message(FATAL_ERROR "weivel_describe: SERVICE ${service} has no SYMBOL")
+            elseif(keyword AND NOT keyword STREQUAL "HEADERS")
+                message(FATAL_ERROR "weivel_describe: ${keyword} has no value")
+            endif()
+            if(keyword STREQUAL "HEADERS" AND NOT headers)
+                message(FATAL_ERROR "weivel_describe: HEADERS names no header")
+            endif()
+            if(DEFINED describe_${argument} AND NOT argument STREQUAL "SERVICE")
+                message(FATAL_ERROR "weivel_describe: ${argument} is given twice")
+            endif()
+            set(keyword ${argument})
+        elseif(argument STREQUAL "SYMBOL")
+            if(NOT keyword STREQUAL "SERVICE_NAMED")
+                message(FATAL_ERROR "weivel_describe: SYMBOL must follow SERVICE <definition struct>")
+            endif()
+            set(keyword SYMBOL)
+        elseif(keyword STREQUAL "HEADERS")
+            get_filename_component(header "${argument}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+            list(APPEND headers "${header}")
+            set(describe_HEADERS 1)
+        elseif(keyword STREQUAL "SERVICE")
+            set(service ${argument})
+            list(APPEND services ${argument})
+            set(keyword SERVICE_NAMED)
+        elseif(keyword STREQUAL "SYMBOL")
+            if(argument IN_LIST symbols)
+                message(FATAL_ERROR "weivel_describe: SYMBOL ${argument} is given twice")
+            endif()
+            list(APPEND symbols ${argument})
+            set(keyword)
+        elseif(keyword AND keyword IN_LIST single_keywords)
+            set(describe_${keyword} ${argument})
+            set(keyword)
+        else()
+            message(FATAL_ERROR "weivel_describe: `${argument}` belongs to no keyword")
+        endif()
+    endforeach()
+    if(keyword STREQUAL "SERVICE_NAMED")
+        message(FATAL_ERROR "weivel_describe: SERVICE ${service} has no SYMBOL")
+    elseif(keyword AND NOT keyword STREQUAL "HEADERS")
+        message(FATAL_ERROR "weivel_describe: ${keyword} has no value")
+    endif()
+    if(NOT headers)
+        message(FATAL_ERROR "weivel_describe: HEADERS names no header")
+    endif()
+    if(NOT DEFINED describe_PREFIX)
+        message(FATAL_ERROR "weivel_describe: PREFIX is required")
+    endif()
+    if(NOT services)
+        message(FATAL_ERROR "weivel_describe: name at least one SERVICE <definition struct> SYMBOL <symbol>")
+    endif()
+
+    set(options --prefix ${describe_PREFIX})
+    foreach(role EXPORT STATUS REFUSAL VALUE TREE)
+        if(DEFINED describe_${role})
+            string(TOLOWER ${role} flag)
+            list(APPEND options --${flag} ${describe_${role}})
+        endif()
+    endforeach()
+
+    set(directory ${CMAKE_CURRENT_BINARY_DIR}/weivel_describe/${target})
+    list(LENGTH services service_count)
+    math(EXPR last "${service_count} - 1")
+    foreach(at RANGE ${last})
+        list(GET services ${at} service)
+        list(GET symbols ${at} symbol)
+        set(output ${directory}/${symbol}.c)
+        add_custom_command(OUTPUT ${output}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${directory}
+            COMMAND weivel-describe --definition ${service} --symbol ${symbol} ${options} --output ${output}
+                ${headers}
+            DEPENDS weivel-describe ${headers}
+            COMMENT "Describing ${service} as ${symbol}"
+            VERBATIM)
+        target_sources(${target} PRIVATE ${output})
+    endforeach()
+    target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:weivel_standard,INTERFACE_INCLUDE_DIRECTORIES>)
+endfunction()

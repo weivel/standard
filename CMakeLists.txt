@@ -77,6 +77,7 @@ set_target_properties(weivel_standard_shared PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/shared)
 
 add_subdirectory(tools/describe)
+include(cmake/weivel_describe.cmake)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     enable_testing()
