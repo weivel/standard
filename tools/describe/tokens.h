@@ -46,7 +46,10 @@ int describe_token_is(const describe_token *token, const char *spelled);
 /** A copy of the token's text; NULL when memory runs out. */
 char *describe_token_copy(const describe_token *token);
 
-/** A doc comment's text without its delimiters or leading `*`s, every run of white space one space; NULL on no memory. */
+/**
+ * A doc comment's text without its delimiters or leading `*`s, every run of white space one space; NULL when memory
+ * runs out.
+ */
 char *describe_doc_text(const describe_token *doc);
 
 /** Fills `refusal` with a formatted message at `file`:`line`; REFUSED, or OUT_OF_MEMORY with it left empty. */

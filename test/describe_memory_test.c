@@ -78,11 +78,13 @@ int main(void) {
     const char *services[] = {WEIVEL_DESCRIBE_SERVICES_HEADER};
     const char *every_form[] = {WEIVEL_DESCRIBE_SERVICES_HEADER, FIXTURE("every_form.h")};
     const char *clauses[] = {WEIVEL_DESCRIBE_SERVICES_HEADER, FIXTURE("clauses.h")};
+    const char *owners[] = {FIXTURE("plurals_and_owners.h")};
     const char *refused[] = {FIXTURE("refused/answer_unreleased.h")};
     const char *unread[] = {FIXTURE("refused/missing.h")};
     reads_through_every_failed_allocation(services, COUNT_OF(services), DESCRIBE_DONE);
     reads_through_every_failed_allocation(every_form, COUNT_OF(every_form), DESCRIBE_DONE);
     reads_through_every_failed_allocation(clauses, COUNT_OF(clauses), DESCRIBE_DONE);
+    reads_through_every_failed_allocation(owners, COUNT_OF(owners), DESCRIBE_DONE);
     reads_through_every_failed_allocation(refused, COUNT_OF(refused), DESCRIBE_REFUSED);
     reads_through_every_failed_allocation(unread, COUNT_OF(unread), DESCRIBE_REFUSED);
     reaches_through_every_failed_allocation();
