@@ -490,7 +490,6 @@ static void waits_and_answers_at_once(const described_walker *walker) {
     CHECK(walker->wait(walker->context, 25, NULL) == WEIVEL_STATUS_MALFORMED);
 }
 
-/** The counter a loan carries is a definition of its own, called through its own context, not the walker's. */
 static void refuses_the_counters_sentinel_and_releases_the_refusal_once(const described_mirror *mirror,
                                                                        const described_walker *walker) {
     described_loan loan = WEIVEL_INIT(described_loan);
@@ -505,17 +504,22 @@ static void refuses_the_counters_sentinel_and_releases_the_refusal_once(const de
           WEIVEL_STATUS_REFUSED);
     CHECK(total == 0);
     check_refusal(&refusal);
-    CHECK(releases_of(mirror).refusals == before.refusals);
+    CHECK(releases_of(mirror).refusals == before.refusals && releases_of(mirror).nested_refusals == before.nested_refusals);
+    walker->release_refusal(loan.counter->context, &refusal);
+    loan.counter->release_refusal(walker->context, &refusal);
+    CHECK(refusal.storage != NULL);
+    CHECK(releases_of(mirror).refusals == before.refusals && releases_of(mirror).nested_refusals == before.nested_refusals);
     loan.counter->release_refusal(loan.counter->context, &refusal);
     CHECK(refusal.storage == NULL);
-    loan.counter->release_refusal(loan.counter->context, &refusal);
-    CHECK(releases_of(mirror).refusals == before.refusals + 1);
+    CHECK(releases_of(mirror).refusals == before.refusals);
+    CHECK(releases_of(mirror).nested_refusals == before.nested_refusals + 1);
     CHECK(loan.counter->add(loan.counter->context, DESCRIBED_COUNTER_REFUSED_AMOUNT, &total, NULL) ==
           WEIVEL_STATUS_REFUSED);
     refusal.size = 0;
     CHECK(loan.counter->add(loan.counter->context, 1, &total, &refusal) == WEIVEL_STATUS_MALFORMED);
 }
 
+/** The counter a loan carries is a definition of its own, called through its own context, not the walker's. */
 static void lends_a_counter_called_through_its_own_context(const described_walker *walker) {
     described_loan loan = WEIVEL_INIT(described_loan);
     described_loan small = WEIVEL_INIT(described_loan);

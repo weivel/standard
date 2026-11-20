@@ -105,7 +105,8 @@ typedef struct described_reflection {
 /**
  * How many releases of each kind have freed something since the library was loaded, so a binding can prove it
  * releases every answer exactly once: a release handed an empty struct or NULL counts nothing. It owns nothing, so
- * nothing releases it. First shape ends at `cursors`.
+ * nothing releases it. First shape ends at `nested_refusals`, the refusals the lent counter's own `release_refusal`
+ * freed, which no other release counts.
  *
  * @implNote The counts are kept without synchronisation, so they may be read only while no other thread releases.
  */
@@ -115,6 +116,7 @@ typedef struct described_releases {
     uint64_t trees;
     uint64_t refusals;
     uint64_t cursors;
+    uint64_t nested_refusals;
 } described_releases;
 
 /** The mirror, the library's first service. First shape ends at `release_refusal`. */
