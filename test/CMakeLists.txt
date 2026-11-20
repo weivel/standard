@@ -67,6 +67,31 @@ weivel_describe(describe_services_test
     SERVICE weivel_standard_secrets SYMBOL services_described_secrets
     SERVICE weivel_standard_paths SYMBOL services_described_paths)
 
+add_library(weivel_standard_described SHARED described/described.c described/broken.c)
+target_compile_definitions(weivel_standard_described PRIVATE DESCRIBED_BUILDING)
+standard_strict_warnings(weivel_standard_described)
+set_target_properties(weivel_standard_described PROPERTIES
+    C_VISIBILITY_PRESET hidden
+    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/shared)
+weivel_describe(weivel_standard_described
+    HEADERS ${PROJECT_SOURCE_DIR}/include/weivel/services.h described/described.h
+    PREFIX described_generated_
+    EXPORT DESCRIBED_API
+    SERVICE described_mirror SYMBOL described_mirror_description
+    SERVICE described_walker SYMBOL described_walker_description)
+
+foreach(described_test described_description_test described_calls_test)
+    add_executable(${described_test} ${described_test}.c described/loader.c)
+    target_link_libraries(${described_test} PRIVATE weivel_standard ${CMAKE_DL_LIBS})
+    target_include_directories(${described_test} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src)
+    add_dependencies(${described_test} weivel_standard_described)
+    standard_strict_warnings(${described_test})
+    add_test(NAME ${described_test} COMMAND ${described_test} $<TARGET_FILE:weivel_standard_described>)
+    set_tests_properties(${described_test} PROPERTIES TIMEOUT 60)
+endforeach()
+target_compile_definitions(described_description_test PRIVATE
+    WEIVEL_DESCRIBED_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/described")
+
 foreach(scenario refused usage)
     add_test(NAME describe_program_${scenario}
         COMMAND ${CMAKE_COMMAND} -DSCENARIO=${scenario} -DDESCRIBE=$<TARGET_FILE:weivel-describe>

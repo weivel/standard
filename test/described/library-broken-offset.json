@@ -1,0 +1,16 @@
+{
+  "importName": "described",
+  "version": "1.0.0",
+  "services": [
+    {
+      "id": "described-mirror",
+      "description": "described_mirror_description",
+      "functions": [{ "name": "definition", "symbol": "described_mirror_definition", "kind": "definition" }]
+    },
+    {
+      "id": "described-walker",
+      "description": "described_broken_offset_description",
+      "functions": [{ "name": "definition", "symbol": "described_walker_definition", "kind": "definition" }]
+    }
+  ]
+}
