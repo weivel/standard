@@ -102,74 +102,7 @@ static describe_service service_of(const char *definition, const char *symbol, c
 }
 
 const weivel_standard_description *nested_description_of(void);
-
-static const weivel_standard_described_member REMOTE_MEMBERS[] = {
-    {.name = "size",
-     .offset = offsetof(probe_remote, size),
-     .size = sizeof(((probe_remote *)0)->size),
-     .kind = WEIVEL_STANDARD_DESCRIBED_U32,
-     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
-     .type = NULL,
-     .count = NULL,
-     .release = NULL},
-    {.name = "context",
-     .offset = offsetof(probe_remote, context),
-     .size = sizeof(((probe_remote *)0)->context),
-     .kind = WEIVEL_STANDARD_DESCRIBED_CONTEXT,
-     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
-     .type = NULL,
-     .count = NULL,
-     .release = NULL}};
-
-static const weivel_standard_described_type REMOTE_TYPES[] = {
-    {.name = "probe_remote",
-     .size = sizeof(probe_remote),
-     .first_shape = offsetof(probe_remote, ping) + sizeof(((probe_remote *)0)->ping),
-     .members = REMOTE_MEMBERS,
-     .member_count = COUNT_OF(REMOTE_MEMBERS)}};
-
-static const weivel_standard_described_parameter PING_PARAMETERS[] = {
-    {.name = "context",
-     .kind = WEIVEL_STANDARD_DESCRIBED_CONTEXT,
-     .role = WEIVEL_STANDARD_DESCRIBED_INPUT,
-     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
-     .type = NULL,
-     .count = NULL,
-     .release = NULL},
-    {.name = "pong",
-     .kind = WEIVEL_STANDARD_DESCRIBED_U64,
-     .role = WEIVEL_STANDARD_DESCRIBED_ANSWER,
-     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
-     .type = NULL,
-     .count = NULL,
-     .release = NULL}};
-
-static const weivel_standard_described_operation REMOTE_OPERATIONS[] = {
-    {.name = "ping",
-     .offset = offsetof(probe_remote, ping),
-     .returns = WEIVEL_STANDARD_DESCRIBED_STATUS,
-     .parameters = PING_PARAMETERS,
-     .parameter_count = COUNT_OF(PING_PARAMETERS)}};
-
-static const weivel_standard_description REMOTE = {.size = (uint32_t)sizeof(weivel_standard_description),
-                                                    .definition = "probe_remote",
-                                                    .types = REMOTE_TYPES,
-                                                    .type_count = COUNT_OF(REMOTE_TYPES),
-                                                    .enums = NULL,
-                                                    .enum_count = 0,
-                                                    .operations = REMOTE_OPERATIONS,
-                                                    .operation_count = COUNT_OF(REMOTE_OPERATIONS),
-                                                    .blocking = NULL,
-                                                    .blocking_count = 0,
-                                                    .definitions = NULL,
-                                                    .definition_count = 0};
-
-/** The description another library would export for probe_remote, which golden/nested.c calls. */
-const weivel_standard_description *probe_remote_description(void);
-
-const weivel_standard_description *probe_remote_description(void) {
-    return &REMOTE;
-}
+const weivel_standard_description *scanned_description_of(void);
 
 static void writes_each_golden_source(void) {
     static const char *const services[] = {WEIVEL_DESCRIBE_SERVICES_HEADER};
@@ -184,7 +117,9 @@ static void writes_each_golden_source(void) {
     static const char *const nested[] = {FIXTURE("nested.h")};
     static const char *const nested_includes[] = {"nested.h"};
     static const char *const nested_elsewhere[] = {"probe_remote"};
-    golden_case cases[6];
+    static const char *const scanned[] = {FIXTURE("nested_remote.h"), FIXTURE("nested.h")};
+    static const char *const scanned_includes[] = {"nested_remote.h", "nested.h"};
+    golden_case cases[7];
     size_t at;
     restated_names = standard;
     restated_names.status = "probe_status";
@@ -224,6 +159,12 @@ static void writes_each_golden_source(void) {
     cases[5].header_count = COUNT_OF(nested);
     cases[5].names = nested_names;
     cases[5].service = service_of("probe_lender", "nested_description_of", "nested_", NULL);
+    cases[6].golden = "scanned.c";
+    cases[6].paths = scanned;
+    cases[6].includes = scanned_includes;
+    cases[6].header_count = COUNT_OF(scanned);
+    cases[6].names = nested_names;
+    cases[6].service = service_of("probe_lender", "scanned_description_of", "scanned_", NULL);
     for (at = 0; at < COUNT_OF(cases); at++) {
         writes_the_golden_source(&cases[at]);
     }
@@ -354,6 +295,20 @@ static void compiles_the_golden_nested_into_a_description_that_checks(void) {
     CHECK(nested_description_of() == lender);
 }
 
+/**
+ * golden/scanned.c reads nested_remote.h too, so probe_remote is declared by a scanned header and still described
+ * elsewhere: it is called, never written, and its declaration is the header's alone.
+ */
+static void compiles_the_golden_scanned_into_a_description_calling_the_remote(void) {
+    const weivel_standard_description *lender = scanned_description_of();
+    CHECK(weivel_standard_description_check(lender, NULL) == WEIVEL_STATUS_OK);
+    CHECK(lender->definition_count == 2);
+    if (lender->definition_count == 2) {
+        check_text(lender->definitions[0]->definition, "probe_counter", "golden scanned counter");
+        CHECK(lender->definitions[1] == probe_remote_description());
+    }
+}
+
 static void refuses_a_definition_reaching_itself(void) {
     const char *paths[] = {FIXTURE("refused/definition_cycle.h")};
     const char *includes[] = {"definition_cycle.h"};
@@ -382,6 +337,7 @@ static void refuses_a_definition_reaching_itself(void) {
 int main(void) {
     compiles_the_golden_probe_into_a_description_that_checks();
     compiles_the_golden_nested_into_a_description_that_checks();
+    compiles_the_golden_scanned_into_a_description_calling_the_remote();
     refuses_a_definition_reaching_itself();
     writes_each_golden_source();
     refuses_what_it_cannot_write();

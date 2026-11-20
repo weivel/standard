@@ -11,6 +11,8 @@
 # refuse it; the headers that use them include it.
 # DESCRIBED_ELSEWHERE names definitions another library describes, known by name alone in the same way: a pointer to
 # one is a DEFINITION whose description is that library's `<definition struct>_description`, which <target> links.
+# A definition HEADERS also declare is still described elsewhere. The source calls each such description once through
+# pthread_once off Windows, so on glibc older than 2.34 <target> also links Threads::Threads (find_package(Threads)).
 # A relative header is read from the calling directory. The generated sources include weivel/description.h and each
 # header by its absolute path, so <target> is given weivel/standard's include directories.
 # It is called from the directory that defines <target>: a generated source is known as generated only to its own

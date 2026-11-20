@@ -80,7 +80,8 @@ typedef struct describe_operation {
 /**
  * A `typedef struct <name> { ... } <name>;`. `sized` when its first member is `uint32_t size`, which then names its
  * first shape in `first_shape`; `definition` when it carries function pointers, its members then being `size` and
- * `context` alone and its function pointers `operations`, in declaration order.
+ * `context` alone and its function pointers `operations`, in declaration order. `elsewhere` for a definition named as
+ * described elsewhere, which another library's `<name>_description` describes, though the headers declare it.
  */
 typedef struct describe_type {
     char *name;
@@ -88,6 +89,7 @@ typedef struct describe_type {
     char *doc;
     int sized;
     int definition;
+    int elsewhere;
     char *first_shape;
     describe_item *members;
     size_t member_count;
@@ -119,10 +121,15 @@ typedef struct describe_handle {
     char *release;
 } describe_handle;
 
-/** Everything read, each array in declaration order across the headers in the order they were read. */
+/**
+ * Everything read, each array in declaration order across the headers in the order they were read. `functions`
+ * names every function the headers declare, which the reader otherwise skips.
+ */
 typedef struct describe_model {
     char **files;
     size_t file_count;
+    char **functions;
+    size_t function_count;
     describe_type *types;
     size_t type_count;
     describe_enum *enums;
@@ -138,8 +145,8 @@ typedef struct describe_model {
  * struct of the scanned headers; the others are known by name alone.
  *
  * `elsewhere` names the definitions another library describes, known by name alone as the value type is: a pointer
- * to one is a DEFINITION, whose description is that library's `<name>_description`. None may be a struct of the
- * scanned headers.
+ * to one is a DEFINITION, whose description is that library's `<name>_description`. One the scanned headers also
+ * declare is read from them and still described elsewhere, never written again.
  */
 typedef struct describe_names {
     const char *status;
@@ -180,6 +187,9 @@ const describe_type *describe_model_type(const describe_model *model, const char
 const describe_enum *describe_model_enum(const describe_model *model, const char *name);
 const describe_handle *describe_model_handle(const describe_model *model, const char *name);
 const describe_operation *describe_type_operation(const describe_type *type, const char *name);
+
+/** Whether the headers declare the function `<definition>_description`. */
+int describe_model_declares_description(const describe_model *model, const char *definition);
 
 /**
  * What one definition's description holds: the definition and every struct its operations reach, through

@@ -53,11 +53,21 @@ foreach(describe_target describe_test describe_memory_test describe_write_test d
         WEIVEL_DESCRIBE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/describe"
         WEIVEL_DESCRIBE_SERVICES_HEADER="${PROJECT_SOURCE_DIR}/include/weivel/services.h")
 endforeach()
-target_sources(describe_write_test PRIVATE describe/golden/probe.c describe/golden/nested.c)
+target_sources(describe_write_test PRIVATE describe/golden/probe.c describe/golden/nested.c describe/golden/scanned.c
+    describe/remote.c)
 target_include_directories(describe_write_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/describe)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/describe-actual)
 target_compile_definitions(describe_write_test PRIVATE
     WEIVEL_DESCRIBE_ACTUAL="${CMAKE_CURRENT_BINARY_DIR}/describe-actual")
+
+standard_test(describe_elsewhere_test describe_elsewhere_test weivel_standard)
+target_sources(describe_elsewhere_test PRIVATE describe/remote.c)
+target_include_directories(describe_elsewhere_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/describe)
+weivel_describe(describe_elsewhere_test
+    HEADERS describe/nested_remote.h describe/nested.h
+    PREFIX elsewhere_
+    SERVICE probe_lender SYMBOL elsewhere_lender_description
+    DESCRIBED_ELSEWHERE probe_remote)
 
 standard_test(describe_services_test describe_services_test weivel_standard)
 weivel_describe(describe_services_test
@@ -92,7 +102,7 @@ endforeach()
 target_compile_definitions(described_description_test PRIVATE
     WEIVEL_DESCRIBED_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/described")
 
-foreach(scenario refused usage)
+foreach(scenario refused usage elsewhere)
     add_test(NAME describe_program_${scenario}
         COMMAND ${CMAKE_COMMAND} -DSCENARIO=${scenario} -DDESCRIBE=$<TARGET_FILE:weivel-describe>
             -DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/describe -DWORK=${CMAKE_CURRENT_BINARY_DIR}/describe-program

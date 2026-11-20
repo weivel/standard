@@ -78,6 +78,10 @@ void describe_model_release(describe_model *model) {
     for (at = 0; at < model->file_count; at++) {
         weivel_standard_memory_release(model->files[at]);
     }
+    for (at = 0; at < model->function_count; at++) {
+        weivel_standard_memory_release(model->functions[at]);
+    }
+    weivel_standard_memory_release(model->functions);
     weivel_standard_memory_release(model->types);
     weivel_standard_memory_release(model->enums);
     weivel_standard_memory_release(model->handles);
@@ -129,6 +133,19 @@ const describe_operation *describe_type_operation(const describe_type *type, con
         }
     }
     return NULL;
+}
+
+int describe_model_declares_description(const describe_model *model, const char *definition) {
+    static const char suffix[] = "_description";
+    size_t length = strlen(definition);
+    size_t at;
+    for (at = 0; at < model->function_count; at++) {
+        const char *name = model->functions[at];
+        if (strncmp(name, definition, length) == 0 && strcmp(name + length, suffix) == 0) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static int names_a_struct(const describe_item *item) {

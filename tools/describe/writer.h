@@ -15,11 +15,13 @@
  * Every file-scope name the source declares other than `<symbol>` is `<prefix>` followed by `types`, `enums`,
  * `operations`, `blocking`, `definitions`, `description`, `filled`, `fill`, `<struct>_members`, `<enum>_entries` or
  * `<operation>_parameters`, so a prefix the library owns keeps them apart from every name its headers declare. A
- * definition a DEFINITION names that the headers declare is described in the same source, once, its names taking
- * `<prefix><definition>_` as their prefix; a struct named so that two spellings meet is a compile error, never a
- * silent merge. One described elsewhere is declared as `<definition>_description` and called once, on the symbol's
- * first call, through the platform's once primitive (`InitOnceExecuteOnce` on Windows, `pthread_once` elsewhere),
- * since C11's `call_once` is optional and macOS does not ship it; that is the only slot written after load.
+ * definition a DEFINITION names that the headers declare and that is not named as described elsewhere is described
+ * in the same source, once, its names taking `<prefix><definition>_` as their prefix; a struct named so that two
+ * spellings meet is a compile error, never a silent merge. One described elsewhere, whether the headers declare it or
+ * not, is declared as `<definition>_description` unless the headers declare that function, and called once, on the
+ * symbol's first call, through the platform's once primitive (`InitOnceExecuteOnce` on Windows, `pthread_once`
+ * elsewhere), since C11's `call_once` is optional and macOS does not ship it; that is the only slot written after
+ * load.
  */
 
 #include <stddef.h>

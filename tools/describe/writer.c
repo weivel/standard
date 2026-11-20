@@ -274,13 +274,16 @@ static int is_declared_before(const writing *state, size_t at) {
 
 /**
  * The function that fills every slot of a definition described elsewhere, run once by the platform's own once
- * primitive, since C11 has none every platform ships: `<threads.h>` is optional and absent on macOS.
+ * primitive, since C11 has none every platform ships: `<threads.h>` is optional and absent on macOS. Each
+ * `<definition>_description` is declared here unless the headers declare it, since a second declaration without
+ * their export macro is inconsistent linkage to MSVC.
  */
 static void put_filling(writing *state) {
     const char *prefix = state->service->prefix;
     size_t at;
     for (at = 0; at < state->filled_count; at++) {
-        if (!is_declared_before(state, at)) {
+        if (!is_declared_before(state, at) &&
+            !describe_model_declares_description(state->model, state->filled[at].definition)) {
             put(state, "const weivel_standard_description *%s_description(void);\n", state->filled[at].definition);
         }
     }
@@ -343,8 +346,10 @@ static void put_blocking(writing *state, const describe_type *definition) {
     put(state, "};\n\n");
 }
 
+/** A definition the headers declare, unless it is named as described elsewhere, which wins over the scan. */
 static int is_written_here(const writing *state, const char *definition) {
-    return describe_model_type(state->model, definition) != NULL;
+    const describe_type *type = describe_model_type(state->model, definition);
+    return type != NULL && !type->elsewhere;
 }
 
 /** Each slot a nested description of this source, or NULL for one described elsewhere, which the symbol fills. */

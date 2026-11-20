@@ -1,8 +1,10 @@
-# -DSCENARIO=<refused|usage> -DDESCRIBE=<weivel-describe> -DFIXTURES=<test/describe> -DWORK=<scratch directory>
+# -DSCENARIO=<refused|usage|elsewhere> -DDESCRIBE=<weivel-describe> -DFIXTURES=<test/describe>
+# -DWORK=<scratch directory>
 #
 # refused: a header outside the grammar exits 1, prints the refusal as `<file>:<line>: <message>` and leaves no
 # source behind, even where an earlier run wrote one. usage: a call missing a required option exits 2 and writes
-# nothing.
+# nothing. elsewhere: `--described-elsewhere probe_remote` over nested.h, named from the fixtures directory as an
+# include names it, writes golden/nested.c byte for byte.
 
 cmake_minimum_required(VERSION 3.15)
 
@@ -40,6 +42,19 @@ elseif(SCENARIO STREQUAL "usage")
     file(READ ${output} kept)
     if(NOT kept STREQUAL "left by an earlier run\n")
         message(FATAL_ERROR "a call refused for its usage changed ${output}")
+    endif()
+elseif(SCENARIO STREQUAL "elsewhere")
+    execute_process(COMMAND ${DESCRIBE} --definition probe_lender --symbol nested_description_of --prefix nested_
+            --described-elsewhere probe_remote --output ${output} nested.h
+        WORKING_DIRECTORY ${FIXTURES}
+        RESULT_VARIABLE code OUTPUT_VARIABLE printed ERROR_VARIABLE errors)
+    if(NOT code STREQUAL "0")
+        message(FATAL_ERROR "expected exit 0 describing nested.h, got ${code}: ${errors}")
+    endif()
+    file(READ ${output} written)
+    file(READ ${FIXTURES}/golden/nested.c golden)
+    if(NOT written STREQUAL golden)
+        message(FATAL_ERROR "${output} differs from golden/nested.c")
     endif()
 else()
     message(FATAL_ERROR "no scenario ${SCENARIO}")

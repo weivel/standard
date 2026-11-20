@@ -493,6 +493,13 @@ static describe_outcome resolve_shape(resolving *state, describe_type *type) {
     describe_outcome outcome;
     type->definition = type->operation_count > 0;
     type->sized = type->member_count > 0 && is_leading_size(&type->members[0]);
+    type->elsewhere = is_elsewhere(state->names, type->name);
+    if (type->elsewhere && !type->definition) {
+        return describe_refuse(state->refusal, type->where.file, type->where.line,
+                               "`%s` is named as described elsewhere and is declared here as a struct that is no "
+                               "definition; name only definitions as described elsewhere",
+                               type->name);
+    }
     if (type->definition && (type->member_count != 2 || !type->sized || !is_context(&type->members[1]))) {
         return refuse_definition(state, type);
     }
@@ -1210,31 +1217,10 @@ static describe_outcome resolve_definition_releases(resolving *state, describe_t
     return type->definition ? resolve_releases(state, type) : DESCRIBE_DONE;
 }
 
-/** A definition described elsewhere is known by name alone, so a scanned header declaring it would give it two. */
-static describe_outcome refuse_elsewhere_declared(const describe_model *model, const describe_names *names,
-                                                  describe_refusal *refusal) {
-    size_t at;
-    for (at = 0; at < names->elsewhere_count; at++) {
-        const describe_type *type = describe_model_type(model, names->elsewhere[at]);
-        if (type != NULL) {
-            return describe_refuse(refusal, type->where.file, type->where.line,
-                                   "`%s` is named as described elsewhere and is declared by a scanned header; scan "
-                                   "the header or name it as described elsewhere, not both",
-                                   type->name);
-        }
-    }
-    return DESCRIBE_DONE;
-}
-
 describe_outcome describe_resolve(describe_model *model, const describe_names *names, describe_refusal *refusal) {
     resolving state;
     describe_outcome outcome;
     size_t at;
-    outcome = refuse_elsewhere_declared(model, names, refusal);
-    if (outcome != DESCRIBE_DONE) {
-        return outcome;
-    }
-
     state.model = model;
     state.names = names;
     state.refusal = refusal;
