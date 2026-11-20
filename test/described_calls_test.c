@@ -513,6 +513,29 @@ static void calls_every_operation(described_library library) {
     counts_nothing_for_an_empty_release(mirror, walker);
 }
 
+static void offers_every_operation_but_halve_without_it(described_library library) {
+    described_definition_symbol mirror_symbol = described_library_definition(library, "described_mirror_definition");
+    described_definition_symbol without_symbol =
+        described_library_definition(library, "described_mirror_without_halve_definition");
+    const described_mirror *mirror;
+    const described_mirror *without;
+    CHECK(mirror_symbol != NULL && without_symbol != NULL);
+    if (mirror_symbol == NULL || without_symbol == NULL) {
+        return;
+    }
+    mirror = mirror_symbol();
+    without = without_symbol();
+    CHECK(without->halve == NULL && mirror->halve != NULL);
+    CHECK(without->size == mirror->size && without->context == mirror->context);
+    CHECK(without->reflect == mirror->reflect && without->tree == mirror->tree && without->find == mirror->find);
+    CHECK(without->measure == mirror->measure && without->negate == mirror->negate);
+    CHECK(without->invert == mirror->invert && without->swap_shade == mirror->swap_shade);
+    CHECK(without->grow == mirror->grow && without->weigh == mirror->weigh);
+    CHECK(without->count_releases == mirror->count_releases);
+    CHECK(without->release_reflection == mirror->release_reflection && without->release_tree == mirror->release_tree);
+    CHECK(without->release_refusal == mirror->release_refusal);
+}
+
 int main(int argument_count, char **arguments) {
     described_library library;
     CHECK(argument_count == 2);
@@ -521,6 +544,7 @@ int main(int argument_count, char **arguments) {
         return 1;
     }
     calls_every_operation(library);
+    offers_every_operation_but_halve_without_it(library);
     CHECK(described_library_close(library));
     return check_summary("described_calls_test");
 }
