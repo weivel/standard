@@ -560,7 +560,11 @@ static const weivel_standard_description probe_description = {
     .enums = probe_enums,
     .enum_count = sizeof(probe_enums) / sizeof(probe_enums[0]),
     .operations = probe_operations,
-    .operation_count = sizeof(probe_operations) / sizeof(probe_operations[0])};
+    .operation_count = sizeof(probe_operations) / sizeof(probe_operations[0]),
+    .blocking = NULL,
+    .blocking_count = 0,
+    .definitions = NULL,
+    .definition_count = 0};
 
 WEIVEL_STANDARD_API const weivel_standard_description *probe_description_of(void);
 

@@ -222,6 +222,10 @@ static void print_description_layouts(void) {
     FIELD(weivel_standard_description, enum_count);
     FIELD(weivel_standard_description, operations);
     FIELD(weivel_standard_description, operation_count);
+    FIELD(weivel_standard_description, blocking);
+    FIELD(weivel_standard_description, blocking_count);
+    FIELD(weivel_standard_description, definitions);
+    FIELD(weivel_standard_description, definition_count);
     SIZE(weivel_standard_description);
 }
 

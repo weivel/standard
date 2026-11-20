@@ -351,7 +351,193 @@ static void refuses_with_no_fix_text(probe_description *probe) {
     probe->refusal[2].kind = WEIVEL_STANDARD_DESCRIBED_STORAGE;
 }
 
+static void blocks_in_no_operation(probe_description *probe) {
+    probe->blocking[0] = "probe_wait";
+}
+
+static void blocks_in_a_release(probe_description *probe) {
+    probe->blocking[0] = "release_tree";
+}
+
+static void blocks_twice(probe_description *probe) {
+    static const char *twice[2] = {"lend", "lend"};
+    probe->description.blocking = twice;
+    probe->description.blocking_count = 2;
+}
+
+static void blocks_in_nothing_named(probe_description *probe) {
+    probe->blocking[0] = NULL;
+}
+
+static void counts_blocking_it_does_not_hold(probe_description *probe) {
+    probe->description.blocking = NULL;
+}
+
+static void defines_no_nested(probe_description *probe) {
+    probe->loan[1].type = "probe_meter";
+}
+
+static void answers_a_definition_no_nested_defines(probe_description *probe) {
+    probe->borrow[1].type = "probe_meter";
+}
+
+static void leaves_a_definition_untyped(probe_description *probe) {
+    probe->loan[1].type = NULL;
+}
+
+static void nests_one_definition_twice(probe_description *probe) {
+    static const weivel_standard_description *twice[2];
+    twice[0] = &probe->counter;
+    twice[1] = &probe->counter;
+    probe->description.definitions = twice;
+    probe->description.definition_count = 2;
+}
+
+static void nests_nothing(probe_description *probe) {
+    probe->definitions[0] = NULL;
+}
+
+static void counts_definitions_it_does_not_hold(probe_description *probe) {
+    probe->description.definitions = NULL;
+}
+
+static void nests_one_below_its_first_shape(probe_description *probe) {
+    probe->counter.size = (uint32_t)offsetof(weivel_standard_description, operation_count);
+}
+
+static void nests_one_naming_no_definition(probe_description *probe) {
+    probe->counter.definition = NULL;
+}
+
+static void nests_one_with_a_type_unnamed(probe_description *probe) {
+    probe->counter_types[0].name = NULL;
+}
+
+static void nests_one_of_a_kind_past_the_last(probe_description *probe) {
+    probe->add[1].kind = WEIVEL_STANDARD_DESCRIBED_LAST + 1;
+}
+
+static void nests_one_blocking_in_no_operation(probe_description *probe) {
+    static const char *const waits[1] = {"probe_wait"};
+    probe->counter.blocking = waits;
+    probe->counter.blocking_count = 1;
+}
+
+static void nests_itself(probe_description *probe) {
+    probe->counter.definitions = probe->definitions;
+    probe->counter.definition_count = 1;
+}
+
+static void nests_the_description_holding_it(probe_description *probe) {
+    static const weivel_standard_description *outer[1];
+    outer[0] = &probe->description;
+    probe->counter.definitions = outer;
+    probe->counter.definition_count = 1;
+}
+
+#define CHAIN_LENGTH (WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT + 1)
+
+/** Copies of the counter, each nesting the next, so no pointer repeats and only the depth bound ends the chain. */
+static void nests_past_the_depth_limit(probe_description *probe) {
+    static weivel_standard_description chain[CHAIN_LENGTH];
+    static const weivel_standard_description *links[CHAIN_LENGTH];
+    size_t at;
+    for (at = 0; at < CHAIN_LENGTH; at++) {
+        chain[at] = probe->counter;
+        links[at] = &chain[at];
+    }
+    for (at = 0; at + 1 < CHAIN_LENGTH; at++) {
+        chain[at].definitions = &links[at + 1];
+        chain[at].definition_count = 1;
+    }
+    probe->definitions[0] = &chain[0];
+}
+
+static void releases_a_definition(probe_description *probe) {
+    probe->release_answer[1].kind = WEIVEL_STANDARD_DESCRIBED_DEFINITION;
+    probe->release_answer[1].element = WEIVEL_STANDARD_DESCRIBED_NONE;
+    probe->release_answer[1].type = "probe_counter";
+}
+
+static void reaches_an_element_from_a_definition(probe_description *probe) {
+    probe->loan[1].element = WEIVEL_STANDARD_DESCRIBED_STRUCT;
+}
+
+static void counts_a_definition(probe_description *probe) {
+    probe->loan[1].count = "size";
+}
+
+static void releases_a_definition_member(probe_description *probe) {
+    probe->loan[1].release = "release_answer";
+}
+
+static void releases_a_definition_answer(probe_description *probe) {
+    probe->borrow[1].release = "release_answer";
+}
+
+static void takes_a_definition_as_an_input(probe_description *probe) {
+    probe->borrow[1].role = WEIVEL_STANDARD_DESCRIBED_INPUT;
+}
+
+static void refuses_through_a_definition(probe_description *probe) {
+    probe->borrow[1].role = WEIVEL_STANDARD_DESCRIBED_REFUSAL;
+}
+
+#define NESTED_NINE_DEEP                                                                                       \
+    "definitions[0].definitions[0].definitions[0].definitions[0].definitions[0].definitions[0].definitions[0]." \
+    "definitions[0].definitions[0]"
+
 static const refused_case REFUSED[] = {
+    {"a blocking name naming no operation", blocks_in_no_operation, INVALID, "blocking[0]",
+     "names an operation the description does not hold"},
+    {"a blocking name naming a release", blocks_in_a_release, INVALID, "blocking[0]", "names a release"},
+    {"a blocking name listed twice", blocks_twice, DUPLICATE, "blocking[1]", "repeats a name listed before it"},
+    {"a blocking name that is NULL", blocks_in_nothing_named, MISSING, "blocking[0]",
+     "is NULL, and a description requires it"},
+    {"blocking counted and not held", counts_blocking_it_does_not_hold, MISSING, "blocking",
+     "is NULL beside a count above zero"},
+    {"a definition member no nested description defines", defines_no_nested, INVALID, "types[5].members[1].type",
+     "names a definition no description of `definitions` defines"},
+    {"a definition answer no nested description defines", answers_a_definition_no_nested_defines, INVALID,
+     "operations[8].parameters[1].type", "names a definition no description of `definitions` defines"},
+    {"a definition with no type", leaves_a_definition_untyped, MISSING, "types[5].members[1].type",
+     "is NULL, and a description requires it"},
+    {"two nested descriptions of one definition", nests_one_definition_twice, DUPLICATE,
+     "definitions[1].definition", "repeats the definition of a description listed before it"},
+    {"a nested description that is NULL", nests_nothing, MISSING, "definitions[0]",
+     "is NULL, and a description requires it"},
+    {"definitions counted and not held", counts_definitions_it_does_not_hold, MISSING, "definitions",
+     "is NULL beside a count above zero"},
+    {"a nested description below its first shape", nests_one_below_its_first_shape, INVALID,
+     "definitions[0].size", "is below the description's first shape"},
+    {"a nested description naming no definition", nests_one_naming_no_definition, MISSING,
+     "definitions[0].definition", "is NULL, and a description requires it"},
+    {"a nested description with a type unnamed", nests_one_with_a_type_unnamed, MISSING,
+     "definitions[0].types[0].name", "is NULL, and a description requires it"},
+    {"a nested description of a kind past the last", nests_one_of_a_kind_past_the_last, INVALID,
+     "definitions[0].operations[0].parameters[1].kind", "is not a kind weivel/description.h publishes"},
+    {"a nested description blocking in no operation", nests_one_blocking_in_no_operation, INVALID,
+     "definitions[0].blocking[0]", "names an operation the description does not hold"},
+    {"a nested description nesting itself", nests_itself, INVALID, "definitions[0].definitions[0]",
+     "is a description that holds it"},
+    {"a nested description nesting the one holding it", nests_the_description_holding_it, INVALID,
+     "definitions[0].definitions[0]", "is a description that holds it"},
+    {"descriptions nested past the depth limit", nests_past_the_depth_limit, INVALID, NESTED_NINE_DEEP,
+     "nests deeper than WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT"},
+    {"a release freeing a definition", releases_a_definition, INVALID, "operations[3].parameters[1].kind",
+     "is DEFINITION in a release"},
+    {"an element on a definition", reaches_an_element_from_a_definition, INVALID, "types[5].members[1].element",
+     "its kind leaves it unused"},
+    {"a count on a definition", counts_a_definition, INVALID, "types[5].members[1].count",
+     "its kind leaves it unused"},
+    {"a release on a definition member", releases_a_definition_member, INVALID, "types[5].members[1].release",
+     "its kind leaves it unused"},
+    {"a release on a definition answer", releases_a_definition_answer, INVALID, "operations[8].parameters[1].release",
+     "its kind leaves it unused"},
+    {"a definition input", takes_a_definition_as_an_input, INVALID, "operations[8].parameters[1].kind",
+     "a kind an input does not take"},
+    {"a definition refusal", refuses_through_a_definition, INVALID, "operations[8].parameters[1].kind",
+     "not a POINTER of STRUCT"},
     {"an element on a scalar member", reaches_an_element_from_a_scalar, INVALID, "types[1].members[0].element",
      "its kind leaves it unused"},
     {"a type on a text member", types_a_text, INVALID, "types[0].members[0].type", "its kind leaves it unused"},
@@ -506,6 +692,18 @@ static const refused_case REFUSED[] = {
      "repeats a name listed before it"},
 };
 
+/** A description of the first shape alone reads `blocking` and `definitions` as empty, never past its size. */
+static void reads_an_older_description_as_holding_no_blocking_and_no_definitions(void) {
+    probe_description probe;
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    probe_describe(&probe);
+    probe.blocking[0] = NULL;
+    probe.description.size = (uint32_t)(offsetof(weivel_standard_description, operation_count) + sizeof(size_t));
+    CHECK(weivel_standard_description_check(&probe.description, &refusal) == WEIVEL_STATUS_MALFORMED);
+    check_text(refusal.path, "types[5].members[1].type", "an older description holds no definitions");
+    weivel_standard_refusal_release(&refusal);
+}
+
 static void refuses_by_path(const refused_case *item) {
     probe_description probe;
     weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
@@ -558,6 +756,7 @@ int main(void) {
     size_t at;
     accepts_a_description_of_every_kind();
     reads_a_newer_description_up_to_what_it_knows();
+    reads_an_older_description_as_holding_no_blocking_and_no_definitions();
     for (at = 0; at < sizeof REFUSED / sizeof REFUSED[0]; at++) {
         refuses_by_path(&REFUSED[at]);
     }

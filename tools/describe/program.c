@@ -11,7 +11,9 @@
 static const char USAGE[] =
     "usage: weivel-describe --definition <struct> --symbol <function> --prefix <identifier prefix> --output <file.c>\n"
     "                       [--export <macro>] [--status <type>] [--refusal <type>] [--value <type>] [--tree <type>]\n"
-    "                       <header>...\n";
+    "                       [--described-elsewhere <definition struct>]... <header>...\n";
+
+#define ELSEWHERE "--described-elsewhere"
 
 typedef struct options {
     describe_service service;
@@ -19,6 +21,8 @@ typedef struct options {
     const char *output;
     const char **headers;
     size_t header_count;
+    const char **elsewhere;
+    size_t elsewhere_count;
 } options;
 
 typedef struct option_slot {
@@ -75,6 +79,9 @@ static int read_options(options *chosen, char **arguments, size_t count) {
             chosen->header_count++;
         } else if (at + 1 == count) {
             return usage("an option is missing its value");
+        } else if (strcmp(argument, ELSEWHERE) == 0) {
+            chosen->elsewhere_count++;
+            at++;
         } else if (!take_option(chosen, argument, arguments[at + 1])) {
             return usage("an option is not one weivel-describe takes");
         } else {
@@ -91,20 +98,27 @@ static int read_options(options *chosen, char **arguments, size_t count) {
     return DESCRIBE_EXIT_DESCRIBED;
 }
 
+/** Collects the headers and every definition described elsewhere, the options' values left where they are. */
 static int collect_headers(options *chosen, char **arguments, size_t count) {
     size_t at;
     size_t taken = 0;
+    size_t elsewhere = 0;
     chosen->headers = weivel_standard_memory_allocate_zeroed(chosen->header_count, sizeof *chosen->headers);
-    if (chosen->headers == NULL) {
+    chosen->elsewhere = weivel_standard_memory_allocate_zeroed(chosen->elsewhere_count + 1, sizeof *chosen->elsewhere);
+    if (chosen->headers == NULL || chosen->elsewhere == NULL) {
         return 0;
     }
     for (at = 1; at < count; at++) {
-        if (is_option(arguments[at])) {
+        if (strcmp(arguments[at], ELSEWHERE) == 0) {
+            chosen->elsewhere[elsewhere++] = arguments[++at];
+        } else if (is_option(arguments[at])) {
             at++;
         } else {
             chosen->headers[taken++] = arguments[at];
         }
     }
+    chosen->names.elsewhere = chosen->elsewhere;
+    chosen->names.elsewhere_count = chosen->elsewhere_count;
     return 1;
 }
 
@@ -195,9 +209,12 @@ int describe_program(char **arguments, size_t count) {
         return code;
     }
     if (!collect_headers(&chosen, arguments, count)) {
+        weivel_standard_memory_release((void *)chosen.headers);
+        weivel_standard_memory_release((void *)chosen.elsewhere);
         return finish(DESCRIBE_OUT_OF_MEMORY, NULL, chosen.output);
     }
     code = describe(&chosen);
     weivel_standard_memory_release((void *)chosen.headers);
+    weivel_standard_memory_release((void *)chosen.elsewhere);
     return code;
 }

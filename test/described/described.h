@@ -5,8 +5,9 @@
  * @file
  * A neutral C library of two definition services, described by weivel-describe, that every weivel language binds
  * generically in its tests: the mirror, which answers what it is handed in every member kind, and the walker, which
- * answers handles. It is a test target only, built by a plain configure of weivel/standard, never linked into the
- * standard and exported by nothing the standard ships.
+ * answers handles, lends a counter, a definition of its own, and declares one operation that blocks. It is a test
+ * target only, built by a plain configure of weivel/standard, never linked into the standard and exported by nothing
+ * the standard ships.
  *
  * Every operation answers from its input alone, so a binding's round trip is checkable value for value. The two
  * definitions follow `weivel/services.h`'s conventions: an answer is filled on OK alone, MALFORMED is answered for a
@@ -36,6 +37,8 @@
 #define DESCRIBED_REFUSAL_DETAIL "described refused on purpose"
 /** The fix of every refusal the library answers. */
 #define DESCRIBED_REFUSAL_FIX "pass anything but \"refuse\""
+/** Where the counter the walker lends starts, which its own context holds. */
+#define DESCRIBED_COUNTER_START 1000
 
 #ifdef __cplusplus
 extern "C" {
@@ -224,7 +227,32 @@ typedef struct described_visit {
     size_t step_count;
 } described_visit;
 
-/** The walker, the library's second service. First shape ends at `release_refusal`. */
+/**
+ * The counter the walker lends, one static definition with a context of its own holding DESCRIBED_COUNTER_START. First
+ * shape ends at `add`.
+ */
+typedef struct described_counter {
+    uint32_t size;
+    void *context;
+    /**
+     * Adds to where the counter starts.
+     *
+     * @param total answers DESCRIBED_COUNTER_START plus `amount`. Required.
+     * @return OK; MALFORMED for a NULL `total`, or an `amount` no uint64_t holds DESCRIBED_COUNTER_START more than.
+     */
+    weivel_status (*add)(void *context, uint64_t amount, uint64_t *total);
+} described_counter;
+
+/** What `lend` answers: the walker's counter, living until the library is unloaded. First shape ends at `counter`. */
+typedef struct described_loan {
+    uint32_t size;
+    const described_counter *counter;
+} described_loan;
+
+/**
+ * The walker, the library's second service. First shape ends at `release_refusal`, and `wait` and `lend` follow it, as
+ * a definition grows.
+ */
 typedef struct described_walker {
     uint32_t size;
     void *context;
@@ -256,6 +284,21 @@ typedef struct described_walker {
     weivel_status (*visit)(void *context, const described_visit *visit, uint64_t *position);
     void (*release_cursor)(void *context, described_cursor *cursor);
     void (*release_refusal)(void *context, weivel_standard_service_refusal *refusal);
+    /**
+     * Answers how many ticks it was asked to wait, at once.
+     *
+     * @blocking it stands for an operation that waits, so a binding proves it calls one away from its calling thread.
+     * @param waited answers `ticks`. Required.
+     * @return OK; MALFORMED for a NULL `waited`.
+     */
+    weivel_status (*wait)(void *context, uint64_t ticks, uint64_t *waited);
+    /**
+     * Lends the walker's counter.
+     *
+     * @param loan the consumer's empty answer, which owns nothing, so nothing releases it. Required.
+     * @return OK; MALFORMED for a NULL `loan` or a loan below its first shape.
+     */
+    weivel_status (*lend)(void *context, described_loan *loan);
 } described_walker;
 
 /** Answers the mirror, one static described_mirror living until the library is unloaded. */

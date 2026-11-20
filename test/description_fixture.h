@@ -40,6 +40,17 @@ typedef struct probe_answer {
     void *storage;
 } probe_answer;
 
+typedef struct probe_counter {
+    uint32_t size;
+    void *context;
+    weivel_status (*add)(void *context, uint64_t amount, uint64_t *total);
+} probe_counter;
+
+typedef struct probe_loan {
+    uint32_t size;
+    const probe_counter *counter;
+} probe_loan;
+
 typedef struct probe_definition {
     uint32_t size;
     void *context;
@@ -53,6 +64,8 @@ typedef struct probe_definition {
     void (*release_tree)(void *context, weivel_standard_value_tree *tree);
     void (*release_walk)(void *context, probe_handle *walk);
     void (*release_refusal)(void *context, weivel_standard_service_refusal *refusal);
+    weivel_status (*lend)(void *context, probe_loan *loan);
+    weivel_status (*borrow)(void *context, const probe_counter **counter);
 } probe_definition;
 
 enum {
@@ -61,15 +74,18 @@ enum {
     PROBE_ANSWER_TYPE,
     PROBE_DEFINITION_TYPE,
     PROBE_REFUSAL_TYPE,
+    PROBE_LOAN_TYPE,
     PROBE_TYPE_COUNT
 };
 
 enum { PROBE_RUN, PROBE_GET, PROBE_READ, PROBE_RELEASE_ANSWER, PROBE_RELEASE_TREE, PROBE_RELEASE_WALK,
-       PROBE_RELEASE_REFUSAL, PROBE_OPERATION_COUNT };
+       PROBE_RELEASE_REFUSAL, PROBE_LEND, PROBE_BORROW, PROBE_OPERATION_COUNT };
 
 /**
  * The description of probe_definition, a definition written in the tests only, with a member of every kind and an
  * operation of every parameter form `weivel/services.h` uses, held in writable arrays so each test breaks one thing.
+ * `lend` blocks, and probe_counter, which a loan holds and `borrow` answers, is described by `counter`, the one
+ * nested description, so the description points into the probe and the probe is not moved once described.
  */
 typedef struct probe_description {
     weivel_standard_described_member item[2];
@@ -87,7 +103,17 @@ typedef struct probe_description {
     weivel_standard_described_parameter release_tree[2];
     weivel_standard_described_parameter release_walk[2];
     weivel_standard_described_parameter release_refusal[2];
+    weivel_standard_described_member loan[2];
+    weivel_standard_described_parameter lend[2];
+    weivel_standard_described_parameter borrow[2];
     weivel_standard_described_operation operations[PROBE_OPERATION_COUNT];
+    const char *blocking[1];
+    weivel_standard_described_member counter_members[2];
+    weivel_standard_described_type counter_types[1];
+    weivel_standard_described_parameter add[3];
+    weivel_standard_described_operation counter_operations[1];
+    weivel_standard_description counter;
+    const weivel_standard_description *definitions[1];
     weivel_standard_description description;
 } probe_description;
 

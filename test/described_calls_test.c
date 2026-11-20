@@ -484,6 +484,32 @@ static void counts_nothing_for_an_empty_release(const described_mirror *mirror, 
     CHECK(mirror->count_releases(mirror->context, &short_releases) == WEIVEL_STATUS_MALFORMED);
 }
 
+static void waits_and_answers_at_once(const described_walker *walker) {
+    uint64_t waited = 0;
+    CHECK(walker->wait(walker->context, 25, &waited) == WEIVEL_STATUS_OK && waited == 25);
+    CHECK(walker->wait(walker->context, 25, NULL) == WEIVEL_STATUS_MALFORMED);
+}
+
+/** The counter a loan carries is a definition of its own, called through its own context, not the walker's. */
+static void lends_a_counter_called_through_its_own_context(const described_walker *walker) {
+    described_loan loan = WEIVEL_INIT(described_loan);
+    described_loan small = WEIVEL_INIT(described_loan);
+    const described_counter *counter;
+    uint64_t total = 0;
+    CHECK(walker->lend(walker->context, &loan) == WEIVEL_STATUS_OK && loan.counter != NULL);
+    if (loan.counter == NULL) {
+        return;
+    }
+    counter = loan.counter;
+    CHECK(counter->size == sizeof(described_counter) && counter->context != walker->context);
+    CHECK(counter->add(counter->context, 7, &total) == WEIVEL_STATUS_OK && total == DESCRIBED_COUNTER_START + 7);
+    CHECK(counter->add(counter->context, UINT64_MAX, &total) == WEIVEL_STATUS_MALFORMED);
+    CHECK(counter->add(counter->context, 7, NULL) == WEIVEL_STATUS_MALFORMED);
+    small.size = (uint32_t)offsetof(described_loan, counter);
+    CHECK(walker->lend(walker->context, &small) == WEIVEL_STATUS_MALFORMED && small.counter == NULL);
+    CHECK(walker->lend(walker->context, NULL) == WEIVEL_STATUS_MALFORMED);
+}
+
 static void calls_every_operation(described_library library) {
     described_definition_symbol mirror_symbol = described_library_definition(library, "described_mirror_definition");
     described_definition_symbol walker_symbol = described_library_definition(library, "described_walker_definition");
@@ -511,6 +537,8 @@ static void calls_every_operation(described_library library) {
     walks_through_a_handle(mirror, walker);
     refuses_to_open_by_label(mirror, walker);
     counts_nothing_for_an_empty_release(mirror, walker);
+    waits_and_answers_at_once(walker);
+    lends_a_counter_called_through_its_own_context(walker);
 }
 
 static void offers_every_operation_but_halve_without_it(described_library library) {

@@ -92,6 +92,24 @@ static const weivel_standard_described_parameter RELEASE_REFUSAL[] = {
     CONTEXT_PARAMETER,
     PARAMETER("refusal", KIND(POINTER), REFUSAL, KIND(STRUCT), "weivel_standard_service_refusal", NULL, NULL)};
 
+static const weivel_standard_described_member LOAN[] = {
+    MEMBER(probe_loan, size, KIND(U32), NO_KIND, NULL, NULL, NULL),
+    MEMBER(probe_loan, counter, KIND(DEFINITION), NO_KIND, "probe_counter", NULL, NULL)};
+
+static const weivel_standard_described_parameter LEND[] = {
+    CONTEXT_PARAMETER, PARAMETER("loan", KIND(POINTER), ANSWER, KIND(STRUCT), "probe_loan", NULL, NULL)};
+
+static const weivel_standard_described_parameter BORROW[] = {
+    CONTEXT_PARAMETER, PARAMETER("counter", KIND(DEFINITION), ANSWER, NO_KIND, "probe_counter", NULL, NULL)};
+
+static const weivel_standard_described_member COUNTER[] = {
+    MEMBER(probe_counter, size, KIND(U32), NO_KIND, NULL, NULL, NULL),
+    MEMBER(probe_counter, context, KIND(CONTEXT), NO_KIND, NULL, NULL, NULL)};
+
+static const weivel_standard_described_parameter ADD[] = {
+    CONTEXT_PARAMETER, PARAMETER("amount", KIND(U64), INPUT, NO_KIND, NULL, NULL, NULL),
+    PARAMETER("total", KIND(U64), ANSWER, NO_KIND, NULL, NULL, NULL)};
+
 static weivel_standard_described_type type_of(const char *name, size_t size, size_t first_shape,
                                               const weivel_standard_described_member *members, size_t count) {
     weivel_standard_described_type type;
@@ -131,6 +149,11 @@ static void copy_arrays(probe_description *probe) {
     COPY(release_tree, RELEASE_TREE);
     COPY(release_walk, RELEASE_WALK);
     COPY(release_refusal, RELEASE_REFUSAL);
+    COPY(loan, LOAN);
+    COPY(lend, LEND);
+    COPY(borrow, BORROW);
+    COPY(counter_members, COUNTER);
+    COPY(add, ADD);
 }
 
 static void describe_types(probe_description *probe) {
@@ -146,6 +169,8 @@ static void describe_types(probe_description *probe) {
     probe->types[PROBE_REFUSAL_TYPE] =
         type_of("weivel_standard_service_refusal", sizeof(weivel_standard_service_refusal),
                 sizeof(weivel_standard_service_refusal), probe->refusal, COUNT_OF(probe->refusal));
+    probe->types[PROBE_LOAN_TYPE] =
+        type_of("probe_loan", sizeof(probe_loan), sizeof(probe_loan), probe->loan, COUNT_OF(probe->loan));
     probe->enums[0].name = "probe_mode";
     probe->enums[0].entries = probe->modes;
     probe->enums[0].entry_count = COUNT_OF(probe->modes);
@@ -164,6 +189,22 @@ static void describe_operations(probe_description *probe) {
     OPERATION(PROBE_RELEASE_TREE, release_tree, NOTHING, release_tree);
     OPERATION(PROBE_RELEASE_WALK, release_walk, NOTHING, release_walk);
     OPERATION(PROBE_RELEASE_REFUSAL, release_refusal, NOTHING, release_refusal);
+    OPERATION(PROBE_LEND, lend, STATUS, lend);
+    OPERATION(PROBE_BORROW, borrow, STATUS, borrow);
+}
+
+static void describe_counter(probe_description *probe) {
+    probe->counter_types[0] = type_of("probe_counter", sizeof(probe_counter), sizeof(probe_counter),
+                                      probe->counter_members, COUNT_OF(probe->counter_members));
+    probe->counter_operations[0] = operation_of("add", offsetof(probe_counter, add), WEIVEL_STANDARD_DESCRIBED_STATUS,
+                                                probe->add, COUNT_OF(probe->add));
+    probe->counter.size = (uint32_t)sizeof probe->counter;
+    probe->counter.definition = "probe_counter";
+    probe->counter.types = probe->counter_types;
+    probe->counter.type_count = COUNT_OF(probe->counter_types);
+    probe->counter.operations = probe->counter_operations;
+    probe->counter.operation_count = COUNT_OF(probe->counter_operations);
+    probe->definitions[0] = &probe->counter;
 }
 
 void probe_describe(probe_description *probe) {
@@ -171,6 +212,8 @@ void probe_describe(probe_description *probe) {
     copy_arrays(probe);
     describe_types(probe);
     describe_operations(probe);
+    describe_counter(probe);
+    probe->blocking[0] = "lend";
     probe->description.size = (uint32_t)sizeof probe->description;
     probe->description.definition = "probe_definition";
     probe->description.types = probe->types;
@@ -179,4 +222,8 @@ void probe_describe(probe_description *probe) {
     probe->description.enum_count = COUNT_OF(probe->enums);
     probe->description.operations = probe->operations;
     probe->description.operation_count = COUNT_OF(probe->operations);
+    probe->description.blocking = probe->blocking;
+    probe->description.blocking_count = COUNT_OF(probe->blocking);
+    probe->description.definitions = probe->definitions;
+    probe->description.definition_count = COUNT_OF(probe->definitions);
 }

@@ -17,10 +17,18 @@ typedef weivel_standard_described_parameter described_parameter;
 
 #define DESCRIPTION_FIRST_SHAPE (offsetof(weivel_standard_description, operation_count) + sizeof(size_t))
 
+/**
+ * `root` is where the description checked lies in the one the caller passed, NULL for that one itself; `given` is the
+ * pointer it was reached by and `enclosing` the check of the description holding it, NULL at the top.
+ */
 typedef struct checking {
     const weivel_standard_description *description;
     weivel_standard_refusal *refusal;
     weivel_status status;
+    const weivel_standard_field_path *root;
+    unsigned depth;
+    const weivel_standard_description *given;
+    const struct checking *enclosing;
 } checking;
 
 /**
@@ -152,16 +160,85 @@ static int names_parameters(checking *state, const described_operation *operatio
                       parent, "parameters");
 }
 
+static int names_blocking(checking *state, const weivel_standard_description *description) {
+    field_path list = {state->root, "blocking", 0};
+    size_t at;
+    size_t before;
+    if (!require_array(state, description->blocking, description->blocking_count, state->root, "blocking")) {
+        return 0;
+    }
+    for (at = 0; at < description->blocking_count; at++) {
+        field_path item = {&list, NULL, at};
+        if (description->blocking[at] == NULL) {
+            return refuse(state, WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, &item,
+                          "%s is NULL, and a description requires it", "set %s to the name of an operation");
+        }
+        for (before = 0; before < at; before++) {
+            if (strcmp(description->blocking[before], description->blocking[at]) == 0) {
+                return refuse(state, WEIVEL_STANDARD_REFUSAL_DUPLICATE, &item, "%s repeats a name listed before it",
+                              "name each blocking operation once, so %s is listed once");
+            }
+        }
+    }
+    return 1;
+}
+
+/** A nested description read up to the size it declares, or 0, refused, when it is NULL or below its first shape. */
+static int reads_nested(checking *state, const weivel_standard_description *nested, const field_path *path,
+                        weivel_standard_description *own) {
+    field_path size = {path, "size", 0};
+    if (nested == NULL) {
+        return refuse(state, WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, path, "%s is NULL, and a description requires it",
+                      "point %s at the description of the definition it describes");
+    }
+    if (nested->size < DESCRIPTION_FIRST_SHAPE) {
+        return refuse_invalid(state, &size, "%s is below the description's first shape",
+                              "set %s to sizeof the description, as the library compiled it");
+    }
+    weivel_standard_sized_read(own, sizeof *own, nested);
+    return 1;
+}
+
+/** Every nested description is set and names its definition, no two the same, so a DEFINITION finds one by name. */
+static int names_definitions(checking *state, const weivel_standard_description *description) {
+    field_path list = {state->root, "definitions", 0};
+    weivel_standard_description own;
+    weivel_standard_description other;
+    size_t at;
+    size_t before;
+    if (!require_array(state, description->definitions, description->definition_count, state->root,
+                       "definitions")) {
+        return 0;
+    }
+    for (at = 0; at < description->definition_count; at++) {
+        field_path item = {&list, NULL, at};
+        field_path name = {&item, "definition", 0};
+        if (!reads_nested(state, description->definitions[at], &item, &own) ||
+            !require_text(state, own.definition, &item, "definition")) {
+            return 0;
+        }
+        for (before = 0; before < at; before++) {
+            weivel_standard_sized_read(&other, sizeof other, description->definitions[before]);
+            if (strcmp(other.definition, own.definition) == 0) {
+                return refuse(state, WEIVEL_STANDARD_REFUSAL_DUPLICATE, &name,
+                              "%s repeats the definition of a description listed before it",
+                              "describe each definition once, so %s names one description");
+            }
+        }
+    }
+    return 1;
+}
+
 /** Every name and array the description requires is set, so every later lookup may compare names. */
 static int names_everything(checking *state, const weivel_standard_description *description) {
-    field_path types = {NULL, "types", 0};
-    field_path enums = {NULL, "enums", 0};
-    field_path operations = {NULL, "operations", 0};
+    field_path types = {state->root, "types", 0};
+    field_path enums = {state->root, "enums", 0};
+    field_path operations = {state->root, "operations", 0};
     size_t at;
-    if (!require_text(state, description->definition, NULL, "definition") ||
-        !require_array(state, description->types, description->type_count, NULL, "types") ||
-        !require_array(state, description->enums, description->enum_count, NULL, "enums") ||
-        !require_array(state, description->operations, description->operation_count, NULL, "operations")) {
+    if (!require_text(state, description->definition, state->root, "definition") ||
+        !require_array(state, description->types, description->type_count, state->root, "types") ||
+        !require_array(state, description->enums, description->enum_count, state->root, "enums") ||
+        !require_array(state, description->operations, description->operation_count, state->root, "operations")) {
         return 0;
     }
     for (at = 0; at < description->type_count; at++) {
@@ -182,10 +259,13 @@ static int names_everything(checking *state, const weivel_standard_description *
             return 0;
         }
     }
-    return names_once(state, description->types, sizeof *description->types, description->type_count, NULL, "types") &&
-           names_once(state, description->enums, sizeof *description->enums, description->enum_count, NULL, "enums") &&
+    return names_once(state, description->types, sizeof *description->types, description->type_count, state->root,
+                      "types") &&
+           names_once(state, description->enums, sizeof *description->enums, description->enum_count, state->root,
+                      "enums") &&
            names_once(state, description->operations, sizeof *description->operations, description->operation_count,
-                      NULL, "operations");
+                      state->root, "operations") &&
+           names_blocking(state, description) && names_definitions(state, description);
 }
 
 static const described_type *type_named(const weivel_standard_description *description, const char *name) {
@@ -217,6 +297,18 @@ static const described_operation *operation_named(const weivel_standard_descript
         }
     }
     return NULL;
+}
+
+static int defines_a_nested(const weivel_standard_description *description, const char *name) {
+    weivel_standard_description own;
+    size_t at;
+    for (at = 0; at < description->definition_count; at++) {
+        weivel_standard_sized_read(&own, sizeof own, description->definitions[at]);
+        if (strcmp(own.definition, name) == 0) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static uint32_t member_kind(const void *siblings, const char *name) {
@@ -301,6 +393,14 @@ static int check_type_name(checking *state, const reference *slot, const field_p
         return enum_named(state->description, slot->type) != NULL ||
                refuse_invalid(state, &type, "%s names an enum the description does not hold",
                               "add the enum %s names to the description's enums, or set it to NULL");
+    }
+    if (slot->kind == WEIVEL_STANDARD_DESCRIBED_DEFINITION) {
+        if (!require_text(state, slot->type, parent, "type")) {
+            return 0;
+        }
+        return defines_a_nested(state->description, slot->type) ||
+               refuse_invalid(state, &type, "%s names a definition no description of `definitions` defines",
+                              "add the description of the definition %s names to the description's definitions");
     }
     return slot->kind != WEIVEL_STANDARD_DESCRIBED_HANDLE || require_text(state, slot->type, parent, "type");
 }
@@ -460,7 +560,7 @@ static int reaches_an_element(uint32_t kind) {
 
 static int may_name_a_type(const reference *slot) {
     return names_a_struct(slot) || slot->kind == WEIVEL_STANDARD_DESCRIBED_U32 ||
-           slot->kind == WEIVEL_STANDARD_DESCRIBED_HANDLE;
+           slot->kind == WEIVEL_STANDARD_DESCRIBED_HANDLE || slot->kind == WEIVEL_STANDARD_DESCRIBED_DEFINITION;
 }
 
 static int refuse_unused(checking *state, const field_path *parent, const char *key, const char *fix) {
@@ -476,10 +576,15 @@ static int leaves_unused_fields_empty(checking *state, const reference *slot, in
     }
     if (!may_name_a_type(slot) && slot->type != NULL) {
         return refuse_unused(state, parent, "type",
-                             "set %s to NULL: only a struct, a U32 holding an enum or a handle names a type");
+                             "set %s to NULL: only a struct, a U32 holding an enum, a handle or a definition names a "
+                             "type");
     }
     if (!is_counted(slot->kind) && slot->count != NULL) {
         return refuse_unused(state, parent, "count", "set %s to NULL: only texts, bytes or an array is counted");
+    }
+    if (slot->kind == WEIVEL_STANDARD_DESCRIBED_DEFINITION && slot->release != NULL) {
+        return refuse_unused(state, parent, "release",
+                             "set %s to NULL: a definition lives as long as what carried it, so nothing frees it");
     }
     return may_release || slot->release == NULL ||
            refuse_unused(state, parent, "release",
@@ -541,7 +646,7 @@ static int type_follows_convention(checking *state, const described_type *type, 
 /** No operation shares a name with a data member, or a byte with a member or another operation. */
 static int lays_out_the_definition(checking *state, const weivel_standard_description *description,
                                    const described_type *definition) {
-    field_path operations = {NULL, "operations", 0};
+    field_path operations = {state->root, "operations", 0};
     const size_t pointer_size = sizeof(void (*)(void));
     size_t at;
     size_t other;
@@ -579,7 +684,8 @@ static int is_input_kind(uint32_t kind) {
 
 static int is_answer_kind(uint32_t kind) {
     return is_scalar(kind) || kind == WEIVEL_STANDARD_DESCRIBED_TEXT || kind == WEIVEL_STANDARD_DESCRIBED_POINTER ||
-           kind == WEIVEL_STANDARD_DESCRIBED_VALUE || kind == WEIVEL_STANDARD_DESCRIBED_HANDLE;
+           kind == WEIVEL_STANDARD_DESCRIBED_VALUE || kind == WEIVEL_STANDARD_DESCRIBED_HANDLE ||
+           kind == WEIVEL_STANDARD_DESCRIBED_DEFINITION;
 }
 
 /** The kinds each role takes, as weivel/description.h passes each kind as a parameter. */
@@ -597,7 +703,7 @@ static int takes_its_kind_in_its_role(checking *state, const described_parameter
         if (!is_answer_kind(parameter->kind)) {
             return refuse_invalid(state, &kind, "%s is a kind an answer does not take",
                                   "describe the answer in %s as a scalar, a text, a pointer to a struct, a value "
-                                  "tree or a handle");
+                                  "tree, a handle or a definition");
         }
         return parameter->kind != WEIVEL_STANDARD_DESCRIBED_POINTER ||
                parameter->element == WEIVEL_STANDARD_DESCRIBED_STRUCT ||
@@ -701,6 +807,21 @@ static int frees_one_thing(checking *state, const described_operation *operation
                           "describe %s as the context and the one thing the release frees");
 }
 
+/** A definition lives as long as what carried it, so no release is handed one. */
+static int frees_no_definition(checking *state, const described_operation *operation, const field_path *parent) {
+    field_path parameters = {parent, "parameters", 0};
+    size_t at;
+    for (at = 0; at < operation->parameter_count; at++) {
+        field_path item = {&parameters, NULL, at};
+        field_path kind = {&item, "kind", 0};
+        if (operation->parameters[at].kind == WEIVEL_STANDARD_DESCRIBED_DEFINITION) {
+            return refuse_invalid(state, &kind, "%s is DEFINITION in a release, which frees nothing a definition is",
+                                  "describe the release in %s as freeing an answer, a refusal or a handle");
+        }
+    }
+    return 1;
+}
+
 static int operation_follows_convention(checking *state, const described_operation *operation,
                                         const field_path *parent) {
     field_path parameters = {parent, "parameters", 0};
@@ -708,8 +829,11 @@ static int operation_follows_convention(checking *state, const described_operati
     if (!takes_the_context_first(state, operation, parent)) {
         return 0;
     }
-    if (operation->returns == WEIVEL_STANDARD_DESCRIBED_STATUS ? !refuses_last(state, operation, parent)
-                                                                : !frees_one_thing(state, operation, parent)) {
+    if (operation->returns == WEIVEL_STANDARD_DESCRIBED_STATUS) {
+        if (!refuses_last(state, operation, parent)) {
+            return 0;
+        }
+    } else if (!frees_one_thing(state, operation, parent) || !frees_no_definition(state, operation, parent)) {
         return 0;
     }
     for (at = 0; at < operation->parameter_count; at++) {
@@ -727,8 +851,8 @@ static int operation_follows_convention(checking *state, const described_operati
  */
 static int follows_the_convention(checking *state, const weivel_standard_description *description,
                                   const described_type *definition) {
-    field_path types = {NULL, "types", 0};
-    field_path operations = {NULL, "operations", 0};
+    field_path types = {state->root, "types", 0};
+    field_path operations = {state->root, "operations", 0};
     size_t at;
     for (at = 0; at < description->type_count; at++) {
         field_path item = {&types, NULL, at};
@@ -749,10 +873,76 @@ static int follows_the_convention(checking *state, const weivel_standard_descrip
     return 1;
 }
 
+/** A blocking name is one of the description's operations, never a release, which answers nothing and never waits. */
+static int blocks_only_in_operations(checking *state, const weivel_standard_description *description) {
+    field_path list = {state->root, "blocking", 0};
+    size_t at;
+    for (at = 0; at < description->blocking_count; at++) {
+        field_path item = {&list, NULL, at};
+        const described_operation *operation = operation_named(description, description->blocking[at]);
+        if (operation == NULL) {
+            return refuse_invalid(state, &item, "%s names an operation the description does not hold",
+                                  "name in %s an operation as the description's operations list it");
+        }
+        if (operation->returns != WEIVEL_STANDARD_DESCRIBED_STATUS) {
+            return refuse_invalid(state, &item, "%s names a release, which never blocks",
+                                  "name in %s an operation answering a status, or take the release out of it");
+        }
+    }
+    return 1;
+}
+
+static int check_described(checking *state, const weivel_standard_description *description);
+
+static int encloses(const checking *state, const weivel_standard_description *nested) {
+    const checking *at;
+    for (at = state; at != NULL; at = at->enclosing) {
+        if (at->given == nested) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**
+ * Each nested description passes the whole check itself. One holding a description it is held by is refused, and a
+ * depth bound refuses a chain too long to bind, a cycle through copies included.
+ */
+static int checks_every_nested(checking *state, const weivel_standard_description *description) {
+    field_path list = {state->root, "definitions", 0};
+    size_t at;
+    for (at = 0; at < description->definition_count; at++) {
+        field_path item = {&list, NULL, at};
+        weivel_standard_description own;
+        checking nested;
+        if (encloses(state, description->definitions[at])) {
+            return refuse_invalid(state, &item, "%s is a description that holds it, so it nests itself",
+                                  "point %s at the description of another definition, never at one holding it");
+        }
+        if (state->depth >= WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT) {
+            return refuse_invalid(state, &item, "%s nests deeper than WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT",
+                                  "nest %s no deeper than the limit");
+        }
+        weivel_standard_sized_read(&own, sizeof own, description->definitions[at]);
+        nested.description = &own;
+        nested.refusal = state->refusal;
+        nested.status = WEIVEL_STATUS_OK;
+        nested.root = &item;
+        nested.depth = state->depth + 1;
+        nested.given = description->definitions[at];
+        nested.enclosing = state;
+        if (!check_described(&nested, &own)) {
+            state->status = nested.status;
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static int check_described(checking *state, const weivel_standard_description *description) {
-    field_path definition_path = {NULL, "definition", 0};
-    field_path types = {NULL, "types", 0};
-    field_path operations = {NULL, "operations", 0};
+    field_path definition_path = {state->root, "definition", 0};
+    field_path types = {state->root, "types", 0};
+    field_path operations = {state->root, "operations", 0};
     const described_type *definition;
     size_t at;
     if (!names_everything(state, description)) {
@@ -775,7 +965,8 @@ static int check_described(checking *state, const weivel_standard_description *d
             return 0;
         }
     }
-    return follows_the_convention(state, description, definition);
+    return blocks_only_in_operations(state, description) && follows_the_convention(state, description, definition) &&
+           checks_every_nested(state, description);
 }
 
 weivel_status weivel_standard_description_check(const weivel_standard_description *description,
@@ -799,6 +990,10 @@ weivel_status weivel_standard_description_check(const weivel_standard_descriptio
     state.description = &own;
     state.refusal = refusal;
     state.status = WEIVEL_STATUS_OK;
+    state.root = NULL;
+    state.depth = 0;
+    state.given = description;
+    state.enclosing = NULL;
     check_described(&state, &own);
     return state.status;
 }

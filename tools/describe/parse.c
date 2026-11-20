@@ -588,13 +588,30 @@ static int is_declaration_word(const describe_token *token) {
             !token_names(token, "extern") && !token_names(token, "static") && !token_names(token, "inline"));
 }
 
-/** Skips `<identifiers and *> name(...);`, a function declaration whatever its export macro and its parameters. */
+static describe_outcome add_function(parser *state, const describe_token *name) {
+    char **slot;
+    DESCRIBE_APPEND(state->model->functions, state->model->function_count, slot);
+    if (slot == NULL) {
+        return DESCRIBE_OUT_OF_MEMORY;
+    }
+    if (copy_name(name, slot) != DESCRIBE_DONE) {
+        state->model->function_count--;
+        return DESCRIBE_OUT_OF_MEMORY;
+    }
+    return DESCRIBE_DONE;
+}
+
+/**
+ * Skips `<identifiers and *> name(...);`, a function declaration whatever its export macro and its parameters, keeping
+ * only its name.
+ */
 static describe_outcome skip_function(parser *state) {
     const describe_token *first = current(state);
+    const describe_token *name = NULL;
     uint32_t depth = 0;
     take_doc(state);
     while (is_declaration_word(current(state))) {
-        take(state);
+        name = take(state);
     }
     if (!is(state, "(")) {
         return refuse_at(state, first, "at the top level");
@@ -612,7 +629,7 @@ static describe_outcome skip_function(parser *state) {
         return refuse_at(state, first, "at the top level, a function with a body or of another shape,");
     }
     take(state);
-    return DESCRIBE_DONE;
+    return name != NULL && name->kind == DESCRIBE_TOKEN_IDENTIFIER ? add_function(state, name) : DESCRIBE_DONE;
 }
 
 static describe_outcome parse_extern(parser *state) {

@@ -421,6 +421,7 @@ static void reads_restated_names_across_headers(void) {
         OPERATION("release_reply", NOTHING, "probe_reply", release_reply),
         OPERATION("release_refusal", NOTHING, "probe_refusal", release_refusal)};
     static const char *const reached[] = {"probe_restated", "probe_refusal", "probe_reply"};
+    names = describe_names_of_the_standard();
     names.status = "probe_status";
     names.refusal = "probe_refusal";
     names.value = "probe_value";
@@ -755,6 +756,9 @@ static const refused_case REFUSED_CASES[] = {
     {REFUSED("large_entry.h"), 2, "`4294967296` as an enum's number, past 2^32 - 1, " GRAMMAR},
     {REFUSED("implicit_overflow.h"), 3, "`PROBE_PAST`, numbered past 2^32 - 1, " GRAMMAR},
     {REFUSED("repeated_entry.h"), 4, "the entry `PROBE_FAST` repeats a name declared before it"},
+    {REFUSED("blocking_release.h"), 13, "the release `release_answer` is tagged `@blocking`"},
+    {REFUSED("definition_input.h"), 12, "the parameter `counter` points at the definition `probe_counter` as an "
+                                        "input"},
     {REFUSED("missing.h"), 0, "the header cannot be read"}};
 
 static void refuses_each_form_outside_the_grammar_at_its_line(void) {
@@ -821,6 +825,105 @@ static void refuses_a_reach_its_definition_cannot_release(void) {
     describe_model_release(&model);
 }
 
+static const char *const NESTED_ELSEWHERE[] = {"probe_remote"};
+
+static describe_names names_with_a_remote(void) {
+    describe_names names = describe_names_of_the_standard();
+    names.elsewhere = NESTED_ELSEWHERE;
+    names.elsewhere_count = COUNT_OF(NESTED_ELSEWHERE);
+    return names;
+}
+
+static void check_blocking(const describe_model *model, const char *definition, const char *operation,
+                           int blocking) {
+    const describe_type *type = describe_model_type(model, definition);
+    const describe_operation *found = type == NULL ? NULL : describe_type_operation(type, operation);
+    CHECK(found != NULL);
+    if (found != NULL) {
+        check_number((uint32_t)found->blocking, (uint32_t)blocking, operation, "blocking");
+    }
+}
+
+static void reads_a_definition_held_and_answered_and_an_operation_that_blocks(void) {
+    describe_model model;
+    describe_reach reach;
+    describe_refusal refusal;
+    const char *paths[] = {FIXTURE("nested.h")};
+    describe_names names = names_with_a_remote();
+    static const expected_item lease[] = {{"size", K(U32), MEMBER, NO, NULL, NULL, NULL},
+                                          {"counter", K(DEFINITION), MEMBER, NO, "probe_counter", NULL, NULL},
+                                          {"remote", K(DEFINITION), MEMBER, NO, "probe_remote", NULL, NULL}};
+    static const expected_item lend[] = {CONTEXT_PARAMETER,
+                                         {"lease", K(POINTER), K(ANSWER), K(STRUCT), "probe_lease", NULL, NULL}};
+    static const expected_item borrow[] = {CONTEXT_PARAMETER,
+                                           {"counter", K(DEFINITION), K(ANSWER), NO, "probe_counter", NULL, NULL}};
+    static const expected_operation operations[] = {OPERATION("lend", STATUS, NULL, lend),
+                                                    OPERATION("borrow", STATUS, NULL, borrow)};
+    static const char *const types[] = {"probe_lease", "probe_lender"};
+    if (read_all(&model, paths, COUNT_OF(paths), &names) != DESCRIBE_DONE) {
+        CHECK(0);
+        return;
+    }
+    check_members(&model, "probe_lease", lease, COUNT_OF(lease));
+    check_operations(&model, "probe_lender", operations, COUNT_OF(operations));
+    check_blocking(&model, "probe_lender", "lend", 1);
+    check_blocking(&model, "probe_lender", "borrow", 0);
+    check_blocking(&model, "probe_counter", "add", 0);
+    check_reach(&model, "probe_lender", types, COUNT_OF(types), NULL, 0);
+    CHECK(describe_reach_of(&model, "probe_lender", &reach, &refusal) == DESCRIBE_DONE);
+    CHECK(reach.definition_count == 2);
+    if (reach.definition_count == 2) {
+        check_nullable(reach.definitions[0], "probe_counter", "reach", "definitions[0]");
+        check_nullable(reach.definitions[1], "probe_remote", "reach", "definitions[1]");
+    }
+    describe_reach_release(&reach);
+    describe_model_release(&model);
+}
+
+/** A definition the headers declare and that is named as described elsewhere is read from them and still elsewhere. */
+static void reads_a_definition_both_scanned_and_described_elsewhere(void) {
+    describe_model model;
+    const char *paths[] = {FIXTURE("nested_remote.h"), FIXTURE("nested.h")};
+    static const char *const elsewhere[] = {"probe_remote", "probe_counter"};
+    static const expected_item lease[] = {{"size", K(U32), MEMBER, NO, NULL, NULL, NULL},
+                                          {"counter", K(DEFINITION), MEMBER, NO, "probe_counter", NULL, NULL},
+                                          {"remote", K(DEFINITION), MEMBER, NO, "probe_remote", NULL, NULL}};
+    const describe_type *remote;
+    describe_names names = describe_names_of_the_standard();
+    names.elsewhere = elsewhere;
+    names.elsewhere_count = COUNT_OF(elsewhere);
+    if (read_all(&model, paths, COUNT_OF(paths), &names) != DESCRIBE_DONE) {
+        CHECK(0);
+        return;
+    }
+    check_members(&model, "probe_lease", lease, COUNT_OF(lease));
+    remote = describe_model_type(&model, "probe_remote");
+    CHECK(remote != NULL && remote->definition && remote->elsewhere);
+    CHECK(describe_model_type(&model, "probe_counter")->elsewhere);
+    CHECK(!describe_model_type(&model, "probe_lender")->elsewhere);
+    CHECK(describe_model_declares_description(&model, "probe_remote"));
+    CHECK(!describe_model_declares_description(&model, "probe_counter"));
+    CHECK(!describe_model_declares_description(&model, "probe_remote_description"));
+    describe_model_release(&model);
+}
+
+static void refuses_a_struct_named_as_described_elsewhere(void) {
+    describe_model model;
+    describe_refusal refusal;
+    const char *paths[] = {FIXTURE("nested.h")};
+    static const char *const elsewhere[] = {"probe_remote", "probe_lease"};
+    describe_names names = describe_names_of_the_standard();
+    names.elsewhere = elsewhere;
+    names.elsewhere_count = COUNT_OF(elsewhere);
+    CHECK(describe_read(&model, paths, COUNT_OF(paths), &names, &refusal) == DESCRIBE_REFUSED);
+    check_nullable(refusal.file, FIXTURE("nested.h"), "a struct named elsewhere", "file");
+    check_number(refusal.line, 32, "a struct named elsewhere", "line");
+    CHECK(refusal.message != NULL &&
+          strstr(refusal.message, "`probe_lease` is named as described elsewhere and is declared here as a struct that "
+                                  "is no definition") != NULL);
+    describe_refusal_release(&refusal);
+}
+
 static void reads_a_header_in_memory(void) {
     describe_model model;
     describe_refusal refusal;
@@ -871,6 +974,9 @@ int main(void) {
     reaches_what_each_service_of_services_h_uses();
     refuses_each_form_outside_the_grammar_at_its_line();
     refuses_a_reach_its_definition_cannot_release();
+    reads_a_definition_held_and_answered_and_an_operation_that_blocks();
+    reads_a_definition_both_scanned_and_described_elsewhere();
+    refuses_a_struct_named_as_described_elsewhere();
     reads_a_header_in_memory();
     reads_a_header_with_crlf_line_ends();
     return check_summary("describe_test");

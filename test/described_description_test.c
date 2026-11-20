@@ -141,6 +141,14 @@ static const expected_member visit_members[] = {
 static const expected_member walker_members[] = {MEMBER(described_walker, size, U32, NONE, NULL, NULL, NULL),
                                                  MEMBER(described_walker, context, CONTEXT, NONE, NULL, NULL, NULL)};
 
+static const expected_member loan_members[] = {
+    MEMBER(described_loan, size, U32, NONE, NULL, NULL, NULL),
+    MEMBER(described_loan, counter, DEFINITION, NONE, "described_counter", NULL, NULL)};
+
+static const expected_member counter_members[] = {
+    MEMBER(described_counter, size, U32, NONE, NULL, NULL, NULL),
+    MEMBER(described_counter, context, CONTEXT, NONE, NULL, NULL, NULL)};
+
 static const expected_type mirror_types[] = {
     TYPE(weivel_standard_service_refusal, ENDS_AT(weivel_standard_service_refusal, storage), refusal_members),
     TYPE(described_point, sizeof(described_point), point_members),
@@ -152,7 +160,11 @@ static const expected_type mirror_types[] = {
 static const expected_type walker_types[] = {
     TYPE(weivel_standard_service_refusal, ENDS_AT(weivel_standard_service_refusal, storage), refusal_members),
     TYPE(described_visit, ENDS_AT(described_visit, step_count), visit_members),
+    TYPE(described_loan, ENDS_AT(described_loan, counter), loan_members),
     TYPE(described_walker, ENDS_AT(described_walker, release_refusal), walker_members)};
+
+static const expected_type counter_types[] = {
+    TYPE(described_counter, ENDS_AT(described_counter, add), counter_members)};
 
 static const expected_parameter reflect_parameters[] = {
     PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
@@ -255,12 +267,28 @@ static const expected_operation mirror_operations[] = {
     OPERATION(described_mirror, release_tree, NOTHING, release_tree_parameters),
     OPERATION(described_mirror, release_refusal, NOTHING, release_refusal_parameters)};
 
+static const expected_parameter wait_parameters[] = {PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+                                                     PARAMETER("ticks", U64, INPUT, NONE, NULL, NULL, NULL),
+                                                     PARAMETER("waited", U64, ANSWER, NONE, NULL, NULL, NULL)};
+
+static const expected_parameter lend_parameters[] = {
+    PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+    PARAMETER("loan", POINTER, ANSWER, STRUCT, "described_loan", NULL, NULL)};
+
+static const expected_parameter add_parameters[] = {PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+                                                    PARAMETER("amount", U64, INPUT, NONE, NULL, NULL, NULL),
+                                                    PARAMETER("total", U64, ANSWER, NONE, NULL, NULL, NULL)};
+
 static const expected_operation walker_operations[] = {
     OPERATION(described_walker, open, STATUS, open_parameters),
     OPERATION(described_walker, use, STATUS, use_parameters),
     OPERATION(described_walker, visit, STATUS, visit_parameters),
     OPERATION(described_walker, release_cursor, NOTHING, release_cursor_parameters),
-    OPERATION(described_walker, release_refusal, NOTHING, release_refusal_parameters)};
+    OPERATION(described_walker, release_refusal, NOTHING, release_refusal_parameters),
+    OPERATION(described_walker, wait, STATUS, wait_parameters),
+    OPERATION(described_walker, lend, STATUS, lend_parameters)};
+
+static const expected_operation counter_operations[] = {OPERATION(described_counter, add, STATUS, add_parameters)};
 
 typedef struct expected_description {
     const char *definition;
@@ -269,6 +297,10 @@ typedef struct expected_description {
     const expected_operation *operations;
     size_t operation_count;
     size_t enum_count;
+    const char *const *blocking;
+    size_t blocking_count;
+    const struct expected_description *const *definitions;
+    size_t definition_count;
 } expected_description;
 
 static int same_text(const char *actual, const char *expected) {
@@ -343,6 +375,14 @@ static void check_operation(const weivel_standard_described_operation *actual,
 static void check_description(const weivel_standard_description *actual, const expected_description *expected) {
     size_t at;
     CHECK(weivel_standard_description_check(actual, NULL) == WEIVEL_STATUS_OK);
+    check_number(actual->blocking_count, expected->blocking_count, expected->definition, "blocking count");
+    for (at = 0; at < actual->blocking_count && at < expected->blocking_count; at++) {
+        check_name(actual->blocking[at], expected->blocking[at], "a blocking operation");
+    }
+    check_number(actual->definition_count, expected->definition_count, expected->definition, "definition count");
+    for (at = 0; at < actual->definition_count && at < expected->definition_count; at++) {
+        check_description(actual->definitions[at], expected->definitions[at]);
+    }
     check_number(actual->size, sizeof(weivel_standard_description), expected->definition, "description size");
     check_name(actual->definition, expected->definition, "the definition");
     check_number(actual->type_count, expected->type_count, expected->definition, "type count");
@@ -397,12 +437,24 @@ static void describes_both_services_as_the_header_declares_them(described_librar
                                                  .operations = mirror_operations,
                                                  .operation_count = COUNT_OF(mirror_operations),
                                                  .enum_count = 2};
+    static const expected_description counter = {.definition = "described_counter",
+                                                 .types = counter_types,
+                                                 .type_count = COUNT_OF(counter_types),
+                                                 .operations = counter_operations,
+                                                 .operation_count = COUNT_OF(counter_operations),
+                                                 .enum_count = 0};
+    static const expected_description *const walker_definitions[] = {&counter};
+    static const char *const walker_blocking[] = {"wait"};
     static const expected_description walker = {.definition = "described_walker",
                                                 .types = walker_types,
                                                 .type_count = COUNT_OF(walker_types),
                                                 .operations = walker_operations,
                                                 .operation_count = COUNT_OF(walker_operations),
-                                                .enum_count = 0};
+                                                .enum_count = 0,
+                                                .blocking = walker_blocking,
+                                                .blocking_count = COUNT_OF(walker_blocking),
+                                                .definitions = walker_definitions,
+                                                .definition_count = COUNT_OF(walker_definitions)};
     const weivel_standard_description *mirror_description = resolve(library, "described_mirror_description");
     const weivel_standard_description *walker_description = resolve(library, "described_walker_description");
     if (mirror_description != NULL) {
@@ -438,6 +490,13 @@ static void checks_an_offset_fault_only_against_the_layout(const weivel_standard
     CHECK(weivel_standard_description_check(broken, NULL) == WEIVEL_STATUS_OK);
     skip = visit_member(broken, "skip");
     CHECK(skip != NULL && skip->offset != offsetof(described_visit, skip));
+}
+
+static void refuses_a_definition_no_nested_description_defines(const weivel_standard_description *broken) {
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    CHECK(weivel_standard_description_check(broken, &refusal) == WEIVEL_STATUS_MALFORMED);
+    check_text(refusal.path, "types[2].members[1].type", "the definition fault's path");
+    weivel_standard_refusal_release(&refusal);
 }
 
 static void refuses_a_count_naming_no_member(const weivel_standard_description *broken) {
@@ -505,12 +564,17 @@ static void declares_both_services_and_each_broken_variant(described_library lib
         walker_declared_by(library, "library-broken-offset.json", "described_broken_offset_description");
     const weivel_standard_description *count_fault =
         walker_declared_by(library, "library-broken-count.json", "described_broken_count_description");
+    const weivel_standard_description *definition_fault =
+        walker_declared_by(library, "library-broken-definition.json", "described_broken_definition_description");
     CHECK(walker != NULL && weivel_standard_description_check(walker, NULL) == WEIVEL_STATUS_OK);
     if (offset_fault != NULL) {
         checks_an_offset_fault_only_against_the_layout(offset_fault);
     }
     if (count_fault != NULL) {
         refuses_a_count_naming_no_member(count_fault);
+    }
+    if (definition_fault != NULL) {
+        refuses_a_definition_no_nested_description_defines(definition_fault);
     }
 }
 

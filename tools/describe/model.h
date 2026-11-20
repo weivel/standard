@@ -62,7 +62,8 @@ typedef struct describe_item {
 
 /**
  * A function pointer of a definition: an operation answering the status type (`returns` STATUS) or a release
- * (`returns` NOTHING), whose `frees` names the type its one parameter after the context points at.
+ * (`returns` NOTHING), whose `frees` names the type its one parameter after the context points at. `blocking` when
+ * its doc carries the tag `@blocking`, which only an operation may.
  */
 typedef struct describe_operation {
     char *name;
@@ -73,12 +74,14 @@ typedef struct describe_operation {
     describe_item *parameters;
     size_t parameter_count;
     char *frees;
+    int blocking;
 } describe_operation;
 
 /**
  * A `typedef struct <name> { ... } <name>;`. `sized` when its first member is `uint32_t size`, which then names its
  * first shape in `first_shape`; `definition` when it carries function pointers, its members then being `size` and
- * `context` alone and its function pointers `operations`, in declaration order.
+ * `context` alone and its function pointers `operations`, in declaration order. `elsewhere` for a definition named as
+ * described elsewhere, which another library's `<name>_description` describes, though the headers declare it.
  */
 typedef struct describe_type {
     char *name;
@@ -86,6 +89,7 @@ typedef struct describe_type {
     char *doc;
     int sized;
     int definition;
+    int elsewhere;
     char *first_shape;
     describe_item *members;
     size_t member_count;
@@ -117,10 +121,15 @@ typedef struct describe_handle {
     char *release;
 } describe_handle;
 
-/** Everything read, each array in declaration order across the headers in the order they were read. */
+/**
+ * Everything read, each array in declaration order across the headers in the order they were read. `functions`
+ * names every function the headers declare, which the reader otherwise skips.
+ */
 typedef struct describe_model {
     char **files;
     size_t file_count;
+    char **functions;
+    size_t function_count;
     describe_type *types;
     size_t type_count;
     describe_enum *enums;
@@ -134,12 +143,18 @@ typedef struct describe_model {
  * an operation answers, `refusal` the struct an operation's last parameter fills when it declines, `value` the value
  * node held by value or pointed at, and `tree` the answer tree a value is answered into. The refusal type must be a
  * struct of the scanned headers; the others are known by name alone.
+ *
+ * `elsewhere` names the definitions another library describes, known by name alone as the value type is: a pointer
+ * to one is a DEFINITION, whose description is that library's `<name>_description`. One the scanned headers also
+ * declare is read from them and still described elsewhere, never written again.
  */
 typedef struct describe_names {
     const char *status;
     const char *refusal;
     const char *value;
     const char *tree;
+    const char *const *elsewhere;
+    size_t elsewhere_count;
 } describe_names;
 
 typedef enum describe_outcome {
@@ -173,9 +188,13 @@ const describe_enum *describe_model_enum(const describe_model *model, const char
 const describe_handle *describe_model_handle(const describe_model *model, const char *name);
 const describe_operation *describe_type_operation(const describe_type *type, const char *name);
 
+/** Whether the headers declare the function `<definition>_description`. */
+int describe_model_declares_description(const describe_model *model, const char *definition);
+
 /**
  * What one definition's description holds: the definition and every struct its operations reach, through
- * parameters and then members, and every enum a reached U32 names, each in the model's declaration order.
+ * parameters and then members, and every enum a reached U32 names, each in the model's declaration order; and
+ * `definitions`, the name of every definition a reached DEFINITION names, each once, in the order first reached.
  * The arrays point into the model and are the reach's own.
  */
 typedef struct describe_reach {
@@ -184,6 +203,8 @@ typedef struct describe_reach {
     size_t type_count;
     const describe_enum **enums;
     size_t enum_count;
+    const char **definitions;
+    size_t definition_count;
 } describe_reach;
 
 /**

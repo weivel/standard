@@ -392,7 +392,11 @@ static const weivel_standard_description config_description = {
     .enums = config_enums,
     .enum_count = sizeof(config_enums) / sizeof(config_enums[0]),
     .operations = config_operations,
-    .operation_count = sizeof(config_operations) / sizeof(config_operations[0])};
+    .operation_count = sizeof(config_operations) / sizeof(config_operations[0]),
+    .blocking = NULL,
+    .blocking_count = 0,
+    .definitions = NULL,
+    .definition_count = 0};
 
 const weivel_standard_description *describe_config(void);
 

@@ -10,6 +10,10 @@ static void breaks_a_name(probe_description *probe) {
     probe->operations[PROBE_READ].name = NULL;
 }
 
+static void breaks_a_nested_name(probe_description *probe) {
+    probe->counter_types[0].name = NULL;
+}
+
 /** Fails each allocation in turn until a refused check needs no more, and checks every failure leaves nothing. */
 static void every_failed_allocation_leaves_nothing(void (*breaks)(probe_description *probe)) {
     probe_description probe;
@@ -49,6 +53,7 @@ static void a_whole_description_allocates_nothing(void) {
 int main(void) {
     every_failed_allocation_leaves_nothing(breaks_a_count);
     every_failed_allocation_leaves_nothing(breaks_a_name);
+    every_failed_allocation_leaves_nothing(breaks_a_nested_name);
     a_whole_description_allocates_nothing();
     return check_summary("description_memory_test");
 }

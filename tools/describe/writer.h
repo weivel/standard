@@ -13,8 +13,15 @@
  * under every warning set the standard builds with.
  *
  * Every file-scope name the source declares other than `<symbol>` is `<prefix>` followed by `types`, `enums`,
- * `operations`, `description`, `<struct>_members`, `<enum>_entries` or `<operation>_parameters`, so a prefix the
- * library owns keeps them apart from every name its headers declare, and no two of them can be spelled the same.
+ * `operations`, `blocking`, `definitions`, `description`, `filled`, `fill`, `<struct>_members`, `<enum>_entries` or
+ * `<operation>_parameters`, so a prefix the library owns keeps them apart from every name its headers declare. A
+ * definition a DEFINITION names that the headers declare and that is not named as described elsewhere is described
+ * in the same source, once, its names taking `<prefix><definition>_` as their prefix; a struct named so that two
+ * spellings meet is a compile error, never a silent merge. One described elsewhere, whether the headers declare it or
+ * not, is declared as `<definition>_description` unless the headers declare that function, and called once, on the
+ * symbol's first call, through the platform's once primitive (`InitOnceExecuteOnce` on Windows, `pthread_once`
+ * elsewhere), since C11's `call_once` is optional and macOS does not ship it; that is the only slot written after
+ * load.
  */
 
 #include <stddef.h>
@@ -45,7 +52,8 @@ typedef struct describe_text {
 /**
  * Writes the source describing `service` into the empty `source`. REFUSED, with no file and line 0, for a symbol, a
  * prefix or an export macro that is not an identifier, or an include count other than the model's file count or an
- * include that is empty or holds a quote, a backslash or a line end; and as describe_reach_of refuses. On REFUSED or
+ * include that is empty or holds a quote, a backslash or a line end; at the definition's line for a definition that
+ * reaches itself through the definitions it holds or answers; and as describe_reach_of refuses. On REFUSED or
  * OUT_OF_MEMORY the source is left empty.
  */
 describe_outcome describe_write(const describe_model *model, const describe_service *service, describe_text *source,
