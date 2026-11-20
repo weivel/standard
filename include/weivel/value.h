@@ -22,7 +22,10 @@
 
 /** The kinds are append-only: a published kind keeps its number, and none is reused. */
 typedef enum weivel_standard_value_kind {
-    /** No value at all, as an answer that has none holds: only ever a tree's root, never a member or an item. */
+    /**
+     * No value at all, as an answer or a struct's VALUE member that has none holds: a tree's root or such a member,
+     * never a record's entry or a list's item.
+     */
     WEIVEL_STANDARD_VALUE_NONE = 0,
     WEIVEL_STANDARD_VALUE_NULL = 1,
     WEIVEL_STANDARD_VALUE_BOOLEAN = 2,
