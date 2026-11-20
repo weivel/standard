@@ -672,8 +672,8 @@ static const refused_case REFUSED_CASES[] = {
     {REFUSED("refusal_not_last.h"), 13, "the refusal `refusal` before the last parameter " GRAMMAR},
     {REFUSED("refusal_undeclared.h"), 5, "`weivel_standard_service_refusal`, the type of the parameter `refusal`, "
                                          "which no scanned header declares"},
-    {REFUSED("answer_unreleased.h"), 19, "`answer` of `run` is a `probe_answer`, which holds storage, and no release of "
-                                         "`probe_service` frees it"},
+    {REFUSED("answer_unreleased.h"), 19, "`answer` of `run` is a `probe_answer`, which holds storage, and no "
+                                         "release of `probe_service` frees it"},
     {REFUSED("nested_storage_unreleased.h"), 16, "`outer` of `nest` is a `probe_outer`, which holds storage, and no "
                                                  "release of `probe_service` frees it"},
     {REFUSED("count_counting_nothing.h"), 7, "`child_count` is named as a count and counts nothing beside it"},
