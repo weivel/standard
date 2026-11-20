@@ -65,11 +65,12 @@ typedef struct weivel_standard_host_plugin {
 
 /**
  * What a run does, as host's `start` answers it. Every text is NUL-terminated UTF-8. The program loads `libraries` in
- * order, then activates `plugins` in order, opening each plugin's scope (`weivel/scope.h`), when a library it loaded
- * serves one, immediately before that plugin's activation and after the previous plugin's activation ended. In ACTION
- * mode it then runs the action `action_name` of the plugin whose manifest is `action_plugin`, with
- * `action_arguments`, of kind NONE when there are none; in SERVE mode both texts are NULL and `action_arguments` is of
- * kind NONE. First shape ends at `storage`.
+ * order, then activates `plugins` in order, opening each plugin's scope (`weivel/scope.h`) immediately before that
+ * plugin's activation and after the previous plugin's activation ended. The scope is asked of whichever library the
+ * program loaded serves `weivel.scope`, the library it was started with included, and a program none of them serves
+ * opens no scope and offers the plugin nothing. In ACTION mode it then runs the action `action_name` of the plugin
+ * whose manifest is `action_plugin`, with `action_arguments`, of kind NONE when there are none; in SERVE mode both
+ * texts are NULL and `action_arguments` is of kind NONE. First shape ends at `storage`.
  */
 typedef struct weivel_standard_host_plan {
     uint32_t size;
@@ -121,7 +122,9 @@ typedef struct weivel_standard_host_next {
  *
  * A stop request is how a program is asked to end a run: a program takes it through its own interface, and a
  * program's command line takes it from its platform's terminate signals (SIGINT and SIGTERM on POSIX systems, SIGINT
- * and SIGBREAK on Windows). First shape ends at `release_refusal`.
+ * and SIGBREAK on Windows). It is honoured from the moment `start` answered OK. One that arrives during a call, as
+ * during a blocking `tick`, takes effect once that call returns: the program calls `stop` next, and no further `tick`.
+ * First shape ends at `release_refusal`.
  */
 typedef struct weivel_standard_host {
     uint32_t size;
