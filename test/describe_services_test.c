@@ -510,7 +510,7 @@ static void describes_scopes(void) {
     for (at = 0; at < scopes->definition_count && at < COUNT(services); at++) {
         if (scopes->definitions[at] != services[at]) {
             fprintf(stderr, "scopes: definitions[%u] is not the exported description of %s\n", (unsigned)at,
-                    shown(services[at]->definition));
+                    shown(services[at] != NULL ? services[at]->definition : NULL));
             check_failures++;
         }
     }

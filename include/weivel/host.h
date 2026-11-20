@@ -95,7 +95,8 @@ typedef struct weivel_standard_host_outcome {
 
 /**
  * When the program ticks next, as host's `tick` answers it: at `next`, milliseconds since the Unix epoch, when
- * `has_next` is 1, and only when something else wakes it when `has_next` is 0. First shape ends at `storage`.
+ * `has_next` is 1. When `has_next` is 0, `tick` is never called again, and the program serves until a signal stops
+ * it, or, in ACTION mode, until the action finishes. First shape ends at `storage`.
  */
 typedef struct weivel_standard_host_next {
     uint32_t size;
@@ -106,8 +107,10 @@ typedef struct weivel_standard_host_next {
 
 /**
  * The provider a host program runs, served under WEIVEL_STANDARD_SERVICE_HOST. The program calls `start` once, then
- * `started`, then `tick` whenever the time it answered comes, `finished` after an ACTION run, and `stop` last. First
- * shape ends at `release_refusal`.
+ * `started`, then `tick` whenever the time it answered comes, `finished` after an ACTION run, and `stop` last. Once
+ * `start` has answered OK, the program calls `stop` last whatever happened, including after a REFUSED from `started`
+ * or `tick`, after an action, and on a signal; when `start` does not answer OK, the program calls nothing else and
+ * exits non-zero. First shape ends at `release_refusal`.
  */
 typedef struct weivel_standard_host {
     uint32_t size;
@@ -129,7 +132,7 @@ typedef struct weivel_standard_host {
      * @param outcomes one outcome per plugin, in the plan's order, read during the call only; NULL only when
      * `outcome_count` is 0.
      * @param refusal the consumer's empty refusal, or NULL for none.
-     * @return OK; REFUSED when the provider will not run on with these outcomes, and the program stops.
+     * @return OK; REFUSED when the provider will not run on with these outcomes, and the program calls `stop`.
      */
     weivel_status (*started)(void *context, const weivel_standard_host_outcome *outcomes, size_t outcome_count,
                              weivel_standard_service_refusal *refusal);
@@ -140,14 +143,15 @@ typedef struct weivel_standard_host {
      * @param now milliseconds since the Unix epoch, as the program's clock reads.
      * @param next the consumer's empty answer. Required.
      * @param refusal the consumer's empty refusal, or NULL for none.
-     * @return OK; REFUSED when the provider cannot act, and the program stops.
+     * @return OK; REFUSED when the provider cannot act, and the program calls `stop`.
      */
     weivel_status (*tick)(void *context, int64_t now, weivel_standard_host_next *next,
                           weivel_standard_service_refusal *refusal);
     /**
      * Tells how an ACTION run ended.
      *
-     * @param result what the action answered, read during the call only, or NULL when it threw.
+     * @param result what the action answered, read during the call only, of kind NONE when it answered nothing,
+     * and NULL only when it threw.
      * @param failure why the action threw, NUL-terminated UTF-8, or NULL when it answered.
      * @param refusal the consumer's empty refusal, or NULL for none.
      * @return OK; MALFORMED when both or neither of `result` and `failure` are set.

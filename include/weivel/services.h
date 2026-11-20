@@ -252,7 +252,9 @@ typedef struct weivel_standard_log {
     uint32_t size;
     void *context;
     /**
-     * Writes one entry, or drops it when the provider keeps no entry of its level.
+     * Writes one entry, or drops it when the provider keeps no entry of its level. The operation is not blocking, so
+     * a binding calls it directly on its calling thread: the provider never waits on I/O here, and buffers the entry
+     * or hands it off instead.
      *
      * @param level a weivel_standard_log_level.
      * @param message NUL-terminated UTF-8. Required.
