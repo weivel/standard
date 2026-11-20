@@ -59,7 +59,7 @@ typedef struct described_point {
 
 /**
  * A member of every kind a binding marshals, as the mirror reads and answers it: `tier` is a described_tier. A NULL
- * text, pointer or array, an array's count 0 with it, is none. First shape ends at `extra`.
+ * text, pointer or array, an array's count 0 with it, is none. First shape ends at `value_count`.
  */
 typedef struct described_sample {
     uint32_t size;
@@ -83,6 +83,8 @@ typedef struct described_sample {
     size_t number_count;
     weivel_standard_value held;
     const weivel_standard_value *extra;
+    const weivel_standard_value *values;
+    size_t value_count;
 } described_sample;
 
 /**
@@ -120,8 +122,10 @@ typedef struct described_mirror {
      * @param sample read during the call only. Required.
      * @param reflection the consumer's empty answer. Required.
      * @param refusal the consumer's empty refusal, or NULL for none.
-     * @return OK; MALFORMED for a sample below its first shape, a count beside a NULL array or a value nested deeper
-     * than WEIVEL_STANDARD_VALUE_DEPTH_LIMIT; REFUSED when the sample's `label` is "refuse".
+     * @return OK; MALFORMED for a sample below its first shape, a count beside a NULL array, a value nested deeper
+     * than WEIVEL_STANDARD_VALUE_DEPTH_LIMIT, a value of kind NONE anywhere below the root of `held`, `extra` or an
+     * element of `values`, or a text or key that is NULL with a nonzero length or whose length is SIZE_MAX; REFUSED
+     * when the sample's `label` is "refuse".
      */
     weivel_status (*reflect)(void *context, const described_sample *sample, described_reflection *reflection,
                              weivel_standard_service_refusal *refusal);
@@ -143,7 +147,8 @@ typedef struct described_mirror {
      * @param key Required.
      * @param found answers the text the key names, which the library keeps, so nothing releases it. Required.
      * @param refusal the consumer's empty refusal, or NULL for none.
-     * @return OK; NONE for a key the table does not hold; REFUSED for the key "refuse".
+     * @return OK; NONE for a key the table does not hold; MALFORMED for a NULL `key` or `found`, or a refusal below
+     * its first shape or still holding storage; REFUSED for the key "refuse".
      */
     weivel_status (*find)(void *context, const char *key, const char **found,
                           weivel_standard_service_refusal *refusal);
@@ -154,6 +159,51 @@ typedef struct described_mirror {
      * @param sum answers the sum of the bytes, each read as unsigned. Required.
      */
     weivel_status (*measure)(void *context, const uint8_t *bytes, size_t length, uint64_t *sum);
+    /**
+     * Negates a number.
+     *
+     * @param negated answers `-number`. Required.
+     * @return OK; MALFORMED for a NULL `negated`, or for INT64_MIN, whose negation no int64_t holds.
+     */
+    weivel_status (*negate)(void *context, int64_t number, int64_t *negated);
+    /**
+     * Halves a number.
+     *
+     * @param half answers `number / 2`. Required.
+     * @return OK; MALFORMED for a NULL `half`.
+     */
+    weivel_status (*halve)(void *context, double number, double *half);
+    /**
+     * Inverts every bit of a flag word.
+     *
+     * @param inverted answers `~flags`. Required.
+     * @return OK; MALFORMED for a NULL `inverted`.
+     */
+    weivel_status (*invert)(void *context, uint32_t flags, uint32_t *inverted);
+    /**
+     * The other shade.
+     *
+     * @param shade a described_shade.
+     * @param other answers a described_shade, DARK for LIGHT and LIGHT for DARK. Required.
+     * @return OK; MALFORMED for a NULL `other` or a `shade` that is no described_shade.
+     */
+    weivel_status (*swap_shade)(void *context, uint32_t shade, uint32_t *other);
+    /**
+     * Grows an amount by one.
+     *
+     * @param grown answers `amount + 1`. Required.
+     * @return OK; MALFORMED for a NULL `grown`, or for SIZE_MAX, which no size_t holds one more than.
+     */
+    weivel_status (*grow)(void *context, size_t amount, size_t *grown);
+    /**
+     * Counts the nodes of a value, itself included.
+     *
+     * @param value read during the call only. Required.
+     * @param nodes answers how many nodes the value holds. Required.
+     * @return OK; MALFORMED for a NULL `value` or `nodes`, a count beside NULL items or entries, or a value nested
+     * deeper than WEIVEL_STANDARD_VALUE_DEPTH_LIMIT.
+     */
+    weivel_status (*weigh)(void *context, const weivel_standard_value *value, uint64_t *nodes);
     /**
      * How many releases of each kind, of both services, have freed something.
      *
@@ -200,6 +250,8 @@ typedef struct described_walker {
      *
      * @param visit read during the call only. Required, and so is its cursor.
      * @param position answers where the visit lands. Required.
+     * @return OK; MALFORMED for a NULL `visit`, cursor or `position`, a visit below its first shape, or a nonzero
+     * `step_count` beside NULL `steps`.
      */
     weivel_status (*visit)(void *context, const described_visit *visit, uint64_t *position);
     void (*release_cursor)(void *context, described_cursor *cursor);

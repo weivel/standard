@@ -112,7 +112,9 @@ static const expected_member sample_members[] = {
     MEMBER(described_sample, numbers, ARRAY, U32, NULL, "number_count", NULL),
     MEMBER(described_sample, number_count, SIZE, NONE, NULL, NULL, NULL),
     MEMBER(described_sample, held, VALUE, NONE, NULL, NULL, NULL),
-    MEMBER(described_sample, extra, POINTER, VALUE, NULL, NULL, NULL)};
+    MEMBER(described_sample, extra, POINTER, VALUE, NULL, NULL, NULL),
+    MEMBER(described_sample, values, ARRAY, VALUE, NULL, "value_count", NULL),
+    MEMBER(described_sample, value_count, SIZE, NONE, NULL, NULL, NULL)};
 
 static const expected_member reflection_members[] = {
     MEMBER(described_reflection, size, U32, NONE, NULL, NULL, NULL),
@@ -142,7 +144,7 @@ static const expected_member walker_members[] = {MEMBER(described_walker, size, 
 static const expected_type mirror_types[] = {
     TYPE(weivel_standard_service_refusal, ENDS_AT(weivel_standard_service_refusal, storage), refusal_members),
     TYPE(described_point, sizeof(described_point), point_members),
-    TYPE(described_sample, ENDS_AT(described_sample, extra), sample_members),
+    TYPE(described_sample, ENDS_AT(described_sample, value_count), sample_members),
     TYPE(described_reflection, ENDS_AT(described_reflection, storage), reflection_members),
     TYPE(described_releases, ENDS_AT(described_releases, cursors), releases_members),
     TYPE(described_mirror, ENDS_AT(described_mirror, release_refusal), mirror_members)};
@@ -174,6 +176,31 @@ static const expected_parameter measure_parameters[] = {PARAMETER("context", CON
                                                         PARAMETER("bytes", BYTES, INPUT, NONE, NULL, "length", NULL),
                                                         PARAMETER("length", SIZE, INPUT, NONE, NULL, NULL, NULL),
                                                         PARAMETER("sum", U64, ANSWER, NONE, NULL, NULL, NULL)};
+
+static const expected_parameter negate_parameters[] = {PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+                                                       PARAMETER("number", I64, INPUT, NONE, NULL, NULL, NULL),
+                                                       PARAMETER("negated", I64, ANSWER, NONE, NULL, NULL, NULL)};
+
+static const expected_parameter halve_parameters[] = {PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+                                                      PARAMETER("number", F64, INPUT, NONE, NULL, NULL, NULL),
+                                                      PARAMETER("half", F64, ANSWER, NONE, NULL, NULL, NULL)};
+
+static const expected_parameter invert_parameters[] = {PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+                                                       PARAMETER("flags", U32, INPUT, NONE, NULL, NULL, NULL),
+                                                       PARAMETER("inverted", U32, ANSWER, NONE, NULL, NULL, NULL)};
+
+static const expected_parameter swap_shade_parameters[] = {
+    PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+    PARAMETER("shade", U32, INPUT, NONE, "described_shade", NULL, NULL),
+    PARAMETER("other", U32, ANSWER, NONE, "described_shade", NULL, NULL)};
+
+static const expected_parameter grow_parameters[] = {PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+                                                     PARAMETER("amount", SIZE, INPUT, NONE, NULL, NULL, NULL),
+                                                     PARAMETER("grown", SIZE, ANSWER, NONE, NULL, NULL, NULL)};
+
+static const expected_parameter weigh_parameters[] = {PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+                                                      PARAMETER("value", POINTER, INPUT, VALUE, NULL, NULL, NULL),
+                                                      PARAMETER("nodes", U64, ANSWER, NONE, NULL, NULL, NULL)};
 
 static const expected_parameter count_releases_parameters[] = {
     PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
@@ -217,6 +244,12 @@ static const expected_operation mirror_operations[] = {
     OPERATION(described_mirror, tree, STATUS, tree_parameters),
     OPERATION(described_mirror, find, STATUS, find_parameters),
     OPERATION(described_mirror, measure, STATUS, measure_parameters),
+    OPERATION(described_mirror, negate, STATUS, negate_parameters),
+    OPERATION(described_mirror, halve, STATUS, halve_parameters),
+    OPERATION(described_mirror, invert, STATUS, invert_parameters),
+    OPERATION(described_mirror, swap_shade, STATUS, swap_shade_parameters),
+    OPERATION(described_mirror, grow, STATUS, grow_parameters),
+    OPERATION(described_mirror, weigh, STATUS, weigh_parameters),
     OPERATION(described_mirror, count_releases, STATUS, count_releases_parameters),
     OPERATION(described_mirror, release_reflection, NOTHING, release_reflection_parameters),
     OPERATION(described_mirror, release_tree, NOTHING, release_tree_parameters),
