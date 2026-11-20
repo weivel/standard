@@ -3,7 +3,7 @@
 
 /**
  * @file
- * The config, secrets and paths services: their ids, and each one's definition as a C struct of function pointers,
+ * The config, secrets, paths and log services: their ids, and each one's definition as a C struct of function pointers,
  * the one definition every language translates. A provider fills the struct and serves it as its service object; a
  * consumer calls through it. No value crossing these definitions is JSON.
  *
@@ -34,8 +34,8 @@
  * - Time. Every operation completes before it returns. A language whose interface is asynchronous presents a call as
  *   asynchronous; a provider in another process answers once the write has reached it.
  * - Scope. No operation names a plugin, and one definition cannot tell its callers apart. A host that wants each
- *   plugin to see its own settings, secrets or directories does it by what it offers each plugin, outside these
- *   definitions.
+ *   plugin to see its own settings, secrets, directories or log does it by what it offers each plugin, outside these
+ *   definitions, as `weivel.scope` (`weivel/scope.h`) answers each plugin definitions of its own.
  */
 
 #include <stddef.h>
@@ -43,6 +43,7 @@
 
 #include "weivel/core.h"
 #include "weivel/standard_api.h"
+#include "weivel/value.h"
 
 /** The service id of the settings a host reads. */
 #define WEIVEL_STANDARD_SERVICE_CONFIG "weivel.config"
@@ -50,11 +51,14 @@
 #define WEIVEL_STANDARD_SERVICE_SECRETS "weivel.secrets"
 /** The service id of the places a host stores files. */
 #define WEIVEL_STANDARD_SERVICE_PATHS "weivel.paths"
+/** The service id of the log a host writes. */
+#define WEIVEL_STANDARD_SERVICE_LOG "weivel.log"
 
 /** The same ids as functions, for a binding that cannot read a macro; each answers a static NUL-terminated string. */
 WEIVEL_STANDARD_API const char *weivel_standard_service_config(void);
 WEIVEL_STANDARD_API const char *weivel_standard_service_secrets(void);
 WEIVEL_STANDARD_API const char *weivel_standard_service_paths(void);
+WEIVEL_STANDARD_API const char *weivel_standard_service_log(void);
 
 /**
  * Whether `definition`, a pointer to a `type` below, carries `operation`: the provider's `size` reaches past it and
@@ -227,5 +231,39 @@ typedef struct weivel_standard_paths {
     /** The directory the host offers as the plugin's own. */
     weivel_status (*plugin)(void *context, const char **directory);
 } weivel_standard_paths;
+
+/**
+ * How much an entry of the log matters, least first. 0 is no level and is never written. The levels are append-only:
+ * a published level keeps its number, and none is reused.
+ */
+typedef enum weivel_standard_log_level {
+    WEIVEL_STANDARD_LOG_TRACE = 1,
+    WEIVEL_STANDARD_LOG_DEBUG = 2,
+    WEIVEL_STANDARD_LOG_INFO = 3,
+    WEIVEL_STANDARD_LOG_WARN = 4,
+    WEIVEL_STANDARD_LOG_ERROR = 5
+} weivel_standard_log_level;
+
+/**
+ * The log a host writes, served under WEIVEL_STANDARD_SERVICE_LOG. Where an entry goes, how it is formatted and which
+ * levels are kept are the provider's. First shape ends at `release_refusal`.
+ */
+typedef struct weivel_standard_log {
+    uint32_t size;
+    void *context;
+    /**
+     * Writes one entry, or drops it when the provider keeps no entry of its level.
+     *
+     * @param level a weivel_standard_log_level.
+     * @param message NUL-terminated UTF-8. Required.
+     * @param fields the entry's structured fields as a RECORD, read during the call only, or NULL for none.
+     * @param refusal the consumer's empty refusal, or NULL for none.
+     * @return OK, also for an entry dropped; MALFORMED for level 0 or a level the provider does not know, or `fields`
+     * that is not a RECORD; REFUSED when the entry cannot be written.
+     */
+    weivel_status (*write)(void *context, uint32_t level, const char *message, const weivel_standard_value *fields,
+                           weivel_standard_service_refusal *refusal);
+    void (*release_refusal)(void *context, weivel_standard_service_refusal *refusal);
+} weivel_standard_log;
 
 #endif

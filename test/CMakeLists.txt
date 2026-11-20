@@ -70,12 +70,7 @@ weivel_describe(describe_elsewhere_test
     DESCRIBED_ELSEWHERE probe_remote)
 
 standard_test(describe_services_test describe_services_test weivel_standard)
-weivel_describe(describe_services_test
-    HEADERS ${PROJECT_SOURCE_DIR}/include/weivel/services.h
-    PREFIX services_
-    SERVICE weivel_standard_config SYMBOL services_described_config
-    SERVICE weivel_standard_secrets SYMBOL services_described_secrets
-    SERVICE weivel_standard_paths SYMBOL services_described_paths)
+standard_test(describe_services_shared_test describe_services_test weivel_standard_shared)
 
 add_library(weivel_standard_described SHARED described/described.c described/broken.c)
 target_compile_definitions(weivel_standard_described PRIVATE DESCRIBED_BUILDING)

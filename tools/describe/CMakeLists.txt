@@ -12,7 +12,7 @@ function(describe_reader target standard)
     standard_strict_warnings(${target})
 endfunction()
 
-describe_reader(weivel_describe_reader weivel_standard)
+describe_reader(weivel_describe_reader weivel_standard_undescribed)
 describe_reader(weivel_describe_reader_testing weivel_standard_testing EXCLUDE_FROM_ALL)
 
 if(WIN32)

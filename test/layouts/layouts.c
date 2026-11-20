@@ -1,11 +1,13 @@
 #include <stdio.h>
 
 #include "weivel/description.h"
+#include "weivel/host.h"
 #include "weivel/identity.h"
 #include "weivel/json.h"
 #include "weivel/layout.h"
 #include "weivel/library.h"
 #include "weivel/mirrors.h"
+#include "weivel/scope.h"
 #include "weivel/services.h"
 #include "weivel/standard.h"
 #include "weivel/value.h"
@@ -156,6 +158,65 @@ static void print_service_layouts(void) {
     FIELD(weivel_standard_paths, config);
     FIELD(weivel_standard_paths, plugin);
     SIZE(weivel_standard_paths);
+    FIELD(weivel_standard_log, size);
+    FIELD(weivel_standard_log, context);
+    FIELD(weivel_standard_log, write);
+    FIELD(weivel_standard_log, release_refusal);
+    SIZE(weivel_standard_log);
+    FIELD(weivel_standard_scope, size);
+    FIELD(weivel_standard_scope, config);
+    FIELD(weivel_standard_scope, secrets);
+    FIELD(weivel_standard_scope, paths);
+    FIELD(weivel_standard_scope, log);
+    FIELD(weivel_standard_scope, storage);
+    SIZE(weivel_standard_scope);
+    FIELD(weivel_standard_scopes, size);
+    FIELD(weivel_standard_scopes, context);
+    FIELD(weivel_standard_scopes, open);
+    FIELD(weivel_standard_scopes, release_scope);
+    FIELD(weivel_standard_scopes, release_refusal);
+    SIZE(weivel_standard_scopes);
+}
+
+static void print_host_layouts(void) {
+    FIELD(weivel_standard_host_library, binary);
+    FIELD(weivel_standard_host_library, declaration);
+    SIZE(weivel_standard_host_library);
+    FIELD(weivel_standard_host_plugin, directory);
+    FIELD(weivel_standard_host_plugin, manifest);
+    FIELD(weivel_standard_host_plugin, entry);
+    SIZE(weivel_standard_host_plugin);
+    FIELD(weivel_standard_host_plan, size);
+    FIELD(weivel_standard_host_plan, mode);
+    FIELD(weivel_standard_host_plan, libraries);
+    FIELD(weivel_standard_host_plan, library_count);
+    FIELD(weivel_standard_host_plan, plugins);
+    FIELD(weivel_standard_host_plan, plugin_count);
+    FIELD(weivel_standard_host_plan, action_plugin);
+    FIELD(weivel_standard_host_plan, action_name);
+    FIELD(weivel_standard_host_plan, action_arguments);
+    FIELD(weivel_standard_host_plan, storage);
+    SIZE(weivel_standard_host_plan);
+    FIELD(weivel_standard_host_outcome, manifest);
+    FIELD(weivel_standard_host_outcome, state);
+    FIELD(weivel_standard_host_outcome, detail);
+    SIZE(weivel_standard_host_outcome);
+    FIELD(weivel_standard_host_next, size);
+    FIELD(weivel_standard_host_next, has_next);
+    FIELD(weivel_standard_host_next, next);
+    FIELD(weivel_standard_host_next, storage);
+    SIZE(weivel_standard_host_next);
+    FIELD(weivel_standard_host, size);
+    FIELD(weivel_standard_host, context);
+    FIELD(weivel_standard_host, start);
+    FIELD(weivel_standard_host, started);
+    FIELD(weivel_standard_host, tick);
+    FIELD(weivel_standard_host, finished);
+    FIELD(weivel_standard_host, stop);
+    FIELD(weivel_standard_host, release_plan);
+    FIELD(weivel_standard_host, release_next);
+    FIELD(weivel_standard_host, release_refusal);
+    SIZE(weivel_standard_host);
 }
 
 static void print_validation_layouts(void) {
@@ -266,6 +327,7 @@ int main(void) {
     print_description_layouts();
     print_value_layouts();
     print_service_layouts();
+    print_host_layouts();
     print_validation_layouts();
     return fflush(stdout) == 0 ? 0 : 1;
 }

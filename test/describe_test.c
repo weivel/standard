@@ -288,7 +288,7 @@ static void records_where_each_item_is_declared(void) {
     check_where(mode->entries[1].where, FIXTURE("every_form.h"), 23, "PROBE_SLOW");
     check_where(describe_model_handle(&model, "probe_handle")->where, FIXTURE("every_form.h"), 20, "probe_handle");
     check_where(describe_model_type(&model, "weivel_standard_service_refusal")->where,
-                WEIVEL_DESCRIBE_SERVICES_HEADER, 72, "weivel_standard_service_refusal");
+                WEIVEL_DESCRIBE_SERVICES_HEADER, 76, "weivel_standard_service_refusal");
     describe_model_release(&model);
 }
 
@@ -582,6 +582,11 @@ static const expected_item RELEASE_SECRET[] = {
     CONTEXT_PARAMETER, {"secret", K(POINTER), K(ANSWER), K(STRUCT), "weivel_standard_secret", NULL, NULL}};
 
 static const expected_item PATH[] = {CONTEXT_PARAMETER, {"directory", K(TEXT), K(ANSWER), NO, NULL, NULL, NULL}};
+static const expected_item LOG_WRITE[] = {CONTEXT_PARAMETER,
+                                          {"level", K(U32), K(INPUT), NO, "weivel_standard_log_level", NULL, NULL},
+                                          {"message", K(TEXT), K(INPUT), NO, NULL, NULL, NULL},
+                                          {"fields", K(POINTER), K(INPUT), K(VALUE), NULL, NULL, NULL},
+                                          REFUSAL_PARAMETER};
 
 static void reads_every_struct_and_definition_of_services_h(void) {
     describe_model model;
@@ -591,7 +596,7 @@ static void reads_every_struct_and_definition_of_services_h(void) {
                                         "weivel_standard_setting",         "weivel_standard_settings",
                                         "weivel_standard_setting_answer",  "weivel_standard_config",
                                         "weivel_standard_secret",          "weivel_standard_secrets",
-                                        "weivel_standard_paths"};
+                                        "weivel_standard_paths",           "weivel_standard_log"};
     static const expected_operation config[] = {
         OPERATION("all", STATUS, NULL, CONFIG_ALL),
         OPERATION("get", STATUS, NULL, CONFIG_GET),
@@ -608,15 +613,22 @@ static void reads_every_struct_and_definition_of_services_h(void) {
     static const expected_operation directories[] = {OPERATION("cache", STATUS, NULL, PATH),
                                                      OPERATION("config", STATUS, NULL, PATH),
                                                      OPERATION("plugin", STATUS, NULL, PATH)};
+    static const expected_operation writer[] = {
+        OPERATION("write", STATUS, NULL, LOG_WRITE),
+        OPERATION("release_refusal", NOTHING, "weivel_standard_service_refusal", RELEASE_REFUSAL)};
+    static const char *const levels[] = {"WEIVEL_STANDARD_LOG_TRACE", "WEIVEL_STANDARD_LOG_DEBUG",
+                                         "WEIVEL_STANDARD_LOG_INFO", "WEIVEL_STANDARD_LOG_WARN",
+                                         "WEIVEL_STANDARD_LOG_ERROR"};
     static const char *const kinds[] = {"WEIVEL_STANDARD_SETTING_NONE", "WEIVEL_STANDARD_SETTING_TEXT",
                                         "WEIVEL_STANDARD_SETTING_NUMBER", "WEIVEL_STANDARD_SETTING_BOOLEAN"};
     const describe_enum *kind;
+    const describe_enum *level;
     size_t at;
     if (read_all(&model, paths, COUNT_OF(paths), &names) != DESCRIBE_DONE) {
         CHECK(0);
         return;
     }
-    CHECK(model.type_count == COUNT_OF(types) && model.enum_count == 1 && model.handle_count == 0);
+    CHECK(model.type_count == COUNT_OF(types) && model.enum_count == 2 && model.handle_count == 0);
     for (at = 0; at < model.type_count && at < COUNT_OF(types); at++) {
         check_nullable(model.types[at].name, types[at], "services.h", "types");
     }
@@ -629,9 +641,11 @@ static void reads_every_struct_and_definition_of_services_h(void) {
     check_members(&model, "weivel_standard_config", PROBE_DEFINITION, COUNT_OF(PROBE_DEFINITION));
     check_members(&model, "weivel_standard_secrets", PROBE_DEFINITION, COUNT_OF(PROBE_DEFINITION));
     check_members(&model, "weivel_standard_paths", PROBE_DEFINITION, COUNT_OF(PROBE_DEFINITION));
+    check_members(&model, "weivel_standard_log", PROBE_DEFINITION, COUNT_OF(PROBE_DEFINITION));
     check_operations(&model, "weivel_standard_config", config, COUNT_OF(config));
     check_operations(&model, "weivel_standard_secrets", secrets, COUNT_OF(secrets));
     check_operations(&model, "weivel_standard_paths", directories, COUNT_OF(directories));
+    check_operations(&model, "weivel_standard_log", writer, COUNT_OF(writer));
     check_shape(&model, "weivel_standard_service_refusal", 1, "storage");
     check_shape(&model, "weivel_standard_setting_value", 0, NULL);
     check_shape(&model, "weivel_standard_setting", 0, NULL);
@@ -641,11 +655,18 @@ static void reads_every_struct_and_definition_of_services_h(void) {
     check_shape(&model, "weivel_standard_secret", 1, "storage");
     check_shape(&model, "weivel_standard_secrets", 1, "release_refusal");
     check_shape(&model, "weivel_standard_paths", 1, "plugin");
+    check_shape(&model, "weivel_standard_log", 1, "release_refusal");
     kind = describe_model_enum(&model, "weivel_standard_setting_kind");
     CHECK(kind != NULL && kind->entry_count == COUNT_OF(kinds));
     for (at = 0; kind != NULL && at < kind->entry_count && at < COUNT_OF(kinds); at++) {
         check_nullable(kind->entries[at].name, kinds[at], "weivel_standard_setting_kind", "name");
         check_number(kind->entries[at].number, (uint32_t)at, kinds[at], "number");
+    }
+    level = describe_model_enum(&model, "weivel_standard_log_level");
+    CHECK(level != NULL && level->entry_count == COUNT_OF(levels));
+    for (at = 0; level != NULL && at < level->entry_count && at < COUNT_OF(levels); at++) {
+        check_nullable(level->entries[at].name, levels[at], "weivel_standard_log_level", "name");
+        check_number(level->entries[at].number, (uint32_t)at + 1, levels[at], "number");
     }
     describe_model_release(&model);
 }
@@ -661,6 +682,8 @@ static void reaches_what_each_service_of_services_h_uses(void) {
     static const char *const secrets[] = {"weivel_standard_service_refusal", "weivel_standard_secret",
                                           "weivel_standard_secrets"};
     static const char *const directories[] = {"weivel_standard_paths"};
+    static const char *const writer[] = {"weivel_standard_service_refusal", "weivel_standard_log"};
+    static const char *const levels[] = {"weivel_standard_log_level"};
     if (read_all(&model, paths, COUNT_OF(paths), &names) != DESCRIBE_DONE) {
         CHECK(0);
         return;
@@ -668,6 +691,7 @@ static void reaches_what_each_service_of_services_h_uses(void) {
     check_reach(&model, "weivel_standard_config", config, COUNT_OF(config), kinds, COUNT_OF(kinds));
     check_reach(&model, "weivel_standard_secrets", secrets, COUNT_OF(secrets), NULL, 0);
     check_reach(&model, "weivel_standard_paths", directories, COUNT_OF(directories), NULL, 0);
+    check_reach(&model, "weivel_standard_log", writer, COUNT_OF(writer), levels, COUNT_OF(levels));
     describe_model_release(&model);
 }
 
