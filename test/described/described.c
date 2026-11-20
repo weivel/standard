@@ -691,6 +691,38 @@ static void walker_release_cursor(void *context, described_cursor *cursor) {
     released.cursors++;
 }
 
+static weivel_status walker_wait(void *context, uint64_t ticks, uint64_t *waited) {
+    (void)context;
+    if (waited == NULL) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    *waited = ticks;
+    return WEIVEL_STATUS_OK;
+}
+
+static weivel_status counter_add(void *context, uint64_t amount, uint64_t *total) {
+    uint64_t start = *(const uint64_t *)context;
+    if (total == NULL || amount > UINT64_MAX - start) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    *total = start + amount;
+    return WEIVEL_STATUS_OK;
+}
+
+static uint64_t counter_start = DESCRIBED_COUNTER_START;
+
+static const described_counter counter = {
+    .size = (uint32_t)sizeof(described_counter), .context = &counter_start, .add = counter_add};
+
+static weivel_status walker_lend(void *context, described_loan *loan) {
+    (void)context;
+    if (loan == NULL || loan->size < sizeof(described_loan)) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    loan->counter = &counter;
+    return WEIVEL_STATUS_OK;
+}
+
 #define MIRROR_BUT_HALVE                              \
     .size = (uint32_t)sizeof(described_mirror),       \
     .context = &library_context,                      \
@@ -718,7 +750,10 @@ static const described_walker walker = {.size = (uint32_t)sizeof(described_walke
                                         .use = walker_use,
                                         .visit = walker_visit,
                                         .release_cursor = walker_release_cursor,
-                                        .release_refusal = release_refusal};
+                                        .release_refusal = release_refusal,
+                                        .wait = walker_wait,
+                                        .lend = walker_lend};
+
 
 const void *described_mirror_definition(void) {
     return &mirror;
