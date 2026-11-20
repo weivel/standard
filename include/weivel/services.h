@@ -86,9 +86,9 @@ typedef enum weivel_standard_setting_kind {
 } weivel_standard_setting_kind;
 
 /**
- * One setting's value: `kind` says which field holds it, and every other field is zero. `text` is UTF-8 of
- * `text_length` bytes followed by a NUL; `number` a finite IEEE 754 double, so an integer is exact only up to 2^53 in
- * magnitude; `boolean` 0 or 1. A value sits inside answers and array elements, so it carries no size and never grows:
+ * One setting's value: `kind`, a weivel_standard_setting_kind, says which field holds it, and every other field is
+ * zero. `text` is UTF-8 of `text_length` bytes followed by a NUL; `number` a finite IEEE 754 double, so an integer is
+ * exact only up to 2^53 in magnitude; `boolean` 0 or 1. A value sits inside answers and array elements, so it carries no size and never grows:
  * a later kind whose value none of these fields can hold arrives as a new definition.
  */
 typedef struct weivel_standard_setting_value {

@@ -76,6 +76,8 @@ set_target_properties(weivel_standard_shared PROPERTIES
     C_VISIBILITY_PRESET hidden
     ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/shared)
 
+add_subdirectory(tools/describe)
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     enable_testing()
     add_subdirectory(test)

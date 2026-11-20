@@ -42,6 +42,14 @@ foreach(description_target description_test description_shared_test description_
     target_sources(${description_target} PRIVATE description_fixture.c)
 endforeach()
 
+standard_test(describe_test describe_test weivel_describe_reader)
+standard_test(describe_memory_test describe_memory_test weivel_describe_reader_testing)
+foreach(describe_target describe_test describe_memory_test)
+    target_compile_definitions(${describe_target} PRIVATE
+        WEIVEL_DESCRIBE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/describe"
+        WEIVEL_DESCRIBE_SERVICES_HEADER="${PROJECT_SOURCE_DIR}/include/weivel/services.h")
+endforeach()
+
 function(layout_test name source)
     standard_test(${name} ${source} ${ARGN})
     target_sources(${name} PRIVATE fixtures.c)
