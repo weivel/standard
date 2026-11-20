@@ -57,7 +57,15 @@ function(standard_target target)
     standard_strict_warnings(${target})
 endfunction()
 
-add_library(weivel_standard STATIC ${WEIVEL_STANDARD_SOURCES})
+add_library(weivel_standard_objects OBJECT ${WEIVEL_STANDARD_SOURCES})
+standard_target(weivel_standard_objects)
+set_target_properties(weivel_standard_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# weivel-describe links this one, since weivel_standard holds the descriptions weivel-describe generates.
+add_library(weivel_standard_undescribed STATIC EXCLUDE_FROM_ALL $<TARGET_OBJECTS:weivel_standard_objects>)
+standard_target(weivel_standard_undescribed)
+
+add_library(weivel_standard STATIC $<TARGET_OBJECTS:weivel_standard_objects>)
 standard_target(weivel_standard)
 set_target_properties(weivel_standard PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -78,6 +86,39 @@ set_target_properties(weivel_standard_shared PROPERTIES
 
 add_subdirectory(tools/describe)
 include(cmake/weivel_describe.cmake)
+
+function(standard_descriptions target)
+    set(headers ${PROJECT_SOURCE_DIR}/include/weivel)
+    weivel_describe(${target}
+        HEADERS ${headers}/services.h ${headers}/descriptions.h
+        PREFIX standard_services_
+        EXPORT WEIVEL_STANDARD_API
+        SERVICE weivel_standard_config SYMBOL weivel_standard_config_description
+        SERVICE weivel_standard_secrets SYMBOL weivel_standard_secrets_description
+        SERVICE weivel_standard_paths SYMBOL weivel_standard_paths_description
+        SERVICE weivel_standard_log SYMBOL weivel_standard_log_description)
+    weivel_describe(${target}
+        HEADERS ${headers}/services.h ${headers}/scope.h ${headers}/descriptions.h
+        PREFIX standard_scope_
+        EXPORT WEIVEL_STANDARD_API
+        SERVICE weivel_standard_scopes SYMBOL weivel_standard_scopes_description
+        DESCRIBED_ELSEWHERE weivel_standard_config weivel_standard_secrets weivel_standard_paths weivel_standard_log)
+    weivel_describe(${target}
+        HEADERS ${headers}/services.h ${headers}/host.h ${headers}/descriptions.h
+        PREFIX standard_host_
+        EXPORT WEIVEL_STANDARD_API
+        SERVICE weivel_standard_host SYMBOL weivel_standard_host_description)
+    if(NOT WIN32)
+        target_link_libraries(${target} PUBLIC ${CMAKE_THREAD_LIBS_INIT})
+    endif()
+endfunction()
+
+if(NOT WIN32)
+    find_package(Threads REQUIRED)
+endif()
+foreach(described weivel_standard weivel_standard_testing weivel_standard_shared)
+    standard_descriptions(${described})
+endforeach()
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     enable_testing()

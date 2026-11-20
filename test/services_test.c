@@ -4,6 +4,8 @@
  * requires and are never offered as a reference implementation.
  */
 #include "check.h"
+#include "weivel/host.h"
+#include "weivel/scope.h"
 #include "weivel/services.h"
 
 #include <math.h>
@@ -715,6 +717,16 @@ static const published_number PUBLISHED[] = {
     {"SETTING_TEXT", WEIVEL_STANDARD_SETTING_TEXT, 1},
     {"SETTING_NUMBER", WEIVEL_STANDARD_SETTING_NUMBER, 2},
     {"SETTING_BOOLEAN", WEIVEL_STANDARD_SETTING_BOOLEAN, 3},
+    {"LOG_TRACE", WEIVEL_STANDARD_LOG_TRACE, 1},
+    {"LOG_DEBUG", WEIVEL_STANDARD_LOG_DEBUG, 2},
+    {"LOG_INFO", WEIVEL_STANDARD_LOG_INFO, 3},
+    {"LOG_WARN", WEIVEL_STANDARD_LOG_WARN, 4},
+    {"LOG_ERROR", WEIVEL_STANDARD_LOG_ERROR, 5},
+    {"HOST_SERVE", WEIVEL_STANDARD_HOST_SERVE, 1},
+    {"HOST_ACTION", WEIVEL_STANDARD_HOST_ACTION, 2},
+    {"HOST_ACTIVATED", WEIVEL_STANDARD_HOST_ACTIVATED, 1},
+    {"HOST_REFUSED", WEIVEL_STANDARD_HOST_REFUSED, 2},
+    {"HOST_FAILED", WEIVEL_STANDARD_HOST_FAILED, 3},
     {"config size", offsetof(weivel_standard_config, size), 0},
     {"secrets size", offsetof(weivel_standard_secrets, size), 0},
     {"paths size", offsetof(weivel_standard_paths, size), 0},
@@ -722,6 +734,12 @@ static const published_number PUBLISHED[] = {
     {"setting answer size", offsetof(weivel_standard_setting_answer, size), 0},
     {"secret size", offsetof(weivel_standard_secret, size), 0},
     {"service refusal size", offsetof(weivel_standard_service_refusal, size), 0},
+    {"log size", offsetof(weivel_standard_log, size), 0},
+    {"scope size", offsetof(weivel_standard_scope, size), 0},
+    {"scopes size", offsetof(weivel_standard_scopes, size), 0},
+    {"host size", offsetof(weivel_standard_host, size), 0},
+    {"host plan size", offsetof(weivel_standard_host_plan, size), 0},
+    {"host next size", offsetof(weivel_standard_host_next, size), 0},
 };
 
 static void the_published_numbers_and_shapes_hold(void) {
@@ -742,6 +760,12 @@ int main(void) {
     check_text(weivel_standard_service_config(), "weivel.config", "config function");
     check_text(weivel_standard_service_secrets(), "weivel.secrets", "secrets function");
     check_text(weivel_standard_service_paths(), "weivel.paths", "paths function");
+    check_text(WEIVEL_STANDARD_SERVICE_LOG, "weivel.log", "log macro");
+    check_text(weivel_standard_service_log(), "weivel.log", "log function");
+    check_text(WEIVEL_STANDARD_SERVICE_SCOPE, "weivel.scope", "scope macro");
+    check_text(weivel_standard_service_scope(), "weivel.scope", "scope function");
+    check_text(WEIVEL_STANDARD_SERVICE_HOST, "weivel.host", "host macro");
+    check_text(weivel_standard_service_host(), "weivel.host", "host function");
     config_reads_defaults_and_writes();
     config_refuses_and_rejects_malformed_calls();
     secrets_keep_bytes();
