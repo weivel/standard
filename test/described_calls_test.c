@@ -491,6 +491,31 @@ static void waits_and_answers_at_once(const described_walker *walker) {
 }
 
 /** The counter a loan carries is a definition of its own, called through its own context, not the walker's. */
+static void refuses_the_counters_sentinel_and_releases_the_refusal_once(const described_mirror *mirror,
+                                                                       const described_walker *walker) {
+    described_loan loan = WEIVEL_INIT(described_loan);
+    weivel_standard_service_refusal refusal = WEIVEL_INIT(weivel_standard_service_refusal);
+    described_releases before = releases_of(mirror);
+    uint64_t total = 0;
+    CHECK(walker->lend(walker->context, &loan) == WEIVEL_STATUS_OK && loan.counter != NULL);
+    if (loan.counter == NULL) {
+        return;
+    }
+    CHECK(loan.counter->add(loan.counter->context, DESCRIBED_COUNTER_REFUSED_AMOUNT, &total, &refusal) ==
+          WEIVEL_STATUS_REFUSED);
+    CHECK(total == 0);
+    check_refusal(&refusal);
+    CHECK(releases_of(mirror).refusals == before.refusals);
+    loan.counter->release_refusal(loan.counter->context, &refusal);
+    CHECK(refusal.storage == NULL);
+    loan.counter->release_refusal(loan.counter->context, &refusal);
+    CHECK(releases_of(mirror).refusals == before.refusals + 1);
+    CHECK(loan.counter->add(loan.counter->context, DESCRIBED_COUNTER_REFUSED_AMOUNT, &total, NULL) ==
+          WEIVEL_STATUS_REFUSED);
+    refusal.size = 0;
+    CHECK(loan.counter->add(loan.counter->context, 1, &total, &refusal) == WEIVEL_STATUS_MALFORMED);
+}
+
 static void lends_a_counter_called_through_its_own_context(const described_walker *walker) {
     described_loan loan = WEIVEL_INIT(described_loan);
     described_loan small = WEIVEL_INIT(described_loan);
@@ -502,9 +527,9 @@ static void lends_a_counter_called_through_its_own_context(const described_walke
     }
     counter = loan.counter;
     CHECK(counter->size == sizeof(described_counter) && counter->context != walker->context);
-    CHECK(counter->add(counter->context, 7, &total) == WEIVEL_STATUS_OK && total == DESCRIBED_COUNTER_START + 7);
-    CHECK(counter->add(counter->context, UINT64_MAX, &total) == WEIVEL_STATUS_MALFORMED);
-    CHECK(counter->add(counter->context, 7, NULL) == WEIVEL_STATUS_MALFORMED);
+    CHECK(counter->add(counter->context, 7, &total, NULL) == WEIVEL_STATUS_OK && total == DESCRIBED_COUNTER_START + 7);
+    CHECK(counter->add(counter->context, UINT64_MAX, &total, NULL) == WEIVEL_STATUS_MALFORMED);
+    CHECK(counter->add(counter->context, 7, NULL, NULL) == WEIVEL_STATUS_MALFORMED);
     small.size = (uint32_t)offsetof(described_loan, counter);
     CHECK(walker->lend(walker->context, &small) == WEIVEL_STATUS_MALFORMED && small.counter == NULL);
     CHECK(walker->lend(walker->context, NULL) == WEIVEL_STATUS_MALFORMED);
@@ -539,6 +564,7 @@ static void calls_every_operation(described_library library) {
     counts_nothing_for_an_empty_release(mirror, walker);
     waits_and_answers_at_once(walker);
     lends_a_counter_called_through_its_own_context(walker);
+    refuses_the_counters_sentinel_and_releases_the_refusal_once(mirror, walker);
 }
 
 static void offers_every_operation_but_halve_without_it(described_library library) {

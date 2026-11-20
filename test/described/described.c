@@ -700,10 +700,14 @@ static weivel_status walker_wait(void *context, uint64_t ticks, uint64_t *waited
     return WEIVEL_STATUS_OK;
 }
 
-static weivel_status counter_add(void *context, uint64_t amount, uint64_t *total) {
+static weivel_status counter_add(void *context, uint64_t amount, uint64_t *total,
+                                 weivel_standard_service_refusal *refusal) {
     uint64_t start = *(const uint64_t *)context;
-    if (total == NULL || amount > UINT64_MAX - start) {
+    if (total == NULL || amount > UINT64_MAX - start || !refusal_is_usable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
+    }
+    if (amount == DESCRIBED_COUNTER_REFUSED_AMOUNT) {
+        return refuse(refusal);
     }
     *total = start + amount;
     return WEIVEL_STATUS_OK;
@@ -712,7 +716,8 @@ static weivel_status counter_add(void *context, uint64_t amount, uint64_t *total
 static uint64_t counter_start = DESCRIBED_COUNTER_START;
 
 static const described_counter counter = {
-    .size = (uint32_t)sizeof(described_counter), .context = &counter_start, .add = counter_add};
+    .size = (uint32_t)sizeof(described_counter), .context = &counter_start,
+    .add = counter_add, .release_refusal = release_refusal};
 
 static weivel_status walker_lend(void *context, described_loan *loan) {
     (void)context;

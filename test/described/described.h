@@ -39,6 +39,8 @@
 #define DESCRIBED_REFUSAL_FIX "pass anything but \"refuse\""
 /** Where the counter the walker lends starts, which its own context holds. */
 #define DESCRIBED_COUNTER_START 1000
+/** The one amount the counter's `add` refuses, with the library's usual refusal. */
+#define DESCRIBED_COUNTER_REFUSED_AMOUNT 13
 
 #ifdef __cplusplus
 extern "C" {
@@ -228,8 +230,8 @@ typedef struct described_visit {
 } described_visit;
 
 /**
- * The counter the walker lends, one static definition with a context of its own holding DESCRIBED_COUNTER_START. First
- * shape ends at `add`.
+ * The counter the walker lends, one static definition with a context of its own holding DESCRIBED_COUNTER_START, and
+ * its own `release_refusal`. First shape ends at `release_refusal`.
  */
 typedef struct described_counter {
     uint32_t size;
@@ -238,9 +240,12 @@ typedef struct described_counter {
      * Adds to where the counter starts.
      *
      * @param total answers DESCRIBED_COUNTER_START plus `amount`. Required.
-     * @return OK; MALFORMED for a NULL `total`, or an `amount` no uint64_t holds DESCRIBED_COUNTER_START more than.
+     * @param refusal the consumer's empty refusal, or NULL for none, freed by `release_refusal`.
+     * @return OK; REFUSED when `amount` is DESCRIBED_COUNTER_REFUSED_AMOUNT; MALFORMED for a NULL `total`, an `amount`
+     * no uint64_t holds DESCRIBED_COUNTER_START more than, or a refusal that is not empty.
      */
-    weivel_status (*add)(void *context, uint64_t amount, uint64_t *total);
+    weivel_status (*add)(void *context, uint64_t amount, uint64_t *total, weivel_standard_service_refusal *refusal);
+    void (*release_refusal)(void *context, weivel_standard_service_refusal *refusal);
 } described_counter;
 
 /** What `lend` answers: the walker's counter, living until the library is unloaded. First shape ends at `counter`. */
