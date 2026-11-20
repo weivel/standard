@@ -754,7 +754,6 @@ static const described_walker walker = {.size = (uint32_t)sizeof(described_walke
                                         .wait = walker_wait,
                                         .lend = walker_lend};
 
-
 const void *described_mirror_definition(void) {
     return &mirror;
 }

@@ -225,4 +225,3 @@ const weivel_standard_description *described_broken_count_description(void) {
 const weivel_standard_description *described_broken_definition_description(void) {
     return &broken_definition;
 }
-

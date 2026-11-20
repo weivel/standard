@@ -50,7 +50,6 @@ static const char *const KIND_NAMES[] = {
     "WEIVEL_STANDARD_DESCRIBED_VALUE",  "WEIVEL_STANDARD_DESCRIBED_HANDLE",  "WEIVEL_STANDARD_DESCRIBED_CONTEXT",
     "WEIVEL_STANDARD_DESCRIBED_STORAGE", "WEIVEL_STANDARD_DESCRIBED_DEFINITION"};
 
-
 static const char *const ROLE_NAMES[] = {"WEIVEL_STANDARD_DESCRIBED_NO_ROLE", "WEIVEL_STANDARD_DESCRIBED_INPUT",
                                          "WEIVEL_STANDARD_DESCRIBED_ANSWER", "WEIVEL_STANDARD_DESCRIBED_REFUSAL"};
 
@@ -228,7 +227,6 @@ static int has_blocking(const describe_type *definition) {
 }
 
 static void put_description(writing *state, const describe_reach *reach) {
-
     const char *prefix = state->prefix;
     put(state, "static const weivel_standard_description %sdescription = {\n", prefix);
     put(state, "    .size = (uint32_t)sizeof(weivel_standard_description),\n");

@@ -948,7 +948,6 @@ int main(void) {
     refuses_a_reach_its_definition_cannot_release();
     reads_a_definition_held_and_answered_and_an_operation_that_blocks();
     refuses_a_definition_both_scanned_and_described_elsewhere();
-
     reads_a_header_in_memory();
     reads_a_header_with_crlf_line_ends();
     return check_summary("describe_test");

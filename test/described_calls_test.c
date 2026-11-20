@@ -541,7 +541,6 @@ static void calls_every_operation(described_library library) {
     lends_a_counter_called_through_its_own_context(walker);
 }
 
-
 static void offers_every_operation_but_halve_without_it(described_library library) {
     described_definition_symbol mirror_symbol = described_library_definition(library, "described_mirror_definition");
     described_definition_symbol without_symbol =

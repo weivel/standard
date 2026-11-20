@@ -576,7 +576,6 @@ static void declares_both_services_and_each_broken_variant(described_library lib
     if (definition_fault != NULL) {
         refuses_a_definition_no_nested_description_defines(definition_fault);
     }
-
 }
 
 int main(int argument_count, char **arguments) {

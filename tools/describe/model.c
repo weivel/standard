@@ -277,6 +277,5 @@ void describe_reach_release(describe_reach *reach) {
     weivel_standard_memory_release((void *)reach->types);
     weivel_standard_memory_release((void *)reach->enums);
     weivel_standard_memory_release((void *)reach->definitions);
-
     memset(reach, 0, sizeof *reach);
 }

@@ -197,7 +197,6 @@ typedef struct describe_reach {
     size_t definition_count;
 } describe_reach;
 
-
 /**
  * Fills `reach` for the definition named `definition`. REFUSED, at the definition's line, when a reached handle
  * member's release is not an operation of this definition freeing that handle, and with no file and line 0 when the

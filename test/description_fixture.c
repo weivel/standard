@@ -226,5 +226,4 @@ void probe_describe(probe_description *probe) {
     probe->description.blocking_count = COUNT_OF(probe->blocking);
     probe->description.definitions = probe->definitions;
     probe->description.definition_count = COUNT_OF(probe->definitions);
-
 }

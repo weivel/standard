@@ -301,7 +301,6 @@ typedef struct described_walker {
     weivel_status (*lend)(void *context, described_loan *loan);
 } described_walker;
 
-
 /** Answers the mirror, one static described_mirror living until the library is unloaded. */
 DESCRIBED_API const void *described_mirror_definition(void);
 

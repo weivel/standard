@@ -951,6 +951,5 @@ weivel_status weivel_standard_description_check(const weivel_standard_descriptio
     state.root = NULL;
     state.depth = 0;
     check_described(&state, &own);
-
     return state.status;
 }

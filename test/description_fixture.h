@@ -117,7 +117,6 @@ typedef struct probe_description {
     weivel_standard_description description;
 } probe_description;
 
-
 /** Fills `probe` with the whole, correct description of probe_definition. */
 void probe_describe(probe_description *probe);
 

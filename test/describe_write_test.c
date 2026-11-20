@@ -383,7 +383,6 @@ int main(void) {
     compiles_the_golden_probe_into_a_description_that_checks();
     compiles_the_golden_nested_into_a_description_that_checks();
     refuses_a_definition_reaching_itself();
-
     writes_each_golden_source();
     refuses_what_it_cannot_write();
     return check_summary("describe_write_test");

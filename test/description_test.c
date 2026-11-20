@@ -720,7 +720,6 @@ int main(void) {
     accepts_a_description_of_every_kind();
     reads_a_newer_description_up_to_what_it_knows();
     reads_an_older_description_as_holding_no_blocking_and_no_definitions();
-
     for (at = 0; at < sizeof REFUSED / sizeof REFUSED[0]; at++) {
         refuses_by_path(&REFUSED[at]);
     }

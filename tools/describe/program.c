@@ -217,5 +217,4 @@ int describe_program(char **arguments, size_t count) {
     weivel_standard_memory_release((void *)chosen.headers);
     weivel_standard_memory_release((void *)chosen.elsewhere);
     return code;
-
 }
