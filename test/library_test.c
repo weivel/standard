@@ -88,7 +88,9 @@ typedef struct refused_case {
 
 #define WITH_FUNCTION(fields) ONE_FUNCTION("{'name': 'second', 'symbol': 'echo_second', " fields "}")
 
-#define DESCRIBED(description)                                                                                     "{'importName': 'echo', 'version': '1', 'services': [{'id': 'echo', 'description': " description ","         " 'functions': [{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'}]}]}"
+#define DESCRIBED(description) \
+    "{'importName': 'echo', 'version': '1', 'services': [{'id': 'echo', 'description': " description "," \
+    " 'functions': [{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'}]}]}"
 
 static const refused_case REFUSED[] = {
     {"not json", "{'importName': ", WEIVEL_STANDARD_REFUSAL_MALFORMED_JSON, ""},

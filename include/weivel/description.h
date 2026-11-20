@@ -38,9 +38,12 @@
  *
  * As a member, each kind is the C type its comment names. As a parameter, a scalar or a text is passed by value as an
  * input and through a pointer to it as an answer (`const char **` for a text); a pointer, a counted array or bytes is
- * passed as the pointer, its count as a parameter of its own; a value is `const weivel_standard_value *` as an input
- * and `weivel_standard_value_tree *` as an answer; a handle is its pointer as an input and a pointer to it as an
- * answer.
+ * passed as the pointer, its count as a parameter of its own; a VALUE is only ever an answer,
+ * `weivel_standard_value_tree *`; a handle is its pointer as an input and a pointer to it as an answer.
+ *
+ * Every C type has one spelling, and the check refuses the other: a value node is held as VALUE, as STRUCT holds a
+ * struct, and pointed at as a POINTER of VALUE, as a member or as an input, as a POINTER of STRUCT points at a struct;
+ * an array of texts is TEXTS, never an ARRAY of TEXT.
  */
 typedef enum weivel_standard_described_kind {
     WEIVEL_STANDARD_DESCRIBED_NONE = 0,
@@ -64,9 +67,15 @@ typedef enum weivel_standard_described_kind {
     WEIVEL_STANDARD_DESCRIBED_STRUCT = 9,
     /** `const T *`: one `element`, a STRUCT naming its `type` or a VALUE, or NULL for none. */
     WEIVEL_STANDARD_DESCRIBED_POINTER = 10,
-    /** `const T *`: as many `element`s as the member its `count` names, a STRUCT element naming its `type`. */
+    /**
+     * `const T *`: as many `element`s as the member its `count` names, each a scalar, a STRUCT naming its `type` or a
+     * VALUE node; an array of texts is TEXTS.
+     */
     WEIVEL_STANDARD_DESCRIBED_ARRAY = 11,
-    /** A weivel_standard_value held by value, `weivel/value.h`'s node. */
+    /**
+     * A weivel_standard_value held by value, `weivel/value.h`'s node; as a parameter, the answer tree
+     * `weivel_standard_value_tree *`.
+     */
     WEIVEL_STANDARD_DESCRIBED_VALUE = 12,
     /**
      * An opaque `T *` the provider made, its `type` naming T, which is never described; it lives until the operation
@@ -211,16 +220,18 @@ typedef struct weivel_standard_description {
 } weivel_standard_description;
 
 /**
- * Checks that a description can be bound as it says: it reaches its first shape; every name it requires is set;
- * every kind, element, role and return is one this header publishes; `definition` and every `type` it requires name
- * a struct or an enum it holds; every member lies inside its struct, with the size its kind has; every count names a
- * SIZE member of the same struct, or a SIZE parameter of the same operation; every release names one of its
- * operations; every first shape lies within its struct; and every operation lies inside the definition's struct. It
- * reads only, and stops at the first fault.
+ * Checks that a description can be bound as it says: it reaches its first shape; every name it requires is set, and
+ * none repeats among the types, the enums, the operations, a type's members, an enum's entries or an operation's
+ * parameters; every kind, element, role and return is one this header publishes, in the one spelling the kinds
+ * allow; `definition` and every `type` it requires name a struct or an enum it holds; every member lies inside its
+ * struct, with the size its kind has; every count names a SIZE member of the same struct, or a SIZE parameter of the
+ * same operation; every release names one of its operations; every first shape lies within its struct; and every
+ * operation lies inside the definition's struct. It reads only, and stops at the first fault.
  *
  * @param description Required.
  * @param refusal the caller's empty refusal, or NULL for none; filled on WEIVEL_STATUS_MALFORMED with the fault's
- * `path`, as `types[2].members[1].count`, MISSING_FIELD for a NULL name or array, INVALID_VALUE for any other fault,
+ * `path`, as `types[2].members[1].count`, MISSING_FIELD for a NULL name or array, DUPLICATE at the later of two
+ * names, INVALID_VALUE for any other fault,
  * and MALFORMED_CALL, at path "", for a NULL description or one below its first shape.
  * @return WEIVEL_STATUS_OK; WEIVEL_STATUS_MALFORMED at the first fault, and for a refusal below its first shape or
  * still holding one, which is left as it was; WEIVEL_STATUS_OUT_OF_MEMORY when the refusal's texts cannot be made, the

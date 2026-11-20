@@ -3,6 +3,7 @@
 
 #define INVALID WEIVEL_STANDARD_REFUSAL_INVALID_VALUE
 #define MISSING WEIVEL_STANDARD_REFUSAL_MISSING_FIELD
+#define DUPLICATE WEIVEL_STANDARD_REFUSAL_DUPLICATE
 
 typedef struct newer_description {
     weivel_standard_description description;
@@ -189,6 +190,43 @@ static void counts_parameters_it_does_not_hold(probe_description *probe) {
     probe->operations[PROBE_RUN].parameters = NULL;
 }
 
+static void holds_texts_in_an_array(probe_description *probe) {
+    probe->input[13].element = WEIVEL_STANDARD_DESCRIBED_TEXT;
+}
+
+static void takes_a_value_by_value(probe_description *probe) {
+    probe->read[1].kind = WEIVEL_STANDARD_DESCRIBED_VALUE;
+    probe->read[1].element = WEIVEL_STANDARD_DESCRIBED_NONE;
+}
+
+static void names_a_type_twice(probe_description *probe) {
+    probe->types[PROBE_DEFINITION_TYPE].name = "probe_item";
+}
+
+static void names_an_enum_twice(probe_description *probe) {
+    static weivel_standard_described_enum twice[2];
+    twice[0] = probe->enums[0];
+    twice[1] = probe->enums[0];
+    probe->description.enums = twice;
+    probe->description.enum_count = 2;
+}
+
+static void names_an_operation_twice(probe_description *probe) {
+    probe->operations[PROBE_RELEASE_TREE].name = "run";
+}
+
+static void names_a_member_twice(probe_description *probe) {
+    probe->item[1].name = "label";
+}
+
+static void names_an_enum_entry_twice(probe_description *probe) {
+    probe->modes[1].name = "PROBE_FAST";
+}
+
+static void names_a_parameter_twice(probe_description *probe) {
+    probe->run[3].name = "input";
+}
+
 static const refused_case REFUSED[] = {
     {"a struct the description does not hold", names_no_struct, INVALID, "types[1].members[9].type",
      "names a struct the description does not hold"},
@@ -234,7 +272,7 @@ static const refused_case REFUSED[] = {
     {"a pointer at a scalar", points_at_a_scalar, INVALID, "types[1].members[10].element",
      "is not STRUCT or VALUE"},
     {"an array of arrays", holds_arrays_in_an_array, INVALID, "types[1].members[13].element",
-     "is not a scalar, TEXT, STRUCT or VALUE"},
+     "is not a scalar, STRUCT or VALUE"},
     {"a parameter of no role", gives_no_role, INVALID, "operations[0].parameters[2].role",
      "is not a role weivel/description.h publishes"},
     {"a parameter of a role past the last", gives_a_role_past_the_last, INVALID, "operations[0].parameters[2].role",
@@ -275,6 +313,20 @@ static const refused_case REFUSED[] = {
      "is NULL beside a count above zero"},
     {"parameters counted and not held", counts_parameters_it_does_not_hold, MISSING, "operations[0].parameters",
      "is NULL beside a count above zero"},
+    {"texts as an array of text", holds_texts_in_an_array, INVALID, "types[1].members[13].element",
+     "a text array being TEXTS"},
+    {"a value input by value", takes_a_value_by_value, INVALID, "operations[2].parameters[1].kind",
+     "is VALUE on an input"},
+    {"two types of one name", names_a_type_twice, DUPLICATE, "types[3].name", "repeats a name listed before it"},
+    {"two enums of one name", names_an_enum_twice, DUPLICATE, "enums[1].name", "repeats a name listed before it"},
+    {"two operations of one name", names_an_operation_twice, DUPLICATE, "operations[4].name",
+     "repeats a name listed before it"},
+    {"two members of one name", names_a_member_twice, DUPLICATE, "types[0].members[1].name",
+     "repeats a name listed before it"},
+    {"two enum entries of one name", names_an_enum_entry_twice, DUPLICATE, "enums[0].entries[1].name",
+     "repeats a name listed before it"},
+    {"two parameters of one name", names_a_parameter_twice, DUPLICATE, "operations[0].parameters[3].name",
+     "repeats a name listed before it"},
 };
 
 static void refuses_by_path(const refused_case *item) {

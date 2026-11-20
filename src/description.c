@@ -77,6 +77,31 @@ static int require_array(checking *state, const void *items, size_t count, const
                   "%s is NULL beside a count above zero", "point %s at its items, or set its count to 0");
 }
 
+/**
+ * Whether no two of `count` items, `stride` bytes apart, share a name, refusing the later one at its name.
+ *
+ * @implNote Reads each name as the item's first member, which every described element begins with.
+ */
+static int names_once(checking *state, const void *items, size_t stride, size_t count, const field_path *parent,
+                      const char *key) {
+    field_path list = {parent, key, 0};
+    const char *bytes = items;
+    size_t at;
+    size_t before;
+    for (at = 1; at < count; at++) {
+        const char *name = *(const char *const *)(const void *)(bytes + at * stride);
+        for (before = 0; before < at; before++) {
+            if (strcmp(*(const char *const *)(const void *)(bytes + before * stride), name) == 0) {
+                field_path item = {&list, NULL, at};
+                field_path path = {&item, "name", 0};
+                return refuse(state, WEIVEL_STANDARD_REFUSAL_DUPLICATE, &path, "%s repeats a name listed before it",
+                              "give each item of its list its own name, so %s names one thing");
+            }
+        }
+    }
+    return 1;
+}
+
 static int names_members(checking *state, const described_type *type, const field_path *parent) {
     field_path members = {parent, "members", 0};
     size_t at;
@@ -90,7 +115,7 @@ static int names_members(checking *state, const described_type *type, const fiel
             return 0;
         }
     }
-    return 1;
+    return names_once(state, type->members, sizeof *type->members, type->member_count, parent, "members");
 }
 
 static int names_entries(checking *state, const described_enum *enumeration, const field_path *parent) {
@@ -106,7 +131,8 @@ static int names_entries(checking *state, const described_enum *enumeration, con
             return 0;
         }
     }
-    return 1;
+    return names_once(state, enumeration->entries, sizeof *enumeration->entries, enumeration->entry_count, parent,
+                      "entries");
 }
 
 static int names_parameters(checking *state, const described_operation *operation, const field_path *parent) {
@@ -122,7 +148,8 @@ static int names_parameters(checking *state, const described_operation *operatio
             return 0;
         }
     }
-    return 1;
+    return names_once(state, operation->parameters, sizeof *operation->parameters, operation->parameter_count,
+                      parent, "parameters");
 }
 
 /** Every name and array the description requires is set, so every later lookup may compare names. */
@@ -155,7 +182,10 @@ static int names_everything(checking *state, const weivel_standard_description *
             return 0;
         }
     }
-    return 1;
+    return names_once(state, description->types, sizeof *description->types, description->type_count, NULL, "types") &&
+           names_once(state, description->enums, sizeof *description->enums, description->enum_count, NULL, "enums") &&
+           names_once(state, description->operations, sizeof *description->operations, description->operation_count,
+                      NULL, "operations");
 }
 
 static const described_type *type_named(const weivel_standard_description *description, const char *name) {
@@ -225,9 +255,9 @@ static int is_pointer_element(uint32_t element) {
     return element == WEIVEL_STANDARD_DESCRIBED_STRUCT || element == WEIVEL_STANDARD_DESCRIBED_VALUE;
 }
 
-/** What an ARRAY may hold: a scalar, a text, a struct or a value node. */
+/** What an ARRAY may hold: a scalar, a struct or a value node; an array of texts is TEXTS alone. */
 static int is_array_element(uint32_t element) {
-    return (element >= WEIVEL_STANDARD_DESCRIBED_U32 && element <= WEIVEL_STANDARD_DESCRIBED_TEXT) ||
+    return (element >= WEIVEL_STANDARD_DESCRIBED_U32 && element <= WEIVEL_STANDARD_DESCRIBED_SIZE) ||
            is_pointer_element(element);
 }
 
@@ -249,8 +279,10 @@ static int check_kind(checking *state, const reference *slot, const field_path *
                               "set %s to STRUCT or VALUE");
     }
     if (slot->kind == WEIVEL_STANDARD_DESCRIBED_ARRAY && !is_array_element(slot->element)) {
-        return refuse_invalid(state, &element, "%s is not a scalar, TEXT, STRUCT or VALUE, the elements an array holds",
-                              "set %s to the kind of the array's elements");
+        return refuse_invalid(state, &element,
+                              "%s is not a scalar, STRUCT or VALUE, the elements an array holds, a text array "
+                              "being TEXTS",
+                              "set %s to the kind of the array's elements, or describe an array of texts as TEXTS");
     }
     return 1;
 }
@@ -382,10 +414,17 @@ static int check_parameter(checking *state, const described_operation *operation
     field_path role = {path, "role", 0};
     reference slot = {parameter->kind,    parameter->element, parameter->type, parameter->count,
                       parameter->release, parameter_kind,     operation};
-    return check_reference(state, &slot, path) &&
-           (is_published_role(parameter->role) ||
-            refuse_invalid(state, &role, "%s is not a role weivel/description.h publishes",
-                           "set %s to INPUT, ANSWER or REFUSAL"));
+    field_path kind = {path, "kind", 0};
+    if (!check_reference(state, &slot, path)) {
+        return 0;
+    }
+    if (!is_published_role(parameter->role)) {
+        return refuse_invalid(state, &role, "%s is not a role weivel/description.h publishes",
+                              "set %s to INPUT, ANSWER or REFUSAL");
+    }
+    return parameter->kind != WEIVEL_STANDARD_DESCRIBED_VALUE || parameter->role != WEIVEL_STANDARD_DESCRIBED_INPUT ||
+           refuse_invalid(state, &kind, "%s is VALUE on an input, which only an answer tree is",
+                          "describe an input value as a POINTER of VALUE in %s");
 }
 
 static int check_operation(checking *state, const described_type *definition, const described_operation *operation,
