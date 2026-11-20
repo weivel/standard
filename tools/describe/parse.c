@@ -345,7 +345,8 @@ static describe_outcome parse_member(parser *state, describe_type *type) {
     memset(&spelling, 0, sizeof spelling);
     outcome = parse_spelling(state, &spelling);
     if (outcome == DESCRIBE_DONE) {
-        outcome = is(state, "(") ? parse_operation(state, type, &spelling, doc) : add_member(state, type, &spelling, doc);
+        outcome = is(state, "(") ? parse_operation(state, type, &spelling, doc)
+                                 : add_member(state, type, &spelling, doc);
     }
     weivel_standard_memory_release(spelling.base);
     return outcome;

@@ -434,6 +434,86 @@ static void reads_restated_names_across_headers(void) {
     describe_model_release(&model);
 }
 
+static void counts_y_plurals_and_releases_only_what_owns_storage(void) {
+    describe_model model;
+    const char *paths[] = {FIXTURE("plurals_and_owners.h")};
+    describe_names names = describe_names_of_the_standard();
+    static const expected_item index[] = {
+        {"size", K(U32), MEMBER, NO, NULL, NULL, NULL},
+        {"entries", K(ARRAY), MEMBER, K(STRUCT), "probe_entry", "entry_count", NULL},
+        {"entry_count", K(SIZE), MEMBER, NO, NULL, NULL, NULL},
+        {"libraries", K(TEXTS), MEMBER, NO, NULL, "library_count", NULL},
+        {"library_count", K(SIZE), MEMBER, NO, NULL, NULL, NULL},
+        {"walk", K(HANDLE), MEMBER, NO, "probe_walk", NULL, "release_walk"}};
+    static const expected_item tally[] = {CONTEXT_PARAMETER,
+                                          {"index", K(POINTER), K(INPUT), K(STRUCT), "probe_index", NULL, NULL},
+                                          {"tally", K(POINTER), K(ANSWER), K(STRUCT), "probe_tally", NULL, NULL}};
+    static const expected_item count[] = {
+        CONTEXT_PARAMETER, {"counted", K(POINTER), K(ANSWER), K(STRUCT), "probe_count", NULL, "release_count"}};
+    static const expected_item nest[] = {
+        CONTEXT_PARAMETER, {"outer", K(POINTER), K(ANSWER), K(STRUCT), "probe_outer", NULL, "release_outer"}};
+    static const expected_item peek[] = {CONTEXT_PARAMETER,
+                                         {"walk", K(HANDLE), K(INPUT), NO, "probe_walk", NULL, "release_walk"},
+                                         {"seen", K(U64), K(ANSWER), NO, NULL, NULL, NULL}};
+    static const expected_item measure[] = {CONTEXT_PARAMETER,
+                                            {"entry_count", K(SIZE), K(ANSWER), NO, NULL, NULL, NULL}};
+    static const expected_item release_count[] = {
+        CONTEXT_PARAMETER, {"counted", K(POINTER), K(ANSWER), K(STRUCT), "probe_count", NULL, NULL}};
+    static const expected_item release_outer[] = {
+        CONTEXT_PARAMETER, {"outer", K(POINTER), K(ANSWER), K(STRUCT), "probe_outer", NULL, NULL}};
+    static const expected_item release_walk[] = {
+        CONTEXT_PARAMETER, {"walk", K(HANDLE), K(INPUT), NO, "probe_walk", NULL, "release_walk"}};
+    static const expected_operation operations[] = {
+        OPERATION("tally", STATUS, NULL, tally),
+        OPERATION("count", STATUS, NULL, count),
+        OPERATION("nest", STATUS, NULL, nest),
+        OPERATION("peek", STATUS, NULL, peek),
+        OPERATION("measure", STATUS, NULL, measure),
+        OPERATION("release_count", NOTHING, "probe_count", release_count),
+        OPERATION("release_outer", NOTHING, "probe_outer", release_outer),
+        OPERATION("release_walk", NOTHING, "probe_walk", release_walk)};
+    if (read_all(&model, paths, COUNT_OF(paths), &names) != DESCRIBE_DONE) {
+        CHECK(0);
+        return;
+    }
+    check_members(&model, "probe_index", index, COUNT_OF(index));
+    check_operations(&model, "probe_indexer", operations, COUNT_OF(operations));
+    describe_model_release(&model);
+}
+
+static void walks_what_an_answer_holds_once_through_cycles(void) {
+    describe_model model;
+    const char *paths[] = {FIXTURE("cycles.h")};
+    describe_names names = describe_names_of_the_standard();
+    static const expected_item ring[] = {
+        CONTEXT_PARAMETER, {"ring", K(POINTER), K(ANSWER), K(STRUCT), "probe_ring_00", NULL, NULL}};
+    static const expected_item far[] = {
+        CONTEXT_PARAMETER, {"far", K(POINTER), K(ANSWER), K(STRUCT), "probe_far_00", NULL, "release_far"}};
+    static const expected_item holder[] = {
+        CONTEXT_PARAMETER,
+        {"holder", K(POINTER), K(ANSWER), K(STRUCT), "probe_loop_holder", NULL, "release_loop_holder"}};
+    static const expected_item back[] = {
+        CONTEXT_PARAMETER, {"back", K(POINTER), K(ANSWER), K(STRUCT), "probe_loop_back", NULL, "release_loop_back"}};
+    const describe_type *graph;
+    if (read_all(&model, paths, COUNT_OF(paths), &names) != DESCRIBE_DONE) {
+        CHECK(0);
+        return;
+    }
+    graph = type_checked(&model, "probe_graph");
+    if (graph != NULL && graph->operation_count == 7) {
+        check_items("ring", graph->operations[0].parameters, graph->operations[0].parameter_count, ring,
+                    COUNT_OF(ring));
+        check_items("far", graph->operations[1].parameters, graph->operations[1].parameter_count, far, COUNT_OF(far));
+        check_items("holder", graph->operations[2].parameters, graph->operations[2].parameter_count, holder,
+                    COUNT_OF(holder));
+        check_items("back", graph->operations[3].parameters, graph->operations[3].parameter_count, back,
+                    COUNT_OF(back));
+    } else {
+        CHECK(0);
+    }
+    describe_model_release(&model);
+}
+
 static const expected_item REFUSAL_MEMBERS[] = {{"size", K(U32), MEMBER, NO, NULL, NULL, NULL},
                                                 {"detail", K(TEXT), MEMBER, NO, NULL, NULL, NULL},
                                                 {"fix", K(TEXT), MEMBER, NO, NULL, NULL, NULL},
@@ -628,7 +708,14 @@ static const refused_case REFUSED_CASES[] = {
     {REFUSED("refusal_not_last.h"), 13, "the refusal `refusal` before the last parameter " GRAMMAR},
     {REFUSED("refusal_undeclared.h"), 5, "`weivel_standard_service_refusal`, the type of the parameter `refusal`, "
                                          "which no scanned header declares"},
-    {REFUSED("answer_unreleased.h"), 19, "`answer` of `run` is a `probe_answer` no release of `probe_service` frees"},
+    {REFUSED("answer_unreleased.h"), 19, "`answer` of `run` is a `probe_answer`, which holds storage, and no "
+                                         "release of `probe_service` frees it"},
+    {REFUSED("nested_storage_unreleased.h"), 16, "`outer` of `nest` is a `probe_outer`, which holds storage, and no "
+                                                 "release of `probe_service` frees it"},
+    {REFUSED("cycle_storage_unreleased.h"), 15, "`back` of `back` is a `probe_loop_back`, which holds storage, and "
+                                                "no release of `probe_graph` frees it"},
+    {REFUSED("count_counting_nothing.h"), 7, "`child_count` is named as a count and counts nothing beside it"},
+    {REFUSED("length_counting_nothing.h"), 3, "`label_length` is named as a count and counts nothing beside it"},
     {REFUSED("two_releases.h"), 21, "the release `release_two` frees `probe_answer`, as `release_one` already does"},
     {REFUSED("release_shape.h"), 19, "the release `release_answer`, taking other than its context and one pointer, "
                                      GRAMMAR},
@@ -754,7 +841,8 @@ static void reads_a_header_with_crlf_line_ends(void) {
     const char *paths[] = {"crlf.h"};
     const char *texts[] = {"#define PROBE_JOIN(a, b) \\\r\n    a##b\r\n"
                            "/**\r\n * A pair. First shape\r\n * ends at `right`.\r\n */\r\n"
-                           "typedef struct probe_pair {\r\n    uint32_t size;\r\n    uint64_t right;\r\n} probe_pair;\r\n"};
+                           "typedef struct probe_pair {\r\n    uint32_t size;\r\n    uint64_t right;\r\n"
+                           "} probe_pair;\r\n"};
     size_t lengths[1];
     describe_names names = describe_names_of_the_standard();
     lengths[0] = strlen(texts[0]);
@@ -777,6 +865,8 @@ int main(void) {
     binds_an_enum_by_doc();
     skips_what_declares_nothing();
     reads_restated_names_across_headers();
+    counts_y_plurals_and_releases_only_what_owns_storage();
+    walks_what_an_answer_holds_once_through_cycles();
     reads_every_struct_and_definition_of_services_h();
     reaches_what_each_service_of_services_h_uses();
     refuses_each_form_outside_the_grammar_at_its_line();

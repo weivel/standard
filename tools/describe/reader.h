@@ -22,15 +22,19 @@
  *   and `const uint8_t *` bytes, each with its count; a struct of the scanned headers by value, or the value type;
  * - `const T *`, T a struct or the value type, a POINTER, or an ARRAY when a count counts it; `const S *`, S a scalar
  *   above other than size_t, an ARRAY and never uncounted;
- * - as a member only: `void *context` in a definition, `void *storage`, and `H *` for an opaque handle H;
+ * - `H *` or `const H *` for an opaque handle H, a handle input as a parameter;
+ * - as a member only: `void *context` in a definition and `void *storage`;
  * - as a parameter only: `void *context` first; a non-const `S *`, S a struct, an answer, or the refusal when S is the
  *   refusal type, which only the last parameter may be (an operation whose last parameter is not of the refusal
  *   type, as weivel_standard_paths' are, has no refusal); `<tree> *` a value answer; `const char **` a text answer;
- *   a non-const pointer to a scalar a scalar answer; `H *` a handle input and `H **` a handle answer.
+ *   a non-const pointer to a scalar a scalar answer; `H **` a handle answer.
  *
- * Counts. A TEXTS or an ARRAY named N is counted by the size_t beside it named `N_count`, N less a trailing `s` then
- * `_count` (`tags` by `tag_count`), or `count`; BYTES named N by `N_length` or `length`. Exactly one may exist, a
- * candidate that is not a size_t is refused, and a size_t counts one thing at most.
+ * Counts. A TEXTS or an ARRAY named N is counted by the size_t beside it named `N_count`, N less a trailing `ies`
+ * then `y_count` (`entries` by `entry_count`), N less a trailing `s` then `_count` (`tags` by `tag_count`), or
+ * `count`; BYTES named N by `N_length` or `length`. Exactly one may exist, a candidate that is not a size_t is
+ * refused, and a size_t counts one thing at most. A size_t named `<x>_count` or `<x>_length` that counts nothing is
+ * refused, so a name that misses its array never passes as an unrelated size, unless it is `<x>_length` beside a
+ * text `<x>` or a parameter answered through `size_t *`, which counts nothing beside it by design.
  *
  * Enums. A uint32_t holds an enum E of the scanned headers when its own doc names E, a parameter's own doc being its
  * `@param` paragraph. Otherwise, the doc of its struct, or of its operation up to the first `@` tag, is split into
@@ -43,8 +47,11 @@
  *
  * Definitions. A struct with function pointers is a definition: `uint32_t size; void *context;`, then only function
  * pointers, each an operation `<status> (*name)(void *context, <parameters>)` or a release
- * `void (*name)(void *context, T *x)`. An answer's or refusal's release is the release of the same definition freeing
- * its type, a definition holding at most one per type; a text or scalar answer has none.
+ * `void (*name)(void *context, T *x)`. A release names the type it frees, a definition holding at most one per type.
+ * A handle, input or answer, and a value tree answer always name the release of the same definition freeing them,
+ * and are refused without one. A struct answer or a refusal names it when the definition has one, and is refused
+ * without one only when its struct holds storage: a `void *storage` or a handle, directly or through a struct it
+ * holds or points at; an answer that owns nothing has no release. A text or scalar answer has none.
  *
  * Shapes. A struct whose first member is `uint32_t size` must say `First shape ends at `<member>`` in its doc (or
  * `first shape ends at`, as after "Its"), the member or a definition's operation, two such lines agreeing; a struct

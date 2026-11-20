@@ -7,10 +7,15 @@
 #define GRAMMAR " is not in weivel's description grammar"
 #define KIND(name) WEIVEL_STANDARD_DESCRIBED_##name
 
+enum { STORAGE_UNKNOWN = 0, STORAGE_HELD = 1, STORAGE_NOT_HELD = 2 };
+
+/** `visited` and `holds` have one byte per type: whether the current walk entered it, and its memoised answer. */
 typedef struct resolving {
     describe_model *model;
     const describe_names *names;
     describe_refusal *refusal;
+    unsigned char *visited;
+    unsigned char *holds;
 } resolving;
 
 typedef enum referent {
@@ -196,6 +201,8 @@ static describe_outcome resolve_pointed(resolving *state, describe_item *item, u
         return set_kind(item, KIND(POINTER), role, KIND(VALUE), NULL);
     case REFERENT_SCALAR:
         return set_kind(item, KIND(ARRAY), role, scalar_kind(base), NULL);
+    case REFERENT_HANDLE:
+        return set_kind(item, KIND(HANDLE), role, KIND(NONE), base);
     default:
         return refuse_spelled(state, item, what);
     }
@@ -465,38 +472,94 @@ static describe_outcome resolve_shape(resolving *state, describe_type *type) {
                                  type->first_shape);
 }
 
-/** Every item that could count `item`, by the naming rule of reader.h, as `candidates`, NULL-terminated. */
-static int count_names(const describe_item *item, char *candidates[4]) {
-    const char *name = item->name;
-    size_t length = strlen(name);
-    int bytes = item->kind == KIND(BYTES);
-    size_t at = 0;
-    candidates[0] = candidates[1] = candidates[2] = candidates[3] = NULL;
-    candidates[at] = weivel_standard_memory_allocate(length + 8);
-    if (candidates[at] == NULL) {
-        return 0;
-    }
-    memcpy(candidates[at], name, length);
-    memcpy(candidates[at] + length, bytes ? "_length" : "_count", bytes ? 8 : 7);
-    at++;
-    if (!bytes && length > 1 && name[length - 1] == 's') {
-        candidates[at] = weivel_standard_memory_allocate(length + 6);
-        if (candidates[at] == NULL) {
-            return 0;
-        }
-        memcpy(candidates[at], name, length - 1);
-        memcpy(candidates[at] + length - 1, "_count", 7);
-        at++;
-    }
-    candidates[at] = describe_copy_text(bytes ? "length" : "count");
-    return candidates[at] != NULL;
+#define CANDIDATES 5
+
+static int ends_with(const char *name, size_t length, const char *ending) {
+    size_t ending_length = strlen(ending);
+    return length > ending_length && memcmp(name + length - ending_length, ending, ending_length) == 0;
 }
 
-static void release_names(char *candidates[4]) {
+/** Appends `stem` (its first `stem_length` bytes) then `suffix` to `candidates`; 0 when memory runs out. */
+static int add_candidate(char *candidates[CANDIDATES], size_t *at, const char *stem, size_t stem_length,
+                         const char *suffix) {
+    size_t suffix_length = strlen(suffix);
+    char *candidate = weivel_standard_memory_allocate(stem_length + suffix_length + 1);
+    if (candidate == NULL) {
+        return 0;
+    }
+    memcpy(candidate, stem, stem_length);
+    memcpy(candidate + stem_length, suffix, suffix_length + 1);
+    candidates[(*at)++] = candidate;
+    return 1;
+}
+
+/** Every item that could count `item`, by the naming rule of reader.h, as `candidates`, NULL-terminated. */
+static int count_names(const describe_item *item, char *candidates[CANDIDATES]) {
+    const char *name = item->name;
+    size_t length = strlen(name);
+    size_t at = 0;
+    memset(candidates, 0, CANDIDATES * sizeof *candidates);
+    if (item->kind == KIND(BYTES)) {
+        return add_candidate(candidates, &at, name, length, "_length") &&
+               add_candidate(candidates, &at, "", 0, "length");
+    }
+    if (!add_candidate(candidates, &at, name, length, "_count")) {
+        return 0;
+    }
+    if (ends_with(name, length, "ies") && !add_candidate(candidates, &at, name, length - 3, "y_count")) {
+        return 0;
+    }
+    if (ends_with(name, length, "s") && !add_candidate(candidates, &at, name, length - 1, "_count")) {
+        return 0;
+    }
+    return add_candidate(candidates, &at, "", 0, "count");
+}
+
+static void release_names(char *candidates[CANDIDATES]) {
     size_t at;
-    for (at = 0; at < 4; at++) {
+    for (at = 0; at < CANDIDATES; at++) {
         weivel_standard_memory_release(candidates[at]);
     }
+}
+
+/** The candidates as "`a`, `b` or `c`"; NULL when memory runs out. */
+static char *candidate_list(char *candidates[CANDIDATES]) {
+    size_t count = 0;
+    size_t length = 1;
+    size_t at;
+    size_t written = 0;
+    char *list;
+    while (count < CANDIDATES && candidates[count] != NULL) {
+        length += strlen(candidates[count]) + 6;
+        count++;
+    }
+    list = weivel_standard_memory_allocate(length);
+    if (list == NULL) {
+        return NULL;
+    }
+    for (at = 0; at < count; at++) {
+        const char *separator = at == 0 ? "`" : at + 1 == count ? " or `" : ", `";
+        size_t name_length = strlen(candidates[at]);
+        memcpy(list + written, separator, strlen(separator));
+        written += strlen(separator);
+        memcpy(list + written, candidates[at], name_length);
+        written += name_length;
+        list[written++] = '`';
+    }
+    list[written] = '\0';
+    return list;
+}
+
+static describe_outcome refuse_uncounted(resolving *state, const describe_item *item, char *candidates[CANDIDATES]) {
+    char *list = candidate_list(candidates);
+    describe_outcome outcome;
+    if (list == NULL) {
+        return DESCRIBE_OUT_OF_MEMORY;
+    }
+    outcome = describe_refuse(state->refusal, item->where.file, item->where.line,
+                              "`%s` has no size_t beside it counting it, named %s", item->name, list);
+    weivel_standard_memory_release(list);
+    return outcome;
 }
 
 static int may_be_counted(const describe_item *item) {
@@ -505,11 +568,11 @@ static int may_be_counted(const describe_item *item) {
 }
 
 static describe_outcome find_count(resolving *state, describe_item *items, size_t count, describe_item *item,
-                                   char *candidates[4], const describe_item **counting) {
+                                   char *candidates[CANDIDATES], const describe_item **counting) {
     size_t at;
     size_t candidate;
     *counting = NULL;
-    for (candidate = 0; candidate < 4 && candidates[candidate] != NULL; candidate++) {
+    for (candidate = 0; candidate < CANDIDATES && candidates[candidate] != NULL; candidate++) {
         for (at = 0; at < count; at++) {
             const describe_item *other = &items[at];
             if (other == item || strcmp(other->name, candidates[candidate]) != 0) {
@@ -532,18 +595,13 @@ static describe_outcome find_count(resolving *state, describe_item *items, size_
 }
 
 static describe_outcome count_one(resolving *state, describe_item *items, size_t count, describe_item *item) {
-    char *candidates[4];
+    char *candidates[CANDIDATES];
     const describe_item *counting = NULL;
-    describe_outcome outcome = count_names(item, candidates) ? find_count(state, items, count, item, candidates, &counting)
-                                                             : DESCRIBE_OUT_OF_MEMORY;
+    describe_outcome outcome = count_names(item, candidates)
+                                   ? find_count(state, items, count, item, candidates, &counting)
+                                   : DESCRIBE_OUT_OF_MEMORY;
     if (outcome == DESCRIBE_DONE && counting == NULL && item->kind != KIND(POINTER)) {
-        outcome = candidates[2] == NULL
-                      ? describe_refuse(state->refusal, item->where.file, item->where.line,
-                                        "`%s` has no size_t beside it counting it, named `%s` or `%s`", item->name,
-                                        candidates[0], candidates[1])
-                      : describe_refuse(state->refusal, item->where.file, item->where.line,
-                                        "`%s` has no size_t beside it counting it, named `%s`, `%s` or `%s`",
-                                        item->name, candidates[0], candidates[1], candidates[2]);
+        outcome = refuse_uncounted(state, item, candidates);
     }
     if (outcome == DESCRIBE_DONE && counting != NULL) {
         if (item->kind == KIND(POINTER)) {
@@ -570,6 +628,52 @@ static describe_outcome refuse_counted_twice(resolving *state, const describe_it
     return DESCRIBE_DONE;
 }
 
+static int counts_something(const describe_item *items, size_t count, const char *name) {
+    size_t at;
+    for (at = 0; at < count; at++) {
+        if (items[at].count != NULL && strcmp(items[at].count, name) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/** `<x>_length` beside a text `<x>`, which a text carries as no count of its own. */
+static int is_text_length(const describe_item *items, size_t count, const describe_item *size) {
+    size_t length = strlen(size->name);
+    size_t at;
+    if (!ends_with(size->name, length, "_length")) {
+        return 0;
+    }
+    for (at = 0; at < count; at++) {
+        if (items[at].kind == KIND(TEXT) && strlen(items[at].name) == length - 7 &&
+            memcmp(items[at].name, size->name, length - 7) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/** A size_t named `<x>_count` or `<x>_length` must count something, so a name that misses its array is never read. */
+static describe_outcome refuse_counting_nothing(resolving *state, const describe_item *items, size_t count) {
+    size_t at;
+    for (at = 0; at < count; at++) {
+        const describe_item *size = &items[at];
+        size_t length = strlen(size->name);
+        if (size->kind != KIND(SIZE) || size->role == KIND(ANSWER) ||
+            !(ends_with(size->name, length, "_count") || ends_with(size->name, length, "_length"))) {
+            continue;
+        }
+        if (!counts_something(items, count, size->name) && !is_text_length(items, count, size)) {
+            return describe_refuse(state->refusal, size->where.file, size->where.line,
+                                   "`%s` is named as a count and counts nothing beside it; name the array, texts or "
+                                   "bytes it counts by reader.h's rule, or rename it",
+                                   size->name);
+        }
+    }
+    return DESCRIBE_DONE;
+}
+
 static describe_outcome resolve_counts(resolving *state, describe_item *items, size_t count) {
     describe_outcome outcome = DESCRIBE_DONE;
     size_t at;
@@ -578,7 +682,10 @@ static describe_outcome resolve_counts(resolving *state, describe_item *items, s
             outcome = count_one(state, items, count, &items[at]);
         }
     }
-    return outcome == DESCRIBE_DONE ? refuse_counted_twice(state, items, count) : outcome;
+    if (outcome == DESCRIBE_DONE) {
+        outcome = refuse_counted_twice(state, items, count);
+    }
+    return outcome == DESCRIBE_DONE ? refuse_counting_nothing(state, items, count) : outcome;
 }
 
 static int is_word_part(char character) {
@@ -881,10 +988,58 @@ static describe_outcome refuse_second_releases(resolving *state, const describe_
     return DESCRIBE_DONE;
 }
 
-static int needs_release(const describe_item *parameter) {
-    return parameter->role == KIND(REFUSAL) || parameter->kind == KIND(HANDLE) ||
-           (parameter->role == KIND(ANSWER) &&
-            (parameter->kind == KIND(POINTER) || parameter->kind == KIND(VALUE)));
+static int names_a_struct(const describe_item *item) {
+    return item->kind == KIND(STRUCT) ||
+           ((item->kind == KIND(POINTER) || item->kind == KIND(ARRAY)) && item->element == KIND(STRUCT));
+}
+
+/** Whether a struct not yet visited in this walk reaches storage, marking each struct it enters. */
+static int reaches_storage(const resolving *state, const char *name) {
+    const describe_type *type = describe_model_type(state->model, name);
+    size_t at;
+    if (type == NULL || state->visited[type - state->model->types]) {
+        return 0;
+    }
+    state->visited[type - state->model->types] = 1;
+    for (at = 0; at < type->member_count; at++) {
+        const describe_item *member = &type->members[at];
+        if (member->kind == KIND(STORAGE) || member->kind == KIND(HANDLE) ||
+            (names_a_struct(member) && reaches_storage(state, member->type))) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**
+ * @implNote Each answer is a fresh walk visiting every struct at most once and is memoised for its root alone: a
+ * struct's answer found while an enclosing struct is still being walked can be wrong, since the cycle back to that
+ * struct is cut there.
+ */
+static int holds_storage(const resolving *state, const char *name) {
+    const describe_type *type = describe_model_type(state->model, name);
+    size_t index;
+    if (type == NULL) {
+        return 0;
+    }
+    index = (size_t)(type - state->model->types);
+    if (state->holds[index] == STORAGE_UNKNOWN) {
+        memset(state->visited, 0, state->model->type_count);
+        state->holds[index] = reaches_storage(state, name) ? STORAGE_HELD : STORAGE_NOT_HELD;
+    }
+    return state->holds[index] == STORAGE_HELD;
+}
+
+static int may_name_release(const describe_item *parameter) {
+    return parameter->role == KIND(REFUSAL) || (parameter->role == KIND(ANSWER) && parameter->kind == KIND(POINTER));
+}
+
+/** Whether the parameter must name a release: a refusal or struct answer only when its struct holds storage. */
+static int needs_release(const resolving *state, const describe_item *parameter) {
+    if (parameter->kind == KIND(HANDLE) || (parameter->role == KIND(ANSWER) && parameter->kind == KIND(VALUE))) {
+        return 1;
+    }
+    return may_name_release(parameter) && holds_storage(state, parameter->type);
 }
 
 static describe_outcome resolve_releases(resolving *state, const describe_type *definition) {
@@ -899,14 +1054,19 @@ static describe_outcome resolve_releases(resolving *state, const describe_type *
             describe_item *item = &operation->parameters[parameter];
             const char *freed = item->kind == KIND(VALUE) ? state->names->tree : item->type;
             const describe_operation *release;
-            if (!needs_release(item)) {
+            int needed = needs_release(state, item);
+            if (!needed && !may_name_release(item)) {
                 continue;
             }
             release = release_of(definition, freed);
-            outcome = release != NULL ? set_name(&item->release, release->name)
-                                      : describe_refuse(state->refusal, item->where.file, item->where.line,
-                                                        "`%s` of `%s` is a `%s` no release of `%s` frees",
-                                                        item->name, operation->name, freed, definition->name);
+            if (release != NULL) {
+                outcome = set_name(&item->release, release->name);
+            } else if (needed) {
+                outcome = describe_refuse(state->refusal, item->where.file, item->where.line,
+                                          "`%s` of `%s` is a `%s`, which holds storage, and no release of `%s` "
+                                          "frees it",
+                                          item->name, operation->name, freed, definition->name);
+            }
         }
     }
     return outcome;
@@ -1003,7 +1163,9 @@ describe_outcome describe_resolve(describe_model *model, const describe_names *n
     state.model = model;
     state.names = names;
     state.refusal = refusal;
-    outcome = every_type(&state, resolve_shape);
+    state.visited = weivel_standard_memory_allocate_zeroed(model->type_count + 1, 1);
+    state.holds = weivel_standard_memory_allocate_zeroed(model->type_count + 1, 1);
+    outcome = state.visited == NULL || state.holds == NULL ? DESCRIBE_OUT_OF_MEMORY : every_type(&state, resolve_shape);
     if (outcome == DESCRIBE_DONE) {
         outcome = every_type(&state, resolve_kinds);
     }
@@ -1016,5 +1178,10 @@ describe_outcome describe_resolve(describe_model *model, const describe_names *n
     for (at = 0; outcome == DESCRIBE_DONE && at < model->handle_count; at++) {
         outcome = resolve_handle(&state, &model->handles[at]);
     }
-    return outcome == DESCRIBE_DONE ? every_type(&state, resolve_handle_members) : outcome;
+    if (outcome == DESCRIBE_DONE) {
+        outcome = every_type(&state, resolve_handle_members);
+    }
+    weivel_standard_memory_release(state.visited);
+    weivel_standard_memory_release(state.holds);
+    return outcome;
 }
