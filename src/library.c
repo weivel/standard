@@ -26,10 +26,13 @@ typedef struct text_field {
     const char *fix;
 } text_field;
 
+#define LIBRARY_FIRST_SHAPE (offsetof(weivel_standard_library, storage) + sizeof(void *))
+
 typedef struct library_storage {
     weivel_json_value *document;
     weivel_standard_library_service *services;
     weivel_standard_library_function *functions;
+    const char **descriptions;
 } library_storage;
 
 typedef struct context_name {
@@ -130,6 +133,9 @@ static const text_field FUNCTION_NAME = {"name", matches_function_name,
                                          "example \"repeat\""};
 static const text_field FUNCTION_SYMBOL = {"symbol", matches_c_identifier, "is not a C identifier",
                                            "use a C identifier for the exported symbol, for example \"echo_repeat\""};
+static const text_field DESCRIPTION = {"description", matches_c_identifier, "is not a C identifier",
+                                       "use a C identifier for the exported symbol answering the description, for "
+                                       "example \"echo_description\""};
 
 static const char *subject_of(const char *path) {
     return path[0] == '\0' ? "the declaration" : path;
@@ -353,11 +359,27 @@ static int check_definition_alone(checking *state, const weivel_json_value *serv
     return 1;
 }
 
+/** A description describes a definition, so only a service whose one function is a definition declares one. */
+static int check_description(checking *state, const weivel_json_value *service, const field_path *parent) {
+    const weivel_json_value *functions = weivel_json_object_get(service, "functions");
+    field_path path = {parent, DESCRIPTION.key, 0};
+    if (weivel_json_object_get(service, DESCRIPTION.key) == NULL) {
+        return 1;
+    }
+    if (!check_text_field(state, service, parent, &DESCRIPTION)) {
+        return 0;
+    }
+    return is_definition(weivel_json_array_at(functions, 0)) ||
+           refuse(state, WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, &path,
+                  "sits beside functions that are not a definition, and only a definition is described",
+                  "remove %s, or declare the service's definition as its only function");
+}
+
 static int check_service(checking *state, const weivel_json_value *service, const field_path *path) {
     return check_object(state, service, path) &&
            check_text_field(state, service, path, &SERVICE_ID) &&
            check_list(state, service, path, "functions", check_function) &&
-           check_definition_alone(state, service, path);
+           check_definition_alone(state, service, path) && check_description(state, service, path);
 }
 
 static int declares_only_definitions(const weivel_json_value *root) {
@@ -428,6 +450,7 @@ static void fill_services(library_storage *storage, const weivel_json_value *ser
         const weivel_json_value *functions = weivel_json_object_get(service, "functions");
         size_t index;
         storage->services[at].id = text_of(service, "id");
+        storage->descriptions[at] = text_of(service, DESCRIPTION.key);
         storage->services[at].functions = next;
         storage->services[at].function_count = weivel_json_array_length(functions);
         for (index = 0; index < weivel_json_array_length(functions); index++) {
@@ -443,6 +466,7 @@ static void release_storage(library_storage *storage) {
     weivel_json_free(storage->document);
     weivel_standard_memory_release(storage->services);
     weivel_standard_memory_release(storage->functions);
+    weivel_standard_memory_release(storage->descriptions);
     weivel_standard_memory_release(storage);
 }
 
@@ -450,6 +474,7 @@ static void release_storage(library_storage *storage) {
 static weivel_status build_library(weivel_json_value *document, weivel_standard_library *library) {
     const weivel_json_value *services = weivel_json_object_get(document, "services");
     size_t service_count = weivel_json_array_length(services);
+    weivel_standard_library built = WEIVEL_INIT(weivel_standard_library);
     library_storage *storage = weivel_standard_memory_allocate_zeroed(1, sizeof *storage);
     if (storage == NULL) {
         weivel_json_free(document);
@@ -458,17 +483,20 @@ static weivel_status build_library(weivel_json_value *document, weivel_standard_
     storage->document = document;
     storage->services = weivel_standard_memory_allocate_zeroed(service_count, sizeof *storage->services);
     storage->functions = weivel_standard_memory_allocate_zeroed(count_functions(services), sizeof *storage->functions);
-    if (storage->services == NULL || storage->functions == NULL) {
+    storage->descriptions = weivel_standard_memory_allocate_zeroed(service_count, sizeof *storage->descriptions);
+    if (storage->services == NULL || storage->functions == NULL || storage->descriptions == NULL) {
         release_storage(storage);
         return WEIVEL_STATUS_OUT_OF_MEMORY;
     }
     fill_services(storage, services);
-    library->import_name = text_of(document, "importName");
-    library->version = text_of(document, "version");
-    library->release = text_of(document, "release");
-    library->services = storage->services;
-    library->service_count = service_count;
-    library->storage = storage;
+    built.import_name = text_of(document, "importName");
+    built.version = text_of(document, "version");
+    built.release = text_of(document, "release");
+    built.services = storage->services;
+    built.service_count = service_count;
+    built.storage = storage;
+    built.descriptions = storage->descriptions;
+    weivel_standard_sized_write(library, &built, sizeof built);
     return WEIVEL_STATUS_OK;
 }
 
@@ -482,7 +510,7 @@ static weivel_status refuse_malformed_call(const char *json, const weivel_standa
         return weivel_standard_refuse_call(refusal, "weivel_standard_read_library was given no JSON text",
                                            "pass the declaration's text");
     }
-    if (library->size < sizeof *library) {
+    if (library->size < LIBRARY_FIRST_SHAPE) {
         return weivel_standard_refuse_call(refusal,
                                            "weivel_standard_read_library was given a declaration smaller than its "
                                            "first shape",
@@ -501,7 +529,7 @@ weivel_status weivel_standard_read_library(const char *json, size_t length, weiv
     if (weivel_standard_refusal_is_unusable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
     }
-    if (json == NULL || library == NULL || library->size < sizeof *library || library->storage != NULL) {
+    if (json == NULL || library == NULL || library->size < LIBRARY_FIRST_SHAPE || library->storage != NULL) {
         return refuse_malformed_call(json, library, refusal);
     }
     weivel_standard_library_release(library);
@@ -521,7 +549,7 @@ weivel_status weivel_standard_read_library(const char *json, size_t length, weiv
 
 void weivel_standard_library_release(weivel_standard_library *library) {
     weivel_standard_library empty = WEIVEL_INIT(weivel_standard_library);
-    if (library == NULL || library->size < sizeof *library) {
+    if (library == NULL || library->size < LIBRARY_FIRST_SHAPE) {
         return;
     }
     release_storage(library->storage);

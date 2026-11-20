@@ -24,6 +24,14 @@ static const char *const SAMPLES[] = {
     "{\"importName\": \"echo\", \"version\": \"1\", \"services\": ["
     "{\"id\": \"echo\", \"functions\": [{\"name\": \"definition\", \"symbol\": \"echo_definition\","
     " \"kind\": \"definition\", \"context\": [\"home\"]}]}]}",
+    "{\"importName\": \"echo\", \"version\": \"1\", \"services\": ["
+    "{\"id\": \"echo\", \"description\": \"echo_description\", \"functions\": [{\"name\": \"definition\","
+    " \"symbol\": \"echo_definition\", \"kind\": \"definition\"}]},"
+    "{\"id\": \"twice\", \"functions\": [{\"name\": \"definition\", \"symbol\": \"twice_definition\","
+    " \"kind\": \"definition\"}]}]}",
+    "{\"importName\": \"echo\", \"version\": \"1\", \"services\": ["
+    "{\"id\": \"echo\", \"description\": 7, \"functions\": [{\"name\": \"definition\","
+    " \"symbol\": \"echo_definition\", \"kind\": \"definition\"}]}]}",
     "{\"importName\": \"echo\", \"version\": \"1\", \"release\": \"r\", \"services\": [{\"id\": \"Echo\"}]}",
     "{\"importName\": "};
 
