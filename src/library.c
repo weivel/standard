@@ -62,28 +62,20 @@ static int is_letter_or_digit(char byte) {
     return is_lowercase_or_digit(byte) || (byte >= 'A' && byte <= 'Z');
 }
 
-/** `^[a-z0-9]+([-.][a-z0-9]+)*$`, or with hyphens alone when `dots` is 0. */
-static int matches_words(const char *text, size_t length, int dots) {
+/** `^[a-z0-9]+([-.][a-z0-9]+)*$`, the rule of an import name and of a service id alike. */
+static int matches_words(const char *text, size_t length) {
     size_t at;
     int after_separator = 1;
     for (at = 0; at < length; at++) {
         if (is_lowercase_or_digit(text[at])) {
             after_separator = 0;
-        } else if ((text[at] == '-' || (dots && text[at] == '.')) && !after_separator) {
+        } else if ((text[at] == '-' || text[at] == '.') && !after_separator) {
             after_separator = 1;
         } else {
             return 0;
         }
     }
     return !after_separator;
-}
-
-static int matches_import_name(const char *text, size_t length) {
-    return matches_words(text, length, 1);
-}
-
-static int matches_service_id(const char *text, size_t length) {
-    return matches_words(text, length, 0);
 }
 
 static int matches_function_name(const char *text, size_t length) {
@@ -117,7 +109,7 @@ static int is_not_empty(const char *text, size_t length) {
     return length > 0;
 }
 
-static const text_field IMPORT_NAME = {"importName", matches_import_name,
+static const text_field IMPORT_NAME = {"importName", matches_words,
                                        "is not lowercase words joined by single hyphens or dots",
                                        "use lowercase words joined by single hyphens or dots, for example \"echo\""};
 static const text_field VERSION = {"version", is_not_empty, "is empty",
@@ -125,8 +117,9 @@ static const text_field VERSION = {"version", is_not_empty, "is empty",
 static const text_field RELEASE = {"release", matches_c_identifier, "is not a C identifier",
                                    "name the exported release function as a C identifier, for example "
                                    "\"echo_release\""};
-static const text_field SERVICE_ID = {"id", matches_service_id, "is not lowercase words joined by single hyphens",
-                                      "use lowercase words joined by single hyphens, for example \"echo\""};
+static const text_field SERVICE_ID = {"id", matches_words, "is not lowercase words joined by single hyphens or dots",
+                                      "use lowercase words joined by single hyphens or dots, for example \"echo\" "
+                                      "or \"weivel.host\""};
 static const text_field FUNCTION_NAME = {"name", matches_function_name,
                                          "does not start with a lowercase letter and hold letters and digits only",
                                          "start \"name\" with a lowercase letter and use letters and digits only, for "
