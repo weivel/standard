@@ -428,6 +428,37 @@ static void nests_itself(probe_description *probe) {
     probe->counter.definition_count = 1;
 }
 
+static void nests_the_description_holding_it(probe_description *probe) {
+    static const weivel_standard_description *outer[1];
+    outer[0] = &probe->description;
+    probe->counter.definitions = outer;
+    probe->counter.definition_count = 1;
+}
+
+#define CHAIN_LENGTH (WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT + 1)
+
+/** Copies of the counter, each nesting the next, so no pointer repeats and only the depth bound ends the chain. */
+static void nests_past_the_depth_limit(probe_description *probe) {
+    static weivel_standard_description chain[CHAIN_LENGTH];
+    static const weivel_standard_description *links[CHAIN_LENGTH];
+    size_t at;
+    for (at = 0; at < CHAIN_LENGTH; at++) {
+        chain[at] = probe->counter;
+        links[at] = &chain[at];
+    }
+    for (at = 0; at + 1 < CHAIN_LENGTH; at++) {
+        chain[at].definitions = &links[at + 1];
+        chain[at].definition_count = 1;
+    }
+    probe->definitions[0] = &chain[0];
+}
+
+static void releases_a_definition(probe_description *probe) {
+    probe->release_answer[1].kind = WEIVEL_STANDARD_DESCRIBED_DEFINITION;
+    probe->release_answer[1].element = WEIVEL_STANDARD_DESCRIBED_NONE;
+    probe->release_answer[1].type = "probe_counter";
+}
+
 static void reaches_an_element_from_a_definition(probe_description *probe) {
     probe->loan[1].element = WEIVEL_STANDARD_DESCRIBED_STRUCT;
 }
@@ -487,8 +518,14 @@ static const refused_case REFUSED[] = {
      "definitions[0].operations[0].parameters[1].kind", "is not a kind weivel/description.h publishes"},
     {"a nested description blocking in no operation", nests_one_blocking_in_no_operation, INVALID,
      "definitions[0].blocking[0]", "names an operation the description does not hold"},
-    {"a nested description nesting itself", nests_itself, INVALID, NESTED_NINE_DEEP,
+    {"a nested description nesting itself", nests_itself, INVALID, "definitions[0].definitions[0]",
+     "is a description that holds it"},
+    {"a nested description nesting the one holding it", nests_the_description_holding_it, INVALID,
+     "definitions[0].definitions[0]", "is a description that holds it"},
+    {"descriptions nested past the depth limit", nests_past_the_depth_limit, INVALID, NESTED_NINE_DEEP,
      "nests deeper than WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT"},
+    {"a release freeing a definition", releases_a_definition, INVALID, "operations[3].parameters[1].kind",
+     "is DEFINITION in a release"},
     {"an element on a definition", reaches_an_element_from_a_definition, INVALID, "types[5].members[1].element",
      "its kind leaves it unused"},
     {"a count on a definition", counts_a_definition, INVALID, "types[5].members[1].count",

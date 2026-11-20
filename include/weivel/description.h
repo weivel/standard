@@ -266,9 +266,10 @@ typedef struct weivel_standard_description {
  * else; each role takes only the kinds weivel_standard_described_parameter lists for it; an operation answering a
  * STATUS takes no REFUSAL but as its last parameter; a release takes exactly two parameters; every REFUSAL's
  * struct carries `detail` and `fix` TEXT members; and a DEFINITION is a member or an answer, never an input or a
- * refusal, and names no release. Last, it checks each of `definitions` as a whole description in the same way,
- * refusing one nested deeper than WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT, so a cycle of descriptions is refused
- * rather than followed. It reads only, and stops at the first fault.
+ * refusal, names no release, and is no parameter of a release. Last, it checks each of `definitions` as a whole
+ * description in the same way, refusing one that is a description holding it and one nested deeper than
+ * WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT, so a cycle of descriptions is refused rather than followed. It reads only,
+ * and stops at the first fault.
  *
  * @param description Required.
  * @param refusal the caller's empty refusal, or NULL for none; filled on WEIVEL_STATUS_MALFORMED with the fault's

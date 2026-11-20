@@ -17,13 +17,18 @@ typedef weivel_standard_described_parameter described_parameter;
 
 #define DESCRIPTION_FIRST_SHAPE (offsetof(weivel_standard_description, operation_count) + sizeof(size_t))
 
-/** `root` is where the description checked lies in the one the caller passed, NULL for that one itself. */
+/**
+ * `root` is where the description checked lies in the one the caller passed, NULL for that one itself; `given` is the
+ * pointer it was reached by and `enclosing` the check of the description holding it, NULL at the top.
+ */
 typedef struct checking {
     const weivel_standard_description *description;
     weivel_standard_refusal *refusal;
     weivel_status status;
     const weivel_standard_field_path *root;
     unsigned depth;
+    const weivel_standard_description *given;
+    const struct checking *enclosing;
 } checking;
 
 /**
@@ -802,6 +807,21 @@ static int frees_one_thing(checking *state, const described_operation *operation
                           "describe %s as the context and the one thing the release frees");
 }
 
+/** A definition lives as long as what carried it, so no release is handed one. */
+static int frees_no_definition(checking *state, const described_operation *operation, const field_path *parent) {
+    field_path parameters = {parent, "parameters", 0};
+    size_t at;
+    for (at = 0; at < operation->parameter_count; at++) {
+        field_path item = {&parameters, NULL, at};
+        field_path kind = {&item, "kind", 0};
+        if (operation->parameters[at].kind == WEIVEL_STANDARD_DESCRIBED_DEFINITION) {
+            return refuse_invalid(state, &kind, "%s is DEFINITION in a release, which frees nothing a definition is",
+                                  "describe the release in %s as freeing an answer, a refusal or a handle");
+        }
+    }
+    return 1;
+}
+
 static int operation_follows_convention(checking *state, const described_operation *operation,
                                         const field_path *parent) {
     field_path parameters = {parent, "parameters", 0};
@@ -809,8 +829,11 @@ static int operation_follows_convention(checking *state, const described_operati
     if (!takes_the_context_first(state, operation, parent)) {
         return 0;
     }
-    if (operation->returns == WEIVEL_STANDARD_DESCRIBED_STATUS ? !refuses_last(state, operation, parent)
-                                                                : !frees_one_thing(state, operation, parent)) {
+    if (operation->returns == WEIVEL_STANDARD_DESCRIBED_STATUS) {
+        if (!refuses_last(state, operation, parent)) {
+            return 0;
+        }
+    } else if (!frees_one_thing(state, operation, parent) || !frees_no_definition(state, operation, parent)) {
         return 0;
     }
     for (at = 0; at < operation->parameter_count; at++) {
@@ -871,7 +894,20 @@ static int blocks_only_in_operations(checking *state, const weivel_standard_desc
 
 static int check_described(checking *state, const weivel_standard_description *description);
 
-/** Each nested description passes the whole check itself, a depth bound refusing a cycle by pointer. */
+static int encloses(const checking *state, const weivel_standard_description *nested) {
+    const checking *at;
+    for (at = state; at != NULL; at = at->enclosing) {
+        if (at->given == nested) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**
+ * Each nested description passes the whole check itself. One holding a description it is held by is refused, and a
+ * depth bound refuses a chain too long to bind, a cycle through copies included.
+ */
 static int checks_every_nested(checking *state, const weivel_standard_description *description) {
     field_path list = {state->root, "definitions", 0};
     size_t at;
@@ -879,9 +915,13 @@ static int checks_every_nested(checking *state, const weivel_standard_descriptio
         field_path item = {&list, NULL, at};
         weivel_standard_description own;
         checking nested;
+        if (encloses(state, description->definitions[at])) {
+            return refuse_invalid(state, &item, "%s is a description that holds it, so it nests itself",
+                                  "point %s at the description of another definition, never at one holding it");
+        }
         if (state->depth >= WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT) {
             return refuse_invalid(state, &item, "%s nests deeper than WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT",
-                                  "nest no description in itself, and %s no deeper than the limit");
+                                  "nest %s no deeper than the limit");
         }
         weivel_standard_sized_read(&own, sizeof own, description->definitions[at]);
         nested.description = &own;
@@ -889,6 +929,8 @@ static int checks_every_nested(checking *state, const weivel_standard_descriptio
         nested.status = WEIVEL_STATUS_OK;
         nested.root = &item;
         nested.depth = state->depth + 1;
+        nested.given = description->definitions[at];
+        nested.enclosing = state;
         if (!check_described(&nested, &own)) {
             state->status = nested.status;
             return 0;
@@ -950,6 +992,8 @@ weivel_status weivel_standard_description_check(const weivel_standard_descriptio
     state.status = WEIVEL_STATUS_OK;
     state.root = NULL;
     state.depth = 0;
+    state.given = description;
+    state.enclosing = NULL;
     check_described(&state, &own);
     return state.status;
 }
