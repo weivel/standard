@@ -126,7 +126,8 @@ static const expected_member releases_members[] = {
     MEMBER(described_releases, reflections, U64, NONE, NULL, NULL, NULL),
     MEMBER(described_releases, trees, U64, NONE, NULL, NULL, NULL),
     MEMBER(described_releases, refusals, U64, NONE, NULL, NULL, NULL),
-    MEMBER(described_releases, cursors, U64, NONE, NULL, NULL, NULL)};
+    MEMBER(described_releases, cursors, U64, NONE, NULL, NULL, NULL),
+    MEMBER(described_releases, nested_refusals, U64, NONE, NULL, NULL, NULL)};
 
 static const expected_member mirror_members[] = {MEMBER(described_mirror, size, U32, NONE, NULL, NULL, NULL),
                                                  MEMBER(described_mirror, context, CONTEXT, NONE, NULL, NULL, NULL)};
@@ -154,7 +155,7 @@ static const expected_type mirror_types[] = {
     TYPE(described_point, sizeof(described_point), point_members),
     TYPE(described_sample, ENDS_AT(described_sample, value_count), sample_members),
     TYPE(described_reflection, ENDS_AT(described_reflection, storage), reflection_members),
-    TYPE(described_releases, ENDS_AT(described_releases, cursors), releases_members),
+    TYPE(described_releases, ENDS_AT(described_releases, nested_refusals), releases_members),
     TYPE(described_mirror, ENDS_AT(described_mirror, release_refusal), mirror_members)};
 
 static const expected_type walker_types[] = {
@@ -164,7 +165,8 @@ static const expected_type walker_types[] = {
     TYPE(described_walker, ENDS_AT(described_walker, release_refusal), walker_members)};
 
 static const expected_type counter_types[] = {
-    TYPE(described_counter, ENDS_AT(described_counter, add), counter_members)};
+    TYPE(weivel_standard_service_refusal, ENDS_AT(weivel_standard_service_refusal, storage), refusal_members),
+    TYPE(described_counter, ENDS_AT(described_counter, release_refusal), counter_members)};
 
 static const expected_parameter reflect_parameters[] = {
     PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
@@ -275,9 +277,11 @@ static const expected_parameter lend_parameters[] = {
     PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
     PARAMETER("loan", POINTER, ANSWER, STRUCT, "described_loan", NULL, NULL)};
 
-static const expected_parameter add_parameters[] = {PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
-                                                    PARAMETER("amount", U64, INPUT, NONE, NULL, NULL, NULL),
-                                                    PARAMETER("total", U64, ANSWER, NONE, NULL, NULL, NULL)};
+static const expected_parameter add_parameters[] = {
+    PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+    PARAMETER("amount", U64, INPUT, NONE, NULL, NULL, NULL),
+    PARAMETER("total", U64, ANSWER, NONE, NULL, NULL, NULL),
+    PARAMETER("refusal", POINTER, REFUSAL, STRUCT, "weivel_standard_service_refusal", NULL, "release_refusal")};
 
 static const expected_operation walker_operations[] = {
     OPERATION(described_walker, open, STATUS, open_parameters),
@@ -288,7 +292,9 @@ static const expected_operation walker_operations[] = {
     OPERATION(described_walker, wait, STATUS, wait_parameters),
     OPERATION(described_walker, lend, STATUS, lend_parameters)};
 
-static const expected_operation counter_operations[] = {OPERATION(described_counter, add, STATUS, add_parameters)};
+static const expected_operation counter_operations[] = {
+    OPERATION(described_counter, add, STATUS, add_parameters),
+    OPERATION(described_counter, release_refusal, NOTHING, release_refusal_parameters)};
 
 typedef struct expected_description {
     const char *definition;

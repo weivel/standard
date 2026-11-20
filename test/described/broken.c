@@ -91,12 +91,20 @@ static const weivel_standard_described_member counter_members[] = {
 
 static const weivel_standard_described_parameter add_parameters[] = {
     PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL), PARAMETER("amount", U64, INPUT, NONE, NULL, NULL),
-    PARAMETER("total", U64, ANSWER, NONE, NULL, NULL)};
+    PARAMETER("total", U64, ANSWER, NONE, NULL, NULL),
+    PARAMETER("refusal", POINTER, REFUSAL, STRUCT, "weivel_standard_service_refusal", "release_refusal")};
+
+static const weivel_standard_described_parameter counter_release_refusal_parameters[] = {
+    PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL),
+    PARAMETER("refusal", POINTER, REFUSAL, STRUCT, "weivel_standard_service_refusal", NULL)};
 
 static const weivel_standard_described_operation counter_operations[] = {
-    OPERATION_OF(described_counter, add, STATUS, add_parameters)};
+    OPERATION_OF(described_counter, add, STATUS, add_parameters),
+    OPERATION_OF(described_counter, release_refusal, NOTHING, counter_release_refusal_parameters)};
 
-static const weivel_standard_described_type counter_types[] = {TYPE_OF(described_counter, add, counter_members)};
+static const weivel_standard_described_type counter_types[] = {
+    TYPE_OF(weivel_standard_service_refusal, storage, refusal_members),
+    TYPE_OF(described_counter, release_refusal, counter_members)};
 
 static const weivel_standard_description counter = {.size = (uint32_t)sizeof(weivel_standard_description),
                                                      .definition = "described_counter",

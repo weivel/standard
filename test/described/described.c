@@ -23,7 +23,8 @@ struct described_cursor {
 static int library_context;
 
 static described_releases released = {
-    .size = (uint32_t)sizeof(described_releases), .reflections = 0, .trees = 0, .refusals = 0, .cursors = 0};
+    .size = (uint32_t)sizeof(described_releases), .reflections = 0, .trees = 0, .refusals = 0, .cursors = 0,
+    .nested_refusals = 0};
 
 static described_arena *arena_open(void) {
     described_arena *arena = malloc(sizeof *arena);
@@ -626,9 +627,10 @@ static void mirror_release_tree(void *context, weivel_standard_value_tree *tree)
     released.trees++;
 }
 
+static uint64_t counter_start = DESCRIBED_COUNTER_START;
+
 static void release_refusal(void *context, weivel_standard_service_refusal *refusal) {
-    (void)context;
-    if (refusal == NULL || refusal->size < sizeof(weivel_standard_service_refusal) || refusal->storage == NULL) {
+    if (context == &counter_start || refusal == NULL || refusal->size < sizeof(weivel_standard_service_refusal) || refusal->storage == NULL) {
         return;
     }
     arena_close(refusal->storage);
@@ -700,19 +702,34 @@ static weivel_status walker_wait(void *context, uint64_t ticks, uint64_t *waited
     return WEIVEL_STATUS_OK;
 }
 
-static weivel_status counter_add(void *context, uint64_t amount, uint64_t *total) {
+static weivel_status counter_add(void *context, uint64_t amount, uint64_t *total,
+                                 weivel_standard_service_refusal *refusal) {
     uint64_t start = *(const uint64_t *)context;
-    if (total == NULL || amount > UINT64_MAX - start) {
+    if (total == NULL || amount > UINT64_MAX - start || !refusal_is_usable(refusal)) {
         return WEIVEL_STATUS_MALFORMED;
+    }
+    if (amount == DESCRIBED_COUNTER_REFUSED_AMOUNT) {
+        return refuse(refusal);
     }
     *total = start + amount;
     return WEIVEL_STATUS_OK;
 }
 
-static uint64_t counter_start = DESCRIBED_COUNTER_START;
+static void counter_release_refusal(void *context, weivel_standard_service_refusal *refusal) {
+    if (context != &counter_start || refusal == NULL || refusal->size < sizeof(weivel_standard_service_refusal) ||
+        refusal->storage == NULL) {
+        return;
+    }
+    arena_close(refusal->storage);
+    refusal->detail = NULL;
+    refusal->fix = NULL;
+    refusal->storage = NULL;
+    released.nested_refusals++;
+}
 
 static const described_counter counter = {
-    .size = (uint32_t)sizeof(described_counter), .context = &counter_start, .add = counter_add};
+    .size = (uint32_t)sizeof(described_counter), .context = &counter_start,
+    .add = counter_add, .release_refusal = counter_release_refusal};
 
 static weivel_status walker_lend(void *context, described_loan *loan) {
     (void)context;
