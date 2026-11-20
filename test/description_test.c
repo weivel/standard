@@ -227,7 +227,184 @@ static void names_a_parameter_twice(probe_description *probe) {
     probe->run[3].name = "input";
 }
 
+static void reaches_an_element_from_a_scalar(probe_description *probe) {
+    probe->input[0].element = WEIVEL_STANDARD_DESCRIBED_U32;
+}
+
+static void types_a_text(probe_description *probe) {
+    probe->item[0].type = "probe_item";
+}
+
+static void counts_a_scalar(probe_description *probe) {
+    probe->input[2].count = "tag_count";
+}
+
+static void releases_a_text_member(probe_description *probe) {
+    probe->input[4].release = "release_answer";
+}
+
+static void releases_a_text_input(probe_description *probe) {
+    probe->get[1].release = "release_answer";
+}
+
+static void reaches_an_element_from_a_size_parameter(probe_description *probe) {
+    probe->get[3].element = WEIVEL_STANDARD_DESCRIBED_U32;
+}
+
+static void releases_a_handle_through_an_operation(probe_description *probe) {
+    probe->answer[1].release = "run";
+}
+
+static void releases_an_answer_through_an_operation(probe_description *probe) {
+    probe->run[2].release = "get";
+}
+
+static void holds_a_context_outside_the_definition(probe_description *probe) {
+    probe->answer[2].kind = WEIVEL_STANDARD_DESCRIBED_CONTEXT;
+}
+
+static void holds_two_contexts(probe_description *probe) {
+    static weivel_standard_described_member three[3];
+    three[0] = probe->definition[0];
+    three[1] = probe->definition[1];
+    three[2] = probe->definition[1];
+    three[2].name = "second_context";
+    three[2].offset = offsetof(probe_definition, run);
+    probe->types[PROBE_DEFINITION_TYPE].members = three;
+    probe->types[PROBE_DEFINITION_TYPE].member_count = 3;
+}
+
+static void holds_the_context_past_the_first_shape(probe_description *probe) {
+    probe->types[PROBE_DEFINITION_TYPE].first_shape = offsetof(probe_definition, context);
+}
+
+static void names_a_member_as_an_operation(probe_description *probe) {
+    probe->definition[1].name = "run";
+}
+
+static void lays_an_operation_over_a_member(probe_description *probe) {
+    probe->operations[PROBE_RUN].offset = offsetof(probe_definition, context);
+}
+
+static void lays_two_operations_at_one_offset(probe_description *probe) {
+    probe->operations[PROBE_GET].offset = offsetof(probe_definition, run);
+}
+
+static void takes_no_parameters(probe_description *probe) {
+    probe->operations[PROBE_RELEASE_WALK].parameter_count = 0;
+}
+
+static void takes_the_context_second(probe_description *probe) {
+    weivel_standard_described_parameter context = probe->release_walk[0];
+    probe->release_walk[0] = probe->release_walk[1];
+    probe->release_walk[1] = context;
+}
+
+static void takes_a_second_context(probe_description *probe) {
+    probe->get[1].kind = WEIVEL_STANDARD_DESCRIBED_CONTEXT;
+}
+
+static void takes_a_struct_by_value(probe_description *probe) {
+    probe->run[1].kind = WEIVEL_STANDARD_DESCRIBED_STRUCT;
+    probe->run[1].element = WEIVEL_STANDARD_DESCRIBED_NONE;
+}
+
+static void answers_storage(probe_description *probe) {
+    probe->get[4].kind = WEIVEL_STANDARD_DESCRIBED_STORAGE;
+}
+
+static void answers_a_pointer_to_a_value(probe_description *probe) {
+    probe->run[2].element = WEIVEL_STANDARD_DESCRIBED_VALUE;
+    probe->run[2].type = NULL;
+}
+
+static void refuses_through_a_text(probe_description *probe) {
+    probe->run[3].kind = WEIVEL_STANDARD_DESCRIBED_TEXT;
+    probe->run[3].element = WEIVEL_STANDARD_DESCRIBED_NONE;
+    probe->run[3].type = NULL;
+}
+
+static void refuses_before_the_answer(probe_description *probe) {
+    weivel_standard_described_parameter directory = probe->get[4];
+    probe->get[4] = probe->get[5];
+    probe->get[5] = directory;
+}
+
+static void releases_through_one_parameter(probe_description *probe) {
+    probe->operations[PROBE_RELEASE_TREE].parameter_count = 1;
+}
+
+static void releases_a_text_answer(probe_description *probe) {
+    probe->get[4].release = "release_answer";
+}
+
+static void releases_a_scalar_answer(probe_description *probe) {
+    probe->get[4].kind = WEIVEL_STANDARD_DESCRIBED_U64;
+    probe->get[4].release = "release_answer";
+}
+
+static void refuses_with_no_detail(probe_description *probe) {
+    probe->refusal[1].name = "details";
+}
+
+static void refuses_with_no_fix_text(probe_description *probe) {
+    probe->refusal[2].kind = WEIVEL_STANDARD_DESCRIBED_STORAGE;
+}
+
 static const refused_case REFUSED[] = {
+    {"an element on a scalar member", reaches_an_element_from_a_scalar, INVALID, "types[1].members[0].element",
+     "its kind leaves it unused"},
+    {"a type on a text member", types_a_text, INVALID, "types[0].members[0].type", "its kind leaves it unused"},
+    {"a count on a kind that counts nothing", counts_a_scalar, INVALID, "types[1].members[2].count",
+     "its kind leaves it unused"},
+    {"a release on a member that is no handle", releases_a_text_member, INVALID, "types[1].members[4].release",
+     "its kind leaves it unused"},
+    {"a release on an input that is no handle", releases_a_text_input, INVALID, "operations[1].parameters[1].release",
+     "its kind leaves it unused"},
+    {"an element on a size parameter", reaches_an_element_from_a_size_parameter, INVALID,
+     "operations[1].parameters[3].element", "its kind leaves it unused"},
+    {"a handle released by a status operation", releases_a_handle_through_an_operation, INVALID,
+     "types[2].members[1].release", "names an operation answering a status"},
+    {"an answer released by a status operation", releases_an_answer_through_an_operation, INVALID,
+     "operations[0].parameters[2].release", "names an operation answering a status"},
+    {"a context outside the definition", holds_a_context_outside_the_definition, INVALID,
+     "types[2].members[2].kind", "CONTEXT outside the definition's struct"},
+    {"two contexts in the definition", holds_two_contexts, INVALID, "types[3].members[2].kind",
+     "a second CONTEXT"},
+    {"a context past the definition's first shape", holds_the_context_past_the_first_shape, INVALID,
+     "types[3].members[1].offset", "past the definition's first shape"},
+    {"a member and an operation of one name", names_a_member_as_an_operation, DUPLICATE, "operations[0].name",
+     "repeats the name of a member of the definition's struct"},
+    {"an operation over a data member", lays_an_operation_over_a_member, INVALID, "operations[0].offset",
+     "overlaps a data member"},
+    {"two operations at one offset", lays_two_operations_at_one_offset, INVALID, "operations[1].offset",
+     "overlaps an operation listed before it"},
+    {"an operation of no parameters", takes_no_parameters, INVALID, "operations[5].parameters",
+     "every operation takes the context first"},
+    {"an operation taking the context second", takes_the_context_second, INVALID,
+     "operations[5].parameters[0].kind", "is not CONTEXT"},
+    {"a second context parameter", takes_a_second_context, INVALID, "operations[1].parameters[1].kind",
+     "CONTEXT past the first parameter"},
+    {"a struct input by value", takes_a_struct_by_value, INVALID, "operations[0].parameters[1].kind",
+     "a kind an input does not take"},
+    {"a storage answer", answers_storage, INVALID, "operations[1].parameters[4].kind",
+     "a kind an answer does not take"},
+    {"an answer pointing at a value", answers_a_pointer_to_a_value, INVALID, "operations[0].parameters[2].element",
+     "VALUE on a pointer answer"},
+    {"a refusal that is a text", refuses_through_a_text, INVALID, "operations[0].parameters[3].kind",
+     "not a POINTER of STRUCT"},
+    {"a refusal before the last parameter", refuses_before_the_answer, INVALID, "operations[1].parameters[4].role",
+     "a REFUSAL before the operation's last parameter"},
+    {"a release of one parameter", releases_through_one_parameter, INVALID, "operations[4].parameters",
+     "is not two parameters"},
+    {"a text answer naming a release", releases_a_text_answer, INVALID, "operations[1].parameters[4].release",
+     "a scalar or a text answer"},
+    {"a scalar answer naming a release", releases_a_scalar_answer, INVALID, "operations[1].parameters[4].release",
+     "a scalar or a text answer"},
+    {"a refusal carrying no detail", refuses_with_no_detail, INVALID, "operations[0].parameters[3].type",
+     "no TEXT member named detail"},
+    {"a refusal carrying no fix text", refuses_with_no_fix_text, INVALID, "operations[0].parameters[3].type",
+     "no TEXT member named fix"},
     {"a struct the description does not hold", names_no_struct, INVALID, "types[1].members[9].type",
      "names a struct the description does not hold"},
     {"a pointer parameter to a struct it does not hold", points_at_no_struct, INVALID,

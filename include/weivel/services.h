@@ -106,7 +106,9 @@ typedef struct weivel_standard_setting {
     weivel_standard_setting_value value;
 } weivel_standard_setting;
 
-/** Every setting, as config's `all` answers them: each key once, in no promised order. First shape ends at `storage`. */
+/**
+ * Every setting, as config's `all` answers them: each key once, in no promised order. First shape ends at `storage`.
+ */
 typedef struct weivel_standard_settings {
     uint32_t size;
     const weivel_standard_setting *settings;

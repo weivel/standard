@@ -691,22 +691,26 @@ static void walker_release_cursor(void *context, described_cursor *cursor) {
     released.cursors++;
 }
 
-static const described_mirror mirror = {.size = (uint32_t)sizeof(described_mirror),
-                                        .context = &library_context,
-                                        .reflect = mirror_reflect,
-                                        .tree = mirror_tree,
-                                        .find = mirror_find,
-                                        .measure = mirror_measure,
-                                        .negate = mirror_negate,
-                                        .halve = mirror_halve,
-                                        .invert = mirror_invert,
-                                        .swap_shade = mirror_swap_shade,
-                                        .grow = mirror_grow,
-                                        .weigh = mirror_weigh,
-                                        .count_releases = mirror_count_releases,
-                                        .release_reflection = mirror_release_reflection,
-                                        .release_tree = mirror_release_tree,
-                                        .release_refusal = release_refusal};
+#define MIRROR_BUT_HALVE                              \
+    .size = (uint32_t)sizeof(described_mirror),       \
+    .context = &library_context,                      \
+    .reflect = mirror_reflect,                        \
+    .tree = mirror_tree,                              \
+    .find = mirror_find,                              \
+    .measure = mirror_measure,                        \
+    .negate = mirror_negate,                          \
+    .invert = mirror_invert,                          \
+    .swap_shade = mirror_swap_shade,                  \
+    .grow = mirror_grow,                              \
+    .weigh = mirror_weigh,                            \
+    .count_releases = mirror_count_releases,          \
+    .release_reflection = mirror_release_reflection,  \
+    .release_tree = mirror_release_tree,              \
+    .release_refusal = release_refusal
+
+static const described_mirror mirror = {MIRROR_BUT_HALVE, .halve = mirror_halve};
+
+static const described_mirror mirror_without_halve = {MIRROR_BUT_HALVE};
 
 static const described_walker walker = {.size = (uint32_t)sizeof(described_walker),
                                         .context = &library_context,
@@ -722,4 +726,8 @@ const void *described_mirror_definition(void) {
 
 const void *described_walker_definition(void) {
     return &walker;
+}
+
+const void *described_mirror_without_halve_definition(void) {
+    return &mirror_without_halve;
 }
