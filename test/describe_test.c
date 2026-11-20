@@ -713,6 +713,7 @@ static void refuses_a_reach_its_definition_cannot_release(void) {
         return;
     }
     check_reach(&model, "probe_walker", walker, COUNT_OF(walker), NULL, 0);
+    memset(&refusal, 0, sizeof refusal);
     CHECK(describe_reach_of(&model, "probe_keeper", &reach, &refusal) == DESCRIBE_REFUSED);
     CHECK(reach.types == NULL && reach.type_count == 0);
     check_nullable(refusal.file, REFUSED("reach_handle.h"), "reach", "file");
@@ -720,10 +721,15 @@ static void refuses_a_reach_its_definition_cannot_release(void) {
     CHECK(refusal.message != NULL &&
           strstr(refusal.message, "`walk` holds the handle `probe_walk`, which `probe_keeper` reaches but holds no "
                                   "release `release_walk` of") != NULL);
+    describe_reach_release(&reach);
     describe_refusal_release(&refusal);
     CHECK(describe_reach_of(&model, "probe_holder", &reach, &refusal) == DESCRIBE_REFUSED);
     CHECK(refusal.file == NULL && refusal.line == 0 && refusal.message != NULL &&
           strstr(refusal.message, "`probe_holder` is not a definition") != NULL);
+    describe_reach_release(&reach);
+    describe_refusal_release(&refusal);
+    CHECK(describe_reach_of(&model, "probe_missing", &reach, &refusal) == DESCRIBE_REFUSED);
+    describe_reach_release(&reach);
     describe_refusal_release(&refusal);
     describe_model_release(&model);
 }
