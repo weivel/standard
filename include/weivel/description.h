@@ -85,11 +85,18 @@ typedef enum weivel_standard_described_kind {
     /** `void *`: the definition's own context, passed first to every operation and never read by a binding. */
     WEIVEL_STANDARD_DESCRIBED_CONTEXT = 14,
     /** `void *`: what an answer's storage holds, the provider's, never read by a binding. */
-    WEIVEL_STANDARD_DESCRIBED_STORAGE = 15
+    WEIVEL_STANDARD_DESCRIBED_STORAGE = 15,
+    /**
+     * `const T *`: a definition, a size-prefixed struct of function pointers with its own context, as
+     * weivel_standard_config is, or NULL for none. Its `type` names T, the `definition` of one of the description's
+     * `definitions`, which describes it; nothing releases it, since it lives as long as the answer or the struct that
+     * carried it. As an answer it is `const T **`.
+     */
+    WEIVEL_STANDARD_DESCRIBED_DEFINITION = 16
 } weivel_standard_described_kind;
 
 /** The highest kind published, moved to each kind as it is appended. */
-#define WEIVEL_STANDARD_DESCRIBED_LAST WEIVEL_STANDARD_DESCRIBED_STORAGE
+#define WEIVEL_STANDARD_DESCRIBED_LAST WEIVEL_STANDARD_DESCRIBED_DEFINITION
 
 /** What a parameter is to its operation. 0 is no role. The roles are append-only. */
 typedef enum weivel_standard_described_role {
@@ -128,9 +135,10 @@ typedef enum weivel_standard_described_return {
  * One member of a described struct.
  *
  * `type` names, for a STRUCT, a POINTER or an ARRAY of STRUCT elements, a struct of the description; for a U32, an
- * enum of the description when the member holds that enum's value, or NULL; for a HANDLE, the opaque type; and is
- * NULL otherwise. `count` names, for TEXTS, BYTES and an ARRAY, the SIZE member of the same struct counting it, and
- * is NULL otherwise. `release` names, for a HANDLE, the operation that frees it, and is NULL otherwise.
+ * enum of the description when the member holds that enum's value, or NULL; for a HANDLE, the opaque type; for a
+ * DEFINITION, the `definition` of one of the description's `definitions`; and is NULL otherwise. `count` names, for
+ * TEXTS, BYTES and an ARRAY, the SIZE member of the same struct counting it, and is NULL otherwise. `release` names,
+ * for a HANDLE, the operation that frees it, and is NULL otherwise.
  */
 typedef struct weivel_standard_described_member {
     const char *name;
@@ -178,7 +186,7 @@ typedef struct weivel_standard_described_enum {
  * keeps, and for an input that is no handle.
  *
  * An input takes the context, a scalar, a text, texts, bytes, a POINTER, an ARRAY or a HANDLE; an answer a scalar, a
- * text, a POINTER of STRUCT, a VALUE or a HANDLE; a refusal a POINTER of STRUCT alone.
+ * text, a POINTER of STRUCT, a VALUE, a HANDLE or a DEFINITION; a refusal a POINTER of STRUCT alone.
  */
 typedef struct weivel_standard_described_parameter {
     const char *name;
@@ -222,7 +230,22 @@ typedef struct weivel_standard_description {
     size_t enum_count;
     const weivel_standard_described_operation *operations;
     size_t operation_count;
+    /**
+     * The names of the operations that may block, doing I/O or waiting, so a binding whose callers must not wait calls
+     * them away from its calling thread; every other operation answers without waiting.
+     */
+    const char *const *blocking;
+    size_t blocking_count;
+    /**
+     * The description of every definition a DEFINITION member or parameter of this description names, each found by
+     * its own `definition`; each is a whole description, checked as this one is.
+     */
+    const struct weivel_standard_description *const *definitions;
+    size_t definition_count;
 } weivel_standard_description;
+
+/** How deep `definitions` may nest below the description checked: a description nested deeper is refused. */
+#define WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT 8
 
 /**
  * Checks that a description can be bound as it says: it reaches its first shape; every name it requires is set, and
@@ -230,8 +253,10 @@ typedef struct weivel_standard_description {
  * parameters; every kind, element, role and return is one this header publishes, in the one spelling the kinds
  * allow; `definition` and every `type` it requires name a struct or an enum it holds; every member lies inside its
  * struct, with the size its kind has; every count names a SIZE member of the same struct, or a SIZE parameter of the
- * same operation; every release names one of its operations; every first shape lies within its struct; and every
- * operation lies inside the definition's struct.
+ * same operation; every release names one of its operations; every first shape lies within its struct; every
+ * operation lies inside the definition's struct; every `blocking` name is set, names an operation that is no
+ * release, and is listed once; every one of `definitions` is set, reaches its first shape and names its
+ * `definition`, no two naming the same; and every DEFINITION's `type` is the `definition` of one of them.
  *
  * It then checks the description against the convention every binding builds on: an `element`, `type`, `count` or
  * `release` its kind or role leaves unused is NONE or NULL, as the member and parameter docs above say; every release
@@ -239,14 +264,17 @@ typedef struct weivel_standard_description {
  * holds a CONTEXT, at most one, inside its first shape; no operation shares a name with a member of the definition's
  * struct, or a byte with one of its members or another operation; every operation takes the CONTEXT first and nowhere
  * else; each role takes only the kinds weivel_standard_described_parameter lists for it; an operation answering a
- * STATUS takes no REFUSAL but as its last parameter; a release takes exactly two parameters; and every REFUSAL's
- * struct carries `detail` and `fix` TEXT members. It reads only, and stops at the first fault.
+ * STATUS takes no REFUSAL but as its last parameter; a release takes exactly two parameters; every REFUSAL's
+ * struct carries `detail` and `fix` TEXT members; and a DEFINITION is a member or an answer, never an input or a
+ * refusal, and names no release. Last, it checks each of `definitions` as a whole description in the same way,
+ * refusing one nested deeper than WEIVEL_STANDARD_DESCRIPTION_DEPTH_LIMIT, so a cycle of descriptions is refused
+ * rather than followed. It reads only, and stops at the first fault.
  *
  * @param description Required.
  * @param refusal the caller's empty refusal, or NULL for none; filled on WEIVEL_STATUS_MALFORMED with the fault's
- * `path`, as `types[2].members[1].count`, MISSING_FIELD for a NULL name or array, DUPLICATE at the later of two
- * names, INVALID_VALUE for any other fault,
- * and MALFORMED_CALL, at path "", for a NULL description or one below its first shape.
+ * `path`, as `types[2].members[1].count`, `blocking[1]` or `definitions[0].types[2].name`, MISSING_FIELD for a NULL
+ * name or array, DUPLICATE at the later of two names, INVALID_VALUE for any other fault, and MALFORMED_CALL, at
+ * path "", for a NULL description or one below its first shape.
  * @return WEIVEL_STATUS_OK; WEIVEL_STATUS_MALFORMED at the first fault, and for a refusal below its first shape or
  * still holding one, which is left as it was; WEIVEL_STATUS_OUT_OF_MEMORY when the refusal's texts cannot be made, the
  * refusal left empty.
