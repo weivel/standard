@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "allocation.h"
+#include "reading.h"
 #include "tokens.h"
 
 describe_names describe_names_of_the_standard(void) {
@@ -11,6 +12,8 @@ describe_names describe_names_of_the_standard(void) {
     names.refusal = "weivel_standard_service_refusal";
     names.value = "weivel_standard_value";
     names.tree = "weivel_standard_value_tree";
+    names.elsewhere = NULL;
+    names.elsewhere_count = 0;
     return names;
 }
 
@@ -139,6 +142,8 @@ typedef struct reaching {
     const describe_type *definition;
     unsigned char *types;
     unsigned char *enums;
+    const char **definitions;
+    size_t definition_count;
     describe_refusal *refusal;
 } reaching;
 
@@ -164,6 +169,22 @@ static int releases_handle(const describe_type *definition, const describe_item 
            strcmp(release->frees, item->type) == 0;
 }
 
+static describe_outcome reach_definition(reaching *state, const char *name) {
+    const char **slot;
+    size_t at;
+    for (at = 0; at < state->definition_count; at++) {
+        if (strcmp(state->definitions[at], name) == 0) {
+            return DESCRIBE_DONE;
+        }
+    }
+    DESCRIBE_APPEND(state->definitions, state->definition_count, slot);
+    if (slot == NULL) {
+        return DESCRIBE_OUT_OF_MEMORY;
+    }
+    *slot = name;
+    return DESCRIBE_DONE;
+}
+
 static describe_outcome reach_items(reaching *state, const describe_item *items, size_t count) {
     size_t at;
     for (at = 0; at < count; at++) {
@@ -171,6 +192,8 @@ static describe_outcome reach_items(reaching *state, const describe_item *items,
         describe_outcome outcome = DESCRIBE_DONE;
         if (names_a_struct(item)) {
             outcome = reach_type(state, item->type);
+        } else if (item->kind == WEIVEL_STANDARD_DESCRIBED_DEFINITION) {
+            outcome = reach_definition(state, item->type);
         } else if (item->kind == WEIVEL_STANDARD_DESCRIBED_U32 && item->type != NULL) {
             const describe_enum *named = describe_model_enum(state->model, item->type);
             if (named != NULL) {
@@ -227,6 +250,8 @@ describe_outcome describe_reach_of(const describe_model *model, const char *defi
     state.model = model;
     state.definition = describe_model_type(model, definition);
     state.refusal = refusal;
+    state.definitions = NULL;
+    state.definition_count = 0;
     if (state.definition == NULL || !state.definition->definition) {
         return describe_refuse(refusal, NULL, 0, "`%s` is not a definition any scanned header declares", definition);
     }
@@ -238,6 +263,8 @@ describe_outcome describe_reach_of(const describe_model *model, const char *defi
     }
     weivel_standard_memory_release(state.types);
     weivel_standard_memory_release(state.enums);
+    reach->definitions = state.definitions;
+    reach->definition_count = state.definition_count;
     if (outcome != DESCRIBE_DONE) {
         describe_reach_release(reach);
         return outcome;
@@ -249,5 +276,7 @@ describe_outcome describe_reach_of(const describe_model *model, const char *defi
 void describe_reach_release(describe_reach *reach) {
     weivel_standard_memory_release((void *)reach->types);
     weivel_standard_memory_release((void *)reach->enums);
+    weivel_standard_memory_release((void *)reach->definitions);
+
     memset(reach, 0, sizeof *reach);
 }

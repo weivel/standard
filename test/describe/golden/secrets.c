@@ -266,7 +266,11 @@ static const weivel_standard_description secrets_description = {
     .enums = NULL,
     .enum_count = 0,
     .operations = secrets_operations,
-    .operation_count = sizeof(secrets_operations) / sizeof(secrets_operations[0])};
+    .operation_count = sizeof(secrets_operations) / sizeof(secrets_operations[0]),
+    .blocking = NULL,
+    .blocking_count = 0,
+    .definitions = NULL,
+    .definition_count = 0};
 
 const weivel_standard_description *describe_secrets(void);
 

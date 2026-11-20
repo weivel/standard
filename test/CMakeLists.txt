@@ -53,7 +53,7 @@ foreach(describe_target describe_test describe_memory_test describe_write_test d
         WEIVEL_DESCRIBE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/describe"
         WEIVEL_DESCRIBE_SERVICES_HEADER="${PROJECT_SOURCE_DIR}/include/weivel/services.h")
 endforeach()
-target_sources(describe_write_test PRIVATE describe/golden/probe.c)
+target_sources(describe_write_test PRIVATE describe/golden/probe.c describe/golden/nested.c)
 target_include_directories(describe_write_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/describe)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/describe-actual)
 target_compile_definitions(describe_write_test PRIVATE

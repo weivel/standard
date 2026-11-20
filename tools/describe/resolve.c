@@ -28,7 +28,8 @@ typedef enum referent {
     REFERENT_VALUE,
     REFERENT_TREE,
     REFERENT_HANDLE,
-    REFERENT_ENUM
+    REFERENT_ENUM,
+    REFERENT_DEFINITION
 } referent;
 
 /** A run of text: a doc or a part of one. */
@@ -81,7 +82,18 @@ static uint32_t scalar_kind(const char *base) {
     return strcmp(base, "size_t") == 0 ? KIND(SIZE) : KIND(NONE);
 }
 
+static int is_elsewhere(const describe_names *names, const char *base) {
+    size_t at;
+    for (at = 0; at < names->elsewhere_count; at++) {
+        if (strcmp(names->elsewhere[at], base) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static referent referent_of(const resolving *state, const char *base) {
+    const describe_type *type;
     if (scalar_kind(base) != KIND(NONE)) {
         return REFERENT_SCALAR;
     }
@@ -100,8 +112,12 @@ static referent referent_of(const resolving *state, const char *base) {
     if (strcmp(base, state->names->tree) == 0) {
         return REFERENT_TREE;
     }
-    if (describe_model_type(state->model, base) != NULL) {
-        return REFERENT_STRUCT;
+    if (is_elsewhere(state->names, base)) {
+        return REFERENT_DEFINITION;
+    }
+    type = describe_model_type(state->model, base);
+    if (type != NULL) {
+        return type->definition ? REFERENT_DEFINITION : REFERENT_STRUCT;
     }
     if (describe_model_handle(state->model, base) != NULL) {
         return REFERENT_HANDLE;
@@ -203,6 +219,14 @@ static describe_outcome resolve_pointed(resolving *state, describe_item *item, u
         return set_kind(item, KIND(ARRAY), role, scalar_kind(base), NULL);
     case REFERENT_HANDLE:
         return set_kind(item, KIND(HANDLE), role, KIND(NONE), base);
+    case REFERENT_DEFINITION:
+        if (role != KIND(NO_ROLE)) {
+            return describe_refuse(state->refusal, item->where.file, item->where.line,
+                                   "the %s `%s` points at the definition `%s` as an input, where a definition is "
+                                   "held by a member or handed out as an answer%s",
+                                   what, item->name, base, GRAMMAR);
+        }
+        return set_kind(item, KIND(DEFINITION), role, KIND(NONE), base);
     default:
         return refuse_spelled(state, item, what);
     }
@@ -286,6 +310,9 @@ static describe_outcome resolve_parameter(resolving *state, describe_item *param
     if (spelled(spelling, 0, 2, 0) && pointed == REFERENT_HANDLE) {
         return set_kind(parameter, KIND(HANDLE), KIND(ANSWER), KIND(NONE), spelling->base);
     }
+    if (spelled(spelling, 1, 2, 0) && pointed == REFERENT_DEFINITION) {
+        return set_kind(parameter, KIND(DEFINITION), KIND(ANSWER), KIND(NONE), spelling->base);
+    }
     if (is_texts(spelling)) {
         return set_kind(parameter, KIND(TEXTS), KIND(INPUT), KIND(NONE), NULL);
     }
@@ -349,9 +376,36 @@ static describe_outcome resolve_returns(resolving *state, describe_operation *op
     return outcome;
 }
 
+/** Whether a doc carries `tag` as a tag of its own, `@<name>` ending at a space or the doc's end. */
+static int carries_tag(const char *doc, const char *tag) {
+    size_t length = strlen(tag);
+    size_t at;
+    for (at = 0; doc != NULL && doc[at] != '\0'; at++) {
+        if (doc[at] == '@' && (at == 0 || doc[at - 1] == ' ') && strncmp(doc + at, tag, length) == 0 &&
+            (doc[at + length] == ' ' || doc[at + length] == '\0')) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static describe_outcome resolve_blocking(resolving *state, describe_operation *operation) {
+    operation->blocking = carries_tag(operation->doc, "@blocking");
+    if (operation->blocking && operation->returns == WEIVEL_STANDARD_DESCRIBED_NOTHING) {
+        return describe_refuse(state->refusal, operation->where.file, operation->where.line,
+                               "the release `%s` is tagged `@blocking`, and a release frees what it is handed without "
+                               "waiting; take the tag off it",
+                               operation->name);
+    }
+    return DESCRIBE_DONE;
+}
+
 static describe_outcome resolve_operation(resolving *state, describe_operation *operation) {
     describe_outcome outcome = resolve_returns(state, operation);
     size_t at;
+    if (outcome == DESCRIBE_DONE) {
+        outcome = resolve_blocking(state, operation);
+    }
     if (outcome != DESCRIBE_DONE) {
         return outcome;
     }
@@ -1156,10 +1210,31 @@ static describe_outcome resolve_definition_releases(resolving *state, describe_t
     return type->definition ? resolve_releases(state, type) : DESCRIBE_DONE;
 }
 
+/** A definition described elsewhere is known by name alone, so a scanned header declaring it would give it two. */
+static describe_outcome refuse_elsewhere_declared(const describe_model *model, const describe_names *names,
+                                                  describe_refusal *refusal) {
+    size_t at;
+    for (at = 0; at < names->elsewhere_count; at++) {
+        const describe_type *type = describe_model_type(model, names->elsewhere[at]);
+        if (type != NULL) {
+            return describe_refuse(refusal, type->where.file, type->where.line,
+                                   "`%s` is named as described elsewhere and is declared by a scanned header; scan "
+                                   "the header or name it as described elsewhere, not both",
+                                   type->name);
+        }
+    }
+    return DESCRIBE_DONE;
+}
+
 describe_outcome describe_resolve(describe_model *model, const describe_names *names, describe_refusal *refusal) {
     resolving state;
     describe_outcome outcome;
     size_t at;
+    outcome = refuse_elsewhere_declared(model, names, refusal);
+    if (outcome != DESCRIBE_DONE) {
+        return outcome;
+    }
+
     state.model = model;
     state.names = names;
     state.refusal = refusal;

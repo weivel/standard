@@ -104,7 +104,11 @@ static const weivel_standard_description paths_description = {
     .enums = NULL,
     .enum_count = 0,
     .operations = paths_operations,
-    .operation_count = sizeof(paths_operations) / sizeof(paths_operations[0])};
+    .operation_count = sizeof(paths_operations) / sizeof(paths_operations[0]),
+    .blocking = NULL,
+    .blocking_count = 0,
+    .definitions = NULL,
+    .definition_count = 0};
 
 WEIVEL_STANDARD_API const weivel_standard_description *describe_paths(void);
 

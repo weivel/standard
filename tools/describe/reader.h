@@ -20,9 +20,11 @@
  *
  * - `uint32_t`, `uint64_t`, `int64_t`, `double`, `size_t` by value; `const char *` a text; `const char *const *` texts
  *   and `const uint8_t *` bytes, each with its count; a struct of the scanned headers by value, or the value type;
- * - `const T *`, T a struct or the value type, a POINTER, or an ARRAY when a count counts it; `const S *`, S a scalar
- *   above other than size_t, an ARRAY and never uncounted;
+ * - `const T *`, T a struct that is no definition or the value type, a POINTER, or an ARRAY when a count counts it;
+ *   `const S *`, S a scalar above other than size_t, an ARRAY and never uncounted;
  * - `H *` or `const H *` for an opaque handle H, a handle input as a parameter;
+ * - as a member only, `const D *`, D a definition of the scanned headers or one named as described elsewhere, a
+ *   DEFINITION; a parameter answers one as `const D **`, and is refused for taking one as an input;
  * - as a member only: `void *context` in a definition and `void *storage`;
  * - as a parameter only: `void *context` first; a non-const `S *`, S a struct, an answer, or the refusal when S is the
  *   refusal type, which only the last parameter may be (an operation whose last parameter is not of the refusal
@@ -52,6 +54,9 @@
  * and are refused without one. A struct answer or a refusal names it when the definition has one, and is refused
  * without one only when its struct holds storage: a `void *storage` or a handle, directly or through a struct it
  * holds or points at; an answer that owns nothing has no release. A text or scalar answer has none.
+ *
+ * Blocking. An operation whose doc carries the tag `@blocking`, its reason after it, may block; a release carrying
+ * it is refused.
  *
  * Shapes. A struct whose first member is `uint32_t size` must say `First shape ends at `<member>`` in its doc (or
  * `first shape ends at`, as after "Its"), the member or a definition's operation, two such lines agreeing; a struct

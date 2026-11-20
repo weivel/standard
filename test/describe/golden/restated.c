@@ -217,7 +217,11 @@ static const weivel_standard_description restated_description = {
     .enums = NULL,
     .enum_count = 0,
     .operations = restated_operations,
-    .operation_count = sizeof(restated_operations) / sizeof(restated_operations[0])};
+    .operation_count = sizeof(restated_operations) / sizeof(restated_operations[0]),
+    .blocking = NULL,
+    .blocking_count = 0,
+    .definitions = NULL,
+    .definition_count = 0};
 
 const weivel_standard_description *probe_restated_description(void);
 

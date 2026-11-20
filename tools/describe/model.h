@@ -62,7 +62,8 @@ typedef struct describe_item {
 
 /**
  * A function pointer of a definition: an operation answering the status type (`returns` STATUS) or a release
- * (`returns` NOTHING), whose `frees` names the type its one parameter after the context points at.
+ * (`returns` NOTHING), whose `frees` names the type its one parameter after the context points at. `blocking` when
+ * its doc carries the tag `@blocking`, which only an operation may.
  */
 typedef struct describe_operation {
     char *name;
@@ -73,6 +74,7 @@ typedef struct describe_operation {
     describe_item *parameters;
     size_t parameter_count;
     char *frees;
+    int blocking;
 } describe_operation;
 
 /**
@@ -134,12 +136,18 @@ typedef struct describe_model {
  * an operation answers, `refusal` the struct an operation's last parameter fills when it declines, `value` the value
  * node held by value or pointed at, and `tree` the answer tree a value is answered into. The refusal type must be a
  * struct of the scanned headers; the others are known by name alone.
+ *
+ * `elsewhere` names the definitions another library describes, known by name alone as the value type is: a pointer
+ * to one is a DEFINITION, whose description is that library's `<name>_description`. None may be a struct of the
+ * scanned headers.
  */
 typedef struct describe_names {
     const char *status;
     const char *refusal;
     const char *value;
     const char *tree;
+    const char *const *elsewhere;
+    size_t elsewhere_count;
 } describe_names;
 
 typedef enum describe_outcome {
@@ -175,7 +183,8 @@ const describe_operation *describe_type_operation(const describe_type *type, con
 
 /**
  * What one definition's description holds: the definition and every struct its operations reach, through
- * parameters and then members, and every enum a reached U32 names, each in the model's declaration order.
+ * parameters and then members, and every enum a reached U32 names, each in the model's declaration order; and
+ * `definitions`, the name of every definition a reached DEFINITION names, each once, in the order first reached.
  * The arrays point into the model and are the reach's own.
  */
 typedef struct describe_reach {
@@ -184,7 +193,10 @@ typedef struct describe_reach {
     size_t type_count;
     const describe_enum **enums;
     size_t enum_count;
+    const char **definitions;
+    size_t definition_count;
 } describe_reach;
+
 
 /**
  * Fills `reach` for the definition named `definition`. REFUSED, at the definition's line, when a reached handle

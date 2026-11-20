@@ -5,6 +5,7 @@
 #include "check.h"
 #include "files.h"
 #include "every_form.h"
+#include "nested.h"
 #include "platform.h"
 #include "reader.h"
 #include "writer.h"
@@ -100,6 +101,76 @@ static describe_service service_of(const char *definition, const char *symbol, c
     return service;
 }
 
+const weivel_standard_description *nested_description_of(void);
+
+static const weivel_standard_described_member REMOTE_MEMBERS[] = {
+    {.name = "size",
+     .offset = offsetof(probe_remote, size),
+     .size = sizeof(((probe_remote *)0)->size),
+     .kind = WEIVEL_STANDARD_DESCRIBED_U32,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "context",
+     .offset = offsetof(probe_remote, context),
+     .size = sizeof(((probe_remote *)0)->context),
+     .kind = WEIVEL_STANDARD_DESCRIBED_CONTEXT,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL}};
+
+static const weivel_standard_described_type REMOTE_TYPES[] = {
+    {.name = "probe_remote",
+     .size = sizeof(probe_remote),
+     .first_shape = offsetof(probe_remote, ping) + sizeof(((probe_remote *)0)->ping),
+     .members = REMOTE_MEMBERS,
+     .member_count = COUNT_OF(REMOTE_MEMBERS)}};
+
+static const weivel_standard_described_parameter PING_PARAMETERS[] = {
+    {.name = "context",
+     .kind = WEIVEL_STANDARD_DESCRIBED_CONTEXT,
+     .role = WEIVEL_STANDARD_DESCRIBED_INPUT,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "pong",
+     .kind = WEIVEL_STANDARD_DESCRIBED_U64,
+     .role = WEIVEL_STANDARD_DESCRIBED_ANSWER,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL}};
+
+static const weivel_standard_described_operation REMOTE_OPERATIONS[] = {
+    {.name = "ping",
+     .offset = offsetof(probe_remote, ping),
+     .returns = WEIVEL_STANDARD_DESCRIBED_STATUS,
+     .parameters = PING_PARAMETERS,
+     .parameter_count = COUNT_OF(PING_PARAMETERS)}};
+
+static const weivel_standard_description REMOTE = {.size = (uint32_t)sizeof(weivel_standard_description),
+                                                    .definition = "probe_remote",
+                                                    .types = REMOTE_TYPES,
+                                                    .type_count = COUNT_OF(REMOTE_TYPES),
+                                                    .enums = NULL,
+                                                    .enum_count = 0,
+                                                    .operations = REMOTE_OPERATIONS,
+                                                    .operation_count = COUNT_OF(REMOTE_OPERATIONS),
+                                                    .blocking = NULL,
+                                                    .blocking_count = 0,
+                                                    .definitions = NULL,
+                                                    .definition_count = 0};
+
+/** The description another library would export for probe_remote, which golden/nested.c calls. */
+const weivel_standard_description *probe_remote_description(void);
+
+const weivel_standard_description *probe_remote_description(void) {
+    return &REMOTE;
+}
+
 static void writes_each_golden_source(void) {
     static const char *const services[] = {WEIVEL_DESCRIBE_SERVICES_HEADER};
     static const char *const services_include[] = {"weivel/services.h"};
@@ -109,8 +180,13 @@ static void writes_each_golden_source(void) {
     static const char *const restated_includes[] = {"restated.h", "restated_types.h"};
     describe_names standard = describe_names_of_the_standard();
     describe_names restated_names;
-    golden_case cases[5];
+    describe_names nested_names;
+    static const char *const nested[] = {FIXTURE("nested.h")};
+    static const char *const nested_includes[] = {"nested.h"};
+    static const char *const nested_elsewhere[] = {"probe_remote"};
+    golden_case cases[6];
     size_t at;
+    restated_names = standard;
     restated_names.status = "probe_status";
     restated_names.refusal = "probe_refusal";
     restated_names.value = "probe_value";
@@ -139,6 +215,15 @@ static void writes_each_golden_source(void) {
     cases[4].header_count = COUNT_OF(restated);
     cases[4].names = restated_names;
     cases[4].service = service_of("probe_restated", "probe_restated_description", "restated_", NULL);
+    nested_names = standard;
+    nested_names.elsewhere = nested_elsewhere;
+    nested_names.elsewhere_count = COUNT_OF(nested_elsewhere);
+    cases[5].golden = "nested.c";
+    cases[5].paths = nested;
+    cases[5].includes = nested_includes;
+    cases[5].header_count = COUNT_OF(nested);
+    cases[5].names = nested_names;
+    cases[5].service = service_of("probe_lender", "nested_description_of", "nested_", NULL);
     for (at = 0; at < COUNT_OF(cases); at++) {
         writes_the_golden_source(&cases[at]);
     }
@@ -247,8 +332,58 @@ static void compiles_the_golden_probe_into_a_description_that_checks(void) {
           probe->types[2].first_shape == offsetof(probe_input, previous) + sizeof(weivel_standard_value));
 }
 
+/** golden/nested.c is compiled in too: its nested description is its own, and its remote one is filled on call. */
+static void compiles_the_golden_nested_into_a_description_that_checks(void) {
+    const weivel_standard_description *lender = nested_description_of();
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    if (weivel_standard_description_check(lender, &refusal) != WEIVEL_STATUS_OK) {
+        fprintf(stderr, "golden/nested.c is refused by the check at %s: %s\n",
+                refusal.path == NULL ? "(none)" : refusal.path, refusal.detail == NULL ? "(none)" : refusal.detail);
+        weivel_standard_refusal_release(&refusal);
+        check_failures++;
+        return;
+    }
+    check_text(lender->definition, "probe_lender", "golden nested definition");
+    CHECK(lender->blocking_count == 1 && strcmp(lender->blocking[0], "lend") == 0);
+    CHECK(lender->definition_count == 2);
+    if (lender->definition_count == 2) {
+        check_text(lender->definitions[0]->definition, "probe_counter", "golden nested counter");
+        CHECK(lender->definitions[0]->operation_count == 1 && lender->definitions[0]->definitions == NULL);
+        CHECK(lender->definitions[1] == probe_remote_description());
+    }
+    CHECK(nested_description_of() == lender);
+}
+
+static void refuses_a_definition_reaching_itself(void) {
+    const char *paths[] = {FIXTURE("refused/definition_cycle.h")};
+    const char *includes[] = {"definition_cycle.h"};
+    describe_names names = describe_names_of_the_standard();
+    describe_model model;
+    describe_refusal refusal;
+    describe_text source;
+    describe_service service = service_of("probe_ping", "describe_ping", "ping_", NULL);
+    if (describe_read(&model, paths, 1, &names, &refusal) != DESCRIBE_DONE) {
+        fprintf(stderr, "definition_cycle.h was not read: %s\n", refusal.message == NULL ? "" : refusal.message);
+        describe_refusal_release(&refusal);
+        check_failures++;
+        return;
+    }
+    service.includes = includes;
+    service.include_count = 1;
+    CHECK(describe_write(&model, &service, &source, &refusal) == DESCRIBE_REFUSED);
+    CHECK(source.bytes == NULL && source.length == 0);
+    check_text(refusal.file, FIXTURE("refused/definition_cycle.h"), "the cycle's file");
+    CHECK(refusal.line == 8);
+    CHECK(refusal.message != NULL && strstr(refusal.message, "the definition `probe_ping` reaches itself") != NULL);
+    describe_refusal_release(&refusal);
+    describe_model_release(&model);
+}
+
 int main(void) {
     compiles_the_golden_probe_into_a_description_that_checks();
+    compiles_the_golden_nested_into_a_description_that_checks();
+    refuses_a_definition_reaching_itself();
+
     writes_each_golden_source();
     refuses_what_it_cannot_write();
     return check_summary("describe_write_test");
