@@ -742,6 +742,25 @@ static void reads_a_header_in_memory(void) {
     describe_model_release(&model);
 }
 
+static void reads_a_header_with_crlf_line_ends(void) {
+    describe_model model;
+    describe_refusal refusal;
+    const char *paths[] = {"crlf.h"};
+    const char *texts[] = {"#define PROBE_JOIN(a, b) \\\r\n    a##b\r\n"
+                           "/**\r\n * A pair. First shape\r\n * ends at `right`.\r\n */\r\n"
+                           "typedef struct probe_pair {\r\n    uint32_t size;\r\n    uint64_t right;\r\n} probe_pair;\r\n"};
+    size_t lengths[1];
+    describe_names names = describe_names_of_the_standard();
+    lengths[0] = strlen(texts[0]);
+    CHECK(describe_read_texts(&model, paths, texts, lengths, 1, &names, &refusal) == DESCRIBE_DONE);
+    CHECK(model.type_count == 1);
+    check_shape(&model, "probe_pair", 1, "right");
+    check_text(model.type_count == 1 ? model.types[0].doc : NULL, "A pair. First shape ends at `right`.",
+               "probe_pair.doc");
+    check_where(model.types[0].members[1].where, "crlf.h", 9, "probe_pair.right");
+    describe_model_release(&model);
+}
+
 int main(void) {
     reads_a_member_of_every_kind();
     reads_an_operation_of_every_form();
@@ -757,5 +776,6 @@ int main(void) {
     refuses_each_form_outside_the_grammar_at_its_line();
     refuses_a_reach_its_definition_cannot_release();
     reads_a_header_in_memory();
+    reads_a_header_with_crlf_line_ends();
     return check_summary("describe_test");
 }
