@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "weivel/description.h"
 #include "weivel/identity.h"
 #include "weivel/json.h"
 #include "weivel/layout.h"
@@ -7,6 +8,7 @@
 #include "weivel/mirrors.h"
 #include "weivel/services.h"
 #include "weivel/standard.h"
+#include "weivel/value.h"
 
 /**
  * @file
@@ -93,6 +95,7 @@ static void print_library_layouts(void) {
     FIELD(weivel_standard_library, services);
     FIELD(weivel_standard_library, service_count);
     FIELD(weivel_standard_library, storage);
+    FIELD(weivel_standard_library, descriptions);
     SIZE(weivel_standard_library);
 }
 
@@ -174,6 +177,74 @@ static void print_validation_layouts(void) {
     SIZE(weivel_standard_validation);
 }
 
+static void print_description_layouts(void) {
+    FIELD(weivel_standard_described_member, name);
+    FIELD(weivel_standard_described_member, offset);
+    FIELD(weivel_standard_described_member, size);
+    FIELD(weivel_standard_described_member, kind);
+    FIELD(weivel_standard_described_member, element);
+    FIELD(weivel_standard_described_member, type);
+    FIELD(weivel_standard_described_member, count);
+    FIELD(weivel_standard_described_member, release);
+    SIZE(weivel_standard_described_member);
+    FIELD(weivel_standard_described_type, name);
+    FIELD(weivel_standard_described_type, size);
+    FIELD(weivel_standard_described_type, first_shape);
+    FIELD(weivel_standard_described_type, members);
+    FIELD(weivel_standard_described_type, member_count);
+    SIZE(weivel_standard_described_type);
+    FIELD(weivel_standard_described_enum_entry, name);
+    FIELD(weivel_standard_described_enum_entry, number);
+    SIZE(weivel_standard_described_enum_entry);
+    FIELD(weivel_standard_described_enum, name);
+    FIELD(weivel_standard_described_enum, entries);
+    FIELD(weivel_standard_described_enum, entry_count);
+    SIZE(weivel_standard_described_enum);
+    FIELD(weivel_standard_described_parameter, name);
+    FIELD(weivel_standard_described_parameter, kind);
+    FIELD(weivel_standard_described_parameter, role);
+    FIELD(weivel_standard_described_parameter, element);
+    FIELD(weivel_standard_described_parameter, type);
+    FIELD(weivel_standard_described_parameter, count);
+    FIELD(weivel_standard_described_parameter, release);
+    SIZE(weivel_standard_described_parameter);
+    FIELD(weivel_standard_described_operation, name);
+    FIELD(weivel_standard_described_operation, offset);
+    FIELD(weivel_standard_described_operation, returns);
+    FIELD(weivel_standard_described_operation, parameters);
+    FIELD(weivel_standard_described_operation, parameter_count);
+    SIZE(weivel_standard_described_operation);
+    FIELD(weivel_standard_description, size);
+    FIELD(weivel_standard_description, definition);
+    FIELD(weivel_standard_description, types);
+    FIELD(weivel_standard_description, type_count);
+    FIELD(weivel_standard_description, enums);
+    FIELD(weivel_standard_description, enum_count);
+    FIELD(weivel_standard_description, operations);
+    FIELD(weivel_standard_description, operation_count);
+    SIZE(weivel_standard_description);
+}
+
+static void print_value_layouts(void) {
+    FIELD(weivel_standard_value, kind);
+    FIELD(weivel_standard_value, boolean);
+    FIELD(weivel_standard_value, number);
+    FIELD(weivel_standard_value, text);
+    FIELD(weivel_standard_value, length);
+    FIELD(weivel_standard_value, items);
+    FIELD(weivel_standard_value, entries);
+    FIELD(weivel_standard_value, count);
+    SIZE(weivel_standard_value);
+    FIELD(weivel_standard_entry, key);
+    FIELD(weivel_standard_entry, key_length);
+    FIELD(weivel_standard_entry, value);
+    SIZE(weivel_standard_entry);
+    FIELD(weivel_standard_value_tree, size);
+    FIELD(weivel_standard_value_tree, root);
+    FIELD(weivel_standard_value_tree, storage);
+    SIZE(weivel_standard_value_tree);
+}
+
 static void print_json_layouts(void) {
     FIELD(weivel_json_error, size);
     FIELD(weivel_json_error, line);
@@ -188,6 +259,8 @@ int main(void) {
     print_json_layouts();
     print_discovery_layouts();
     print_library_layouts();
+    print_description_layouts();
+    print_value_layouts();
     print_service_layouts();
     print_validation_layouts();
     return fflush(stdout) == 0 ? 0 : 1;

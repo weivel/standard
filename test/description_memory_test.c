@@ -1,0 +1,54 @@
+#include "allocation.h"
+#include "check.h"
+#include "description_fixture.h"
+
+static void breaks_a_count(probe_description *probe) {
+    probe->input[11].count = "probe_count";
+}
+
+static void breaks_a_name(probe_description *probe) {
+    probe->operations[PROBE_READ].name = NULL;
+}
+
+/** Fails each allocation in turn until a refused check needs no more, and checks every failure leaves nothing. */
+static void every_failed_allocation_leaves_nothing(void (*breaks)(probe_description *probe)) {
+    probe_description probe;
+    uint64_t nth;
+    probe_describe(&probe);
+    breaks(&probe);
+    for (nth = 1; nth < 1000; nth++) {
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+        weivel_status status;
+        weivel_standard_memory_fail_at(nth);
+        status = weivel_standard_description_check(&probe.description, &refusal);
+        if (!weivel_standard_memory_failed()) {
+            weivel_standard_memory_fail_at(0);
+            CHECK(status == WEIVEL_STATUS_MALFORMED);
+            weivel_standard_refusal_release(&refusal);
+            CHECK(weivel_standard_memory_live_blocks() == 0);
+            return;
+        }
+        weivel_standard_memory_fail_at(0);
+        CHECK(status == WEIVEL_STATUS_OUT_OF_MEMORY);
+        CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_NONE && refusal.storage == NULL);
+        CHECK(weivel_standard_memory_live_blocks() == 0);
+    }
+    CHECK(0);
+}
+
+static void a_whole_description_allocates_nothing(void) {
+    probe_description probe;
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    probe_describe(&probe);
+    weivel_standard_memory_fail_at(1);
+    CHECK(weivel_standard_description_check(&probe.description, &refusal) == WEIVEL_STATUS_OK);
+    CHECK(!weivel_standard_memory_failed());
+    weivel_standard_memory_fail_at(0);
+}
+
+int main(void) {
+    every_failed_allocation_leaves_nothing(breaks_a_count);
+    every_failed_allocation_leaves_nothing(breaks_a_name);
+    a_whole_description_allocates_nothing();
+    return check_summary("description_memory_test");
+}

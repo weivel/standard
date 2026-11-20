@@ -23,7 +23,8 @@ typedef enum weivel_standard_function_kind {
      * begins with its `uint32_t size` and lives until the library is unloaded. The struct's layout is the library's,
      * published in its own header; the host never reads past `size`. Its operations and their memory rules are the
      * library's too. A service that declares one declares it as its only function, and it declares no `context`,
-     * since its struct carries its own.
+     * since its struct carries its own. Its service may declare a `description` symbol beside its functions, so a
+     * language that cannot read the header binds the struct from weivel_standard_description.
      */
     WEIVEL_STANDARD_FUNCTION_DEFINITION = 3
 } weivel_standard_function_kind;
@@ -58,7 +59,7 @@ typedef struct weivel_standard_library_service {
  * functions return, NULL when it declares none and every service is a definition, and the services its functions
  * offer. Everything it points at lives in `storage`, private to the standard, until
  * weivel_standard_library_release. An empty declaration has its `size` set and every other field zero, as WEIVEL_INIT
- * or a release leaves it.
+ * or a release leaves it. First shape ends at `storage`.
  */
 typedef struct weivel_standard_library {
     uint32_t size;
@@ -68,6 +69,12 @@ typedef struct weivel_standard_library {
     const weivel_standard_library_service *services;
     size_t service_count;
     void *storage;
+    /**
+     * One per service, in the order of `services`: the exported symbol answering the service's definition described,
+     * as `const weivel_standard_description *f(void)` (`weivel/description.h`), or NULL for a service that declares
+     * no `description`. Only a definition's service declares one.
+     */
+    const char *const *descriptions;
 } weivel_standard_library;
 
 /**
@@ -77,8 +84,8 @@ typedef struct weivel_standard_library {
  * binds the functions is the language layer's business, not the declaration's.
  *
  * @param json the document, read only during the call; it need not be NUL-terminated. Required.
- * @param library the caller's empty declaration; filled on WEIVEL_STATUS_OK and left empty on every other answer.
- * Required.
+ * @param library the caller's empty declaration; filled on WEIVEL_STATUS_OK, within its `size`, and left empty on
+ * every other answer. Required.
  * @param refusal the caller's empty refusal, or NULL for none; filled on WEIVEL_STATUS_REFUSED with the field's
  * `path`, as `services[0].functions[1].symbol`, and on WEIVEL_STATUS_MALFORMED.
  * @return WEIVEL_STATUS_OK; WEIVEL_STATUS_REFUSED for malformed JSON (path "") or a field the rules refuse;

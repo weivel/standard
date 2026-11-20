@@ -88,6 +88,8 @@ typedef struct refused_case {
 
 #define WITH_FUNCTION(fields) ONE_FUNCTION("{'name': 'second', 'symbol': 'echo_second', " fields "}")
 
+#define DESCRIBED(description)                                                                                     "{'importName': 'echo', 'version': '1', 'services': [{'id': 'echo', 'description': " description ","         " 'functions': [{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'}]}]}"
+
 static const refused_case REFUSED[] = {
     {"not json", "{'importName': ", WEIVEL_STANDARD_REFUSAL_MALFORMED_JSON, ""},
     {"not an object", "['echo']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, ""},
@@ -181,6 +183,15 @@ static const refused_case REFUSED[] = {
      "services[0].functions[1].context"},
     {"a function that is not an object", ONE_FUNCTION("3"), WEIVEL_STANDARD_REFUSAL_WRONG_TYPE,
      "services[0].functions[1]"},
+    {"a description that is not a string", DESCRIBED("7"), WEIVEL_STANDARD_REFUSAL_WRONG_TYPE,
+     "services[0].description"},
+    {"an empty description", DESCRIBED("''"), WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services[0].description"},
+    {"a description not a C identifier", DESCRIBED("'echo-description'"), WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
+     "services[0].description"},
+    {"a description beside bytes functions",
+     "{'importName': 'echo', 'version': '1', 'release': 'r', 'services': [{'id': 'echo', 'description': 'echo_d',"
+     " 'functions': [{'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'bytes'}]}]}",
+     WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, "services[0].description"},
 };
 
 static void refuses_by_path(const refused_case *item) {
@@ -264,6 +275,64 @@ static void reads_a_definition_service_beside_a_bytes_service(void) {
     weivel_standard_library_release(&library);
 }
 
+static const char *const DESCRIBED_LIBRARY =
+    "{'importName': 'echo', 'version': '1', 'release': 'echo_release', 'services': ["
+    "{'id': 'echo', 'description': 'echo_description', 'functions': ["
+    " {'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'}]},"
+    "{'id': 'echo-bytes', 'functions': [{'name': 'echo', 'symbol': 'echo_echo', 'kind': 'bytes'}]}]}";
+
+static void reads_a_description_beside_a_definition(void) {
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    const char *json = json_of(DESCRIBED_LIBRARY);
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, NULL) == WEIVEL_STATUS_OK);
+    CHECK(library.service_count == 2 && library.descriptions != NULL);
+    if (library.service_count == 2 && library.descriptions != NULL) {
+        check_text(library.descriptions[0], "echo_description", "a service's description");
+        CHECK(library.descriptions[1] == NULL);
+    }
+    weivel_standard_library_release(&library);
+    CHECK(library.descriptions == NULL && library.storage == NULL);
+}
+
+static void reads_no_descriptions_where_none_is_declared(void) {
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    const char *json = json_of(DEFINITIONS_ALONE);
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, NULL) == WEIVEL_STATUS_OK);
+    CHECK(library.service_count == 2 && library.descriptions != NULL);
+    if (library.service_count == 2 && library.descriptions != NULL) {
+        CHECK(library.descriptions[0] == NULL && library.descriptions[1] == NULL);
+    }
+    weivel_standard_library_release(&library);
+}
+
+typedef union first_shape_library {
+    weivel_standard_library library;
+    unsigned char bytes[sizeof(weivel_standard_library)];
+} first_shape_library;
+
+/** A caller compiled before `descriptions` was appended has a declaration ending at `storage`. */
+static void fills_a_first_shape_declaration_within_its_size(void) {
+    first_shape_library caller;
+    weivel_standard_library *library = &caller.library;
+    const char *json = json_of(DESCRIBED_LIBRARY);
+    size_t first_shape = offsetof(weivel_standard_library, storage) + sizeof(void *);
+    size_t at;
+    int untouched = 1;
+    memset(caller.bytes, 0, first_shape);
+    memset(caller.bytes + first_shape, 0xab, sizeof caller.bytes - first_shape);
+    library->size = (uint32_t)first_shape;
+    CHECK(weivel_standard_read_library(json, strlen(json), library, NULL) == WEIVEL_STATUS_OK);
+    check_text(library->import_name, "echo", "a first-shape declaration is read");
+    for (at = first_shape; at < sizeof caller.bytes; at++) {
+        untouched = untouched && caller.bytes[at] == 0xab;
+    }
+    CHECK(untouched);
+    weivel_standard_library_release(library);
+    CHECK(library->storage == NULL && library->services == NULL);
+    library->size = (uint32_t)first_shape - 1;
+    CHECK(weivel_standard_read_library(json, strlen(json), library, NULL) == WEIVEL_STATUS_MALFORMED);
+}
+
 static void refuses_a_nul_in_a_name(void) {
     static const char json[] = "{\"importName\": \"echo\", \"version\": \"1\\u0000\", \"release\": \"r\","
                                " \"services\": []}";
@@ -310,6 +379,9 @@ int main(void) {
     reads_a_library_of_definitions_with_no_release();
     reads_a_release_beside_definitions_alone();
     reads_a_definition_service_beside_a_bytes_service();
+    reads_a_description_beside_a_definition();
+    reads_no_descriptions_where_none_is_declared();
+    fills_a_first_shape_declaration_within_its_size();
     refuses_a_nul_in_a_name();
     refuses_without_a_refusal_to_fill();
     refuses_a_malformed_call();
