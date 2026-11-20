@@ -6,6 +6,8 @@
 # source, which defines SYMBOL answering the description of that definition, to <target>. PREFIX begins every other
 # name a generated source declares. EXPORT is the macro SYMBOL is declared with, such as the library's export macro.
 # STATUS, REFUSAL, VALUE and TREE name the types the headers use in those roles, defaulting to weivel/standard's own.
+# The value and tree types are known by name alone, so the header declaring them is not one of HEADERS, which would
+# refuse it; the headers that use them include it.
 # A relative header is read from the calling directory. The generated sources include weivel/description.h and each
 # header by its absolute path, so <target> is given weivel/standard's include directories.
 
