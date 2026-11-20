@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "weivel/core.h"
+#include "weivel/description.h"
 #include "weivel/services.h"
 #include "weivel/value.h"
 

@@ -1,0 +1,226 @@
+/* Written by weivel-describe from the headers it includes; edit them, not this file. */
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "weivel/description.h"
+#include "restated.h"
+#include "restated_types.h"
+
+static const weivel_standard_described_member restated_probe_restated_members[] = {
+    {.name = "size",
+     .offset = offsetof(probe_restated, size),
+     .size = sizeof(((probe_restated *)0)->size),
+     .kind = WEIVEL_STANDARD_DESCRIBED_U32,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "context",
+     .offset = offsetof(probe_restated, context),
+     .size = sizeof(((probe_restated *)0)->context),
+     .kind = WEIVEL_STANDARD_DESCRIBED_CONTEXT,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL}};
+
+static const weivel_standard_described_member restated_probe_refusal_members[] = {
+    {.name = "size",
+     .offset = offsetof(probe_refusal, size),
+     .size = sizeof(((probe_refusal *)0)->size),
+     .kind = WEIVEL_STANDARD_DESCRIBED_U32,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "detail",
+     .offset = offsetof(probe_refusal, detail),
+     .size = sizeof(((probe_refusal *)0)->detail),
+     .kind = WEIVEL_STANDARD_DESCRIBED_TEXT,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "fix",
+     .offset = offsetof(probe_refusal, fix),
+     .size = sizeof(((probe_refusal *)0)->fix),
+     .kind = WEIVEL_STANDARD_DESCRIBED_TEXT,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "storage",
+     .offset = offsetof(probe_refusal, storage),
+     .size = sizeof(((probe_refusal *)0)->storage),
+     .kind = WEIVEL_STANDARD_DESCRIBED_STORAGE,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL}};
+
+static const weivel_standard_described_member restated_probe_reply_members[] = {
+    {.name = "size",
+     .offset = offsetof(probe_reply, size),
+     .size = sizeof(((probe_reply *)0)->size),
+     .kind = WEIVEL_STANDARD_DESCRIBED_U32,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "value",
+     .offset = offsetof(probe_reply, value),
+     .size = sizeof(((probe_reply *)0)->value),
+     .kind = WEIVEL_STANDARD_DESCRIBED_POINTER,
+     .element = WEIVEL_STANDARD_DESCRIBED_VALUE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "storage",
+     .offset = offsetof(probe_reply, storage),
+     .size = sizeof(((probe_reply *)0)->storage),
+     .kind = WEIVEL_STANDARD_DESCRIBED_STORAGE,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL}};
+
+static const weivel_standard_described_parameter restated_ask_parameters[] = {
+    {.name = "context",
+     .kind = WEIVEL_STANDARD_DESCRIBED_CONTEXT,
+     .role = WEIVEL_STANDARD_DESCRIBED_INPUT,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "question",
+     .kind = WEIVEL_STANDARD_DESCRIBED_POINTER,
+     .role = WEIVEL_STANDARD_DESCRIBED_INPUT,
+     .element = WEIVEL_STANDARD_DESCRIBED_VALUE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "tree",
+     .kind = WEIVEL_STANDARD_DESCRIBED_VALUE,
+     .role = WEIVEL_STANDARD_DESCRIBED_ANSWER,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = "release_tree"},
+    {.name = "reply",
+     .kind = WEIVEL_STANDARD_DESCRIBED_POINTER,
+     .role = WEIVEL_STANDARD_DESCRIBED_ANSWER,
+     .element = WEIVEL_STANDARD_DESCRIBED_STRUCT,
+     .type = "probe_reply",
+     .count = NULL,
+     .release = "release_reply"},
+    {.name = "refusal",
+     .kind = WEIVEL_STANDARD_DESCRIBED_POINTER,
+     .role = WEIVEL_STANDARD_DESCRIBED_REFUSAL,
+     .element = WEIVEL_STANDARD_DESCRIBED_STRUCT,
+     .type = "probe_refusal",
+     .count = NULL,
+     .release = "release_refusal"}};
+
+static const weivel_standard_described_parameter restated_release_tree_parameters[] = {
+    {.name = "context",
+     .kind = WEIVEL_STANDARD_DESCRIBED_CONTEXT,
+     .role = WEIVEL_STANDARD_DESCRIBED_INPUT,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "tree",
+     .kind = WEIVEL_STANDARD_DESCRIBED_VALUE,
+     .role = WEIVEL_STANDARD_DESCRIBED_ANSWER,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL}};
+
+static const weivel_standard_described_parameter restated_release_reply_parameters[] = {
+    {.name = "context",
+     .kind = WEIVEL_STANDARD_DESCRIBED_CONTEXT,
+     .role = WEIVEL_STANDARD_DESCRIBED_INPUT,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "reply",
+     .kind = WEIVEL_STANDARD_DESCRIBED_POINTER,
+     .role = WEIVEL_STANDARD_DESCRIBED_ANSWER,
+     .element = WEIVEL_STANDARD_DESCRIBED_STRUCT,
+     .type = "probe_reply",
+     .count = NULL,
+     .release = NULL}};
+
+static const weivel_standard_described_parameter restated_release_refusal_parameters[] = {
+    {.name = "context",
+     .kind = WEIVEL_STANDARD_DESCRIBED_CONTEXT,
+     .role = WEIVEL_STANDARD_DESCRIBED_INPUT,
+     .element = WEIVEL_STANDARD_DESCRIBED_NONE,
+     .type = NULL,
+     .count = NULL,
+     .release = NULL},
+    {.name = "refusal",
+     .kind = WEIVEL_STANDARD_DESCRIBED_POINTER,
+     .role = WEIVEL_STANDARD_DESCRIBED_REFUSAL,
+     .element = WEIVEL_STANDARD_DESCRIBED_STRUCT,
+     .type = "probe_refusal",
+     .count = NULL,
+     .release = NULL}};
+
+static const weivel_standard_described_type restated_types[] = {
+    {.name = "probe_restated",
+     .size = sizeof(probe_restated),
+     .first_shape = offsetof(probe_restated, release_refusal) + sizeof(((probe_restated *)0)->release_refusal),
+     .members = restated_probe_restated_members,
+     .member_count = sizeof(restated_probe_restated_members) / sizeof(restated_probe_restated_members[0])},
+    {.name = "probe_refusal",
+     .size = sizeof(probe_refusal),
+     .first_shape = offsetof(probe_refusal, storage) + sizeof(((probe_refusal *)0)->storage),
+     .members = restated_probe_refusal_members,
+     .member_count = sizeof(restated_probe_refusal_members) / sizeof(restated_probe_refusal_members[0])},
+    {.name = "probe_reply",
+     .size = sizeof(probe_reply),
+     .first_shape = offsetof(probe_reply, storage) + sizeof(((probe_reply *)0)->storage),
+     .members = restated_probe_reply_members,
+     .member_count = sizeof(restated_probe_reply_members) / sizeof(restated_probe_reply_members[0])}};
+
+static const weivel_standard_described_operation restated_operations[] = {
+    {.name = "ask",
+     .offset = offsetof(probe_restated, ask),
+     .returns = WEIVEL_STANDARD_DESCRIBED_STATUS,
+     .parameters = restated_ask_parameters,
+     .parameter_count = sizeof(restated_ask_parameters) / sizeof(restated_ask_parameters[0])},
+    {.name = "release_tree",
+     .offset = offsetof(probe_restated, release_tree),
+     .returns = WEIVEL_STANDARD_DESCRIBED_NOTHING,
+     .parameters = restated_release_tree_parameters,
+     .parameter_count = sizeof(restated_release_tree_parameters) / sizeof(restated_release_tree_parameters[0])},
+    {.name = "release_reply",
+     .offset = offsetof(probe_restated, release_reply),
+     .returns = WEIVEL_STANDARD_DESCRIBED_NOTHING,
+     .parameters = restated_release_reply_parameters,
+     .parameter_count = sizeof(restated_release_reply_parameters) / sizeof(restated_release_reply_parameters[0])},
+    {.name = "release_refusal",
+     .offset = offsetof(probe_restated, release_refusal),
+     .returns = WEIVEL_STANDARD_DESCRIBED_NOTHING,
+     .parameters = restated_release_refusal_parameters,
+     .parameter_count = sizeof(restated_release_refusal_parameters) / sizeof(restated_release_refusal_parameters[0])}};
+
+static const weivel_standard_description restated_description = {
+    .size = (uint32_t)sizeof(weivel_standard_description),
+    .definition = "probe_restated",
+    .types = restated_types,
+    .type_count = sizeof(restated_types) / sizeof(restated_types[0]),
+    .enums = NULL,
+    .enum_count = 0,
+    .operations = restated_operations,
+    .operation_count = sizeof(restated_operations) / sizeof(restated_operations[0])};
+
+const weivel_standard_description *probe_restated_description(void);
+
+const weivel_standard_description *probe_restated_description(void) {
+    return &restated_description;
+}

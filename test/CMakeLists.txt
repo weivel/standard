@@ -43,11 +43,32 @@ foreach(description_target description_test description_shared_test description_
 endforeach()
 
 standard_test(describe_test describe_test weivel_describe_reader)
-standard_test(describe_memory_test describe_memory_test weivel_describe_reader_testing)
-foreach(describe_target describe_test describe_memory_test)
+standard_test(describe_memory_test describe_memory_test weivel_describe_writer_testing)
+standard_test(describe_write_test describe_write_test weivel_describe_writer)
+foreach(describe_target describe_test describe_memory_test describe_write_test)
     target_compile_definitions(${describe_target} PRIVATE
         WEIVEL_DESCRIBE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/describe"
         WEIVEL_DESCRIBE_SERVICES_HEADER="${PROJECT_SOURCE_DIR}/include/weivel/services.h")
+endforeach()
+target_sources(describe_write_test PRIVATE describe/golden/probe.c)
+target_include_directories(describe_write_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/describe)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/describe-actual)
+target_compile_definitions(describe_write_test PRIVATE
+    WEIVEL_DESCRIBE_ACTUAL="${CMAKE_CURRENT_BINARY_DIR}/describe-actual")
+
+standard_test(describe_services_test describe_services_test weivel_standard)
+weivel_describe(describe_services_test
+    HEADERS ${PROJECT_SOURCE_DIR}/include/weivel/services.h
+    PREFIX services_
+    SERVICE weivel_standard_config SYMBOL services_described_config
+    SERVICE weivel_standard_secrets SYMBOL services_described_secrets
+    SERVICE weivel_standard_paths SYMBOL services_described_paths)
+
+foreach(scenario refused usage)
+    add_test(NAME describe_program_${scenario}
+        COMMAND ${CMAKE_COMMAND} -DSCENARIO=${scenario} -DDESCRIBE=$<TARGET_FILE:weivel-describe>
+            -DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/describe -DWORK=${CMAKE_CURRENT_BINARY_DIR}/describe-program
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/describe/program_check.cmake)
 endforeach()
 
 function(layout_test name source)
