@@ -422,7 +422,9 @@ static const expected_member PLAN_MEMBERS[] = {
     MEMBER(weivel_standard_host_plan, action_plugin, TEXT, NONE, NULL, NULL),
     MEMBER(weivel_standard_host_plan, action_name, TEXT, NONE, NULL, NULL),
     MEMBER(weivel_standard_host_plan, action_arguments, VALUE, NONE, NULL, NULL),
-    MEMBER(weivel_standard_host_plan, storage, STORAGE, NONE, NULL, NULL)};
+    MEMBER(weivel_standard_host_plan, storage, STORAGE, NONE, NULL, NULL),
+    MEMBER(weivel_standard_host_plan, action_service, TEXT, NONE, NULL, NULL),
+    MEMBER(weivel_standard_host_plan, action_method, TEXT, NONE, NULL, NULL)};
 static const expected_member LIBRARY_MEMBERS[] = {
     MEMBER(weivel_standard_host_library, binary, TEXT, NONE, NULL, NULL),
     MEMBER(weivel_standard_host_library, declaration, TEXT, NONE, NULL, NULL)};

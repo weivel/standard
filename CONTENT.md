@@ -18,6 +18,7 @@ standard's own definitions, so a library serving one declares the symbol and nev
 
 Three more contracts are defined for a host program: `weivel.log` (`services.h`), `weivel.scope` (`scope.h`), which
 opens each plugin a scope of its own services, and `weivel.host` (`host.h`), through which a program asks its provider
-what to run and tells it what happened. A library's service id may be dotted, as `weivel.log` is, and its
-`importName` is refused when it names a Windows device name such as `con` or `com1`. A host that wants another
+what to run and tells it what happened. An action run calls either an action the plugin's entry offers or a method of
+a service the plugin itself provides, as the plan names it. A library's service id may be dotted, as `weivel.log` is,
+and its `importName` is refused when it names a Windows device name such as `con` or `com1`. A host that wants another
 format, another layout or no files at all builds the core's structures itself and never links this library.
