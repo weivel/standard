@@ -804,6 +804,12 @@ static const refused_case REFUSED_CASES[] = {
                                        "holds it"},
     {REFUSED("clause_two_members.h"), 4, "the doc of `probe_run` names `probe_mode` without saying which uint32_t "
                                          "holds it"},
+    {REFUSED("enum_clause_unbound.h"), 4, "the doc of `probe_step` names `probe_step_kind` and binds it to no "
+                                          "uint32_t of `probe_step`; name `probe_step_kind` in the own doc of the "
+                                          "uint32_t holding it"},
+    {REFUSED("enum_doc_on_text.h"), 5, "the doc of `mode` names `probe_mode`, and `mode` is no uint32_t"},
+    {REFUSED("enum_array.h"), 5, "`notices` is an array of uint32_t, whose elements a description never binds to an "
+                                 "enum"},
     {REFUSED("bound_twice.h"), 7, "`mode` is said to hold both `probe_mode` and `probe_level`"},
     {REFUSED("anonymous_struct.h"), 1, "an anonymous struct " GRAMMAR},
     {REFUSED("anonymous_enum.h"), 1, "an anonymous enum " GRAMMAR},

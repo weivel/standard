@@ -50,8 +50,10 @@
  * uint32_t the clause names in backticks, or, when the clause names no member or parameter in backticks at all, to
  * the only uint32_t there is that holds no enum yet (a leading `size` never does). Refused as ambiguous: an own doc or
  * a clause naming two enums, a clause backticking two uint32_t, a clause backticking none when two uint32_t hold no
- * enum yet, and one uint32_t bound to two enums. A clause that backticks only items that are not uint32_t binds
- * nothing.
+ * enum yet, and one uint32_t bound to two enums. Refused as unbound, since the uint32_t would otherwise be described
+ * as a plain number: a clause naming an enum that no item of its struct or operation holds once every clause is
+ * bound, as one backticking only items that are not uint32_t does, and the own doc of an item that is no uint32_t
+ * naming an enum, an array of uint32_t included, whose elements a description never binds to one.
  *
  * Definitions. A struct with function pointers is a definition: `uint32_t size; void *context;`, then only function
  * pointers, each an operation `<status> (*name)(void *context, <parameters>)` or a release
