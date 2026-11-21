@@ -85,15 +85,22 @@ typedef struct weivel_standard_host_plugin {
  * The program reads and checks a plugin's manifest before it opens that plugin's scope: a plugin whose manifest cannot
  * be read, or is refused, gets no scope and is told as REFUSED. In ACTION mode it then runs one action of the plugin
  * whose manifest is `action_plugin`, handing it `action_arguments`, of kind NONE when there are none, and which action
- * is decided by `action_service` and `action_method` alone:
+ * is decided by `action_service` and `action_method` alone, a text being set when it is not NULL:
  *
  * - both set: the action is the method `action_method` of the service object the plugin itself registered under the
  *   service id `action_service`, an id its manifest provides, such as `<importName>:accounts`, and `action_name` is
- *   not read. A service registered under that id by another plugin, or by none, is one the plugin does not provide;
- * - neither set: the action is `action_name` among the actions the plugin's entry offers. A provider compiled before
- *   the two members leaves them so, as the size convention reads what lies beyond its struct, and a provider may
- *   choose it, so no program loses the runs it had;
- * - one set and the other not: the plan is a malformed answer, which ends the run as a malformed mode does.
+ *   not read. A method is a named operation the object offers, taking `action_arguments` and answering a result or
+ *   failing; each binding with a host program names its realisation in its own docs, and one without a host program
+ *   has none to realise. A service registered under that id by another plugin, or by none, is one the plugin does
+ *   not provide;
+ * - neither set: the action is `action_name` among the actions the plugin's entry offers, since a plugin may offer
+ *   actions from its entry as well as through the services it provides. A plan from a provider compiled before the
+ *   two members reads them as NULL, as the size convention reads what lies beyond the provider's struct;
+ * - one set and the other not, or either one empty: the plan is a malformed answer, which ends the run as a malformed
+ *   mode does.
+ *
+ * A provider whose run needs `action_service` and `action_method` and is handed a plan whose `size` cannot hold them,
+ * from a program compiled before them, refuses `start`, its detail saying the program is too old for the run.
  *
  * An action whose plugin was not activated, a service that plugin does not provide, or a method or an action it does
  * not offer, is told to `finished` as a failure, and so is a method that throws, as an action that throws is. In
@@ -175,7 +182,8 @@ typedef struct weivel_standard_host {
      * when `argument_count` is 0.
      * @param plan the consumer's empty answer. Required.
      * @param refusal the consumer's empty refusal, or NULL for none.
-     * @return OK with the plan; REFUSED when the arguments name no run the provider can make.
+     * @return OK with the plan; REFUSED when the arguments name no run the provider can make, or the run needs a
+     * member the plan's `size` cannot hold.
      */
     weivel_status (*start)(void *context, const char *const *arguments, size_t argument_count,
                            weivel_standard_host_plan *plan, weivel_standard_service_refusal *refusal);
