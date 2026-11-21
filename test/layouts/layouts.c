@@ -196,6 +196,8 @@ static void print_host_layouts(void) {
     FIELD(weivel_standard_host_plan, action_name);
     FIELD(weivel_standard_host_plan, action_arguments);
     FIELD(weivel_standard_host_plan, storage);
+    FIELD(weivel_standard_host_plan, action_service);
+    FIELD(weivel_standard_host_plan, action_method);
     SIZE(weivel_standard_host_plan);
     FIELD(weivel_standard_host_outcome, manifest);
     FIELD(weivel_standard_host_outcome, state);
