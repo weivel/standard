@@ -106,7 +106,8 @@ typedef struct weivel_standard_host_outcome {
 /**
  * When the program ticks next, as host's `tick` answers it: at `next`, milliseconds since the Unix epoch, when
  * `has_next` is 1. When `has_next` is 0, `tick` is never called again, and the program serves until a stop request.
- * First shape ends at `storage`.
+ * Any other `has_next` is a malformed answer, which ends the run: the program calls `stop` next. First shape ends at
+ * `storage`.
  */
 typedef struct weivel_standard_host_next {
     uint32_t size;
@@ -131,7 +132,8 @@ typedef struct weivel_standard_host_next {
  * arrives before `started` is called takes effect once `started` has been told the outcome of every plugin of the
  * plan, each one attempted, and the program then calls `stop`, with no `tick` and no action. One that arrives during a
  * later call, as during a blocking `tick`, takes effect once that call returns: the program calls `stop` next, and no
- * further `tick`. First shape ends at `release_refusal`.
+ * further `tick`. One that arrives while an ACTION run's action runs takes effect once `finished` has been told how
+ * it ended. First shape ends at `release_refusal`.
  */
 typedef struct weivel_standard_host {
     uint32_t size;
