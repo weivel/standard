@@ -63,7 +63,7 @@ typedef enum weivel_standard_described_kind {
     WEIVEL_STANDARD_DESCRIBED_TEXTS = 7,
     /** `const uint8_t *`: as many bytes as the member its `count` names, any bytes at all. */
     WEIVEL_STANDARD_DESCRIBED_BYTES = 8,
-    /** A struct held by value, the one its `type` names. */
+    /** A struct held by value, the one its `type` names, which never holds the struct holding it. */
     WEIVEL_STANDARD_DESCRIBED_STRUCT = 9,
     /** `const T *`: one `element`, a STRUCT naming its `type` or a VALUE, or NULL for none. */
     WEIVEL_STANDARD_DESCRIBED_POINTER = 10,
@@ -140,6 +140,10 @@ typedef enum weivel_standard_described_return {
  * DEFINITION, the `definition` of one of the description's `definitions`; and is NULL otherwise. `count` names, for
  * TEXTS, BYTES and an ARRAY, the SIZE member of the same struct counting it, and is NULL otherwise. `release` names,
  * for a HANDLE, the operation that frees it, and is NULL otherwise.
+ *
+ * A POINTER or an ARRAY of STRUCT may name the struct holding it, or one that reaches it, as a tree of blocks holds
+ * its blocks: a binding following one walks a struct it may already be inside. A STRUCT never does, since a struct
+ * holding itself by value has no finite size.
  */
 typedef struct weivel_standard_described_member {
     const char *name;
@@ -253,8 +257,9 @@ typedef struct weivel_standard_description {
  * none repeats among the types, the enums, the operations, a type's members, an enum's entries or an operation's
  * parameters; every kind, element, role and return is one this header publishes, in the one spelling the kinds
  * allow; `definition` and every `type` it requires name a struct or an enum it holds; every member lies inside its
- * struct, with the size its kind has; every count names a SIZE member of the same struct, or a SIZE parameter of the
- * same operation; every release names one of its operations; every first shape lies within its struct; every
+ * struct, with the size its kind has; no struct holds itself by value, directly or through other structs, where a
+ * POINTER or an ARRAY may point at it; every count names a SIZE member of the same struct, or a SIZE parameter of
+ * the same operation; every release names one of its operations; every first shape lies within its struct; every
  * operation lies inside the definition's struct; every `blocking` name is set, names an operation that is no
  * release, and is listed once; every one of `definitions` is set, reaches its first shape and names its
  * `definition`, no two naming the same; and every DEFINITION's `type` is the `definition` of one of them.
@@ -274,9 +279,10 @@ typedef struct weivel_standard_description {
  *
  * @param description Required.
  * @param refusal the caller's empty refusal, or NULL for none; filled on WEIVEL_STATUS_MALFORMED with the fault's
- * `path`, as `types[2].members[1].count`, `blocking[1]` or `definitions[0].types[2].name`, MISSING_FIELD for a NULL
- * name or array, DUPLICATE at the later of two names, INVALID_VALUE for any other fault, and MALFORMED_CALL, at
- * path "", for a NULL description or one below its first shape.
+ * `path`, as `types[2].members[1].count`, `blocking[1]` or `definitions[0].types[2].name`, a struct holding itself
+ * refused at the `type` of the first member, in `types` order, holding a struct that holds its own; MISSING_FIELD
+ * for a NULL name or array, DUPLICATE at the later of two names, INVALID_VALUE for any other fault, and
+ * MALFORMED_CALL, at path "", for a NULL description or one below its first shape.
  * @return WEIVEL_STATUS_OK; WEIVEL_STATUS_MALFORMED at the first fault, and for a refusal below its first shape or
  * still holding one, which is left as it was; WEIVEL_STATUS_OUT_OF_MEMORY when the refusal's texts cannot be made, the
  * refusal left empty.

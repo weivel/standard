@@ -501,6 +501,63 @@ static int check_type(checking *state, const described_type *type, const field_p
     return 1;
 }
 
+/** A STRUCT member as large as its struct, the only kind of member a struct holding itself by value can lie on. */
+static int fills_its_struct(const described_type *type, const described_member *member) {
+    return member->kind == WEIVEL_STANDARD_DESCRIBED_STRUCT && member->size == type->size;
+}
+
+/**
+ * Whether `from` is `held`, or holds it by value through `steps` STRUCT members at most.
+ *
+ * @implNote A struct is never smaller than one it holds by value, so a cycle of them is of structs of one size, each
+ * filling the one holding it, and the walk follows such members alone. A C struct filled by one member holds no
+ * other, so the walk is a chain; `steps`, the description's type count, bounds it where members overlap.
+ */
+static int holds_by_value(const weivel_standard_description *description, const described_type *from,
+                          const described_type *held, size_t steps) {
+    size_t at;
+    if (from == held) {
+        return 1;
+    }
+    if (steps == 0) {
+        return 0;
+    }
+    for (at = 0; at < from->member_count; at++) {
+        const described_member *member = &from->members[at];
+        if (fills_its_struct(from, member) &&
+            holds_by_value(description, type_named(description, member->type), held, steps - 1)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/** No struct holds itself by value, directly or through others, which would leave it no finite size. */
+static int holds_nothing_inside_itself(checking *state, const weivel_standard_description *description) {
+    field_path types = {state->root, "types", 0};
+    size_t type_at;
+    size_t member_at;
+    for (type_at = 0; type_at < description->type_count; type_at++) {
+        const described_type *type = &description->types[type_at];
+        field_path item = {&types, NULL, type_at};
+        field_path members = {&item, "members", 0};
+        for (member_at = 0; member_at < type->member_count; member_at++) {
+            const described_member *member = &type->members[member_at];
+            field_path held = {&members, NULL, member_at};
+            field_path named = {&held, "type", 0};
+            if (fills_its_struct(type, member) &&
+                holds_by_value(description, type_named(description, member->type), type, description->type_count)) {
+                return refuse_invalid(state, &named,
+                                      "%s names a struct holding by value the struct holding it, so neither has a "
+                                      "finite size",
+                                      "point at the struct %s names through a POINTER or an ARRAY, as a struct "
+                                      "reaching itself must");
+            }
+        }
+    }
+    return 1;
+}
+
 static int is_published_role(uint32_t role) {
     return role > WEIVEL_STANDARD_DESCRIBED_NO_ROLE && role <= WEIVEL_STANDARD_DESCRIBED_ROLE_LAST;
 }
@@ -958,6 +1015,9 @@ static int check_described(checking *state, const weivel_standard_description *d
         if (!check_type(state, &description->types[at], &item)) {
             return 0;
         }
+    }
+    if (!holds_nothing_inside_itself(state, description)) {
+        return 0;
     }
     for (at = 0; at < description->operation_count; at++) {
         field_path item = {&operations, NULL, at};

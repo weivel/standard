@@ -31,6 +31,12 @@
  *   type, as weivel_standard_paths' are, has no refusal); `<tree> *` a value answer; `const char **` a text answer;
  *   a non-const pointer to a scalar a scalar answer; `H **` a handle answer.
  *
+ * A type is named by its typedef name, never spelled with `struct`, `union` or `enum`, but for one form: inside
+ * `typedef struct <tag> { ... } <tag>;` a member may spell its own struct `struct <tag>`, as C requires before the
+ * typedef name exists, read exactly as `<tag>` is, so `const struct <tag> *` is a POINTER, or an ARRAY with its
+ * count, of the struct holding it. `struct <tag>` held by value, which would leave the struct no finite size, is
+ * refused.
+ *
  * Counts. A TEXTS or an ARRAY named N is counted by the size_t beside it named `N_count`, N less a trailing `ies`
  * then `y_count` (`entries` by `entry_count`), N less a trailing `s` then `_count` (`tags` by `tag_count`), or
  * `count`; BYTES named N by `N_length` or `length`. Exactly one may exist, a candidate that is not a size_t is

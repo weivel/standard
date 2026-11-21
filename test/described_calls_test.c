@@ -539,6 +539,97 @@ static void lends_a_counter_called_through_its_own_context(const described_walke
     CHECK(walker->lend(walker->context, NULL) == WEIVEL_STATUS_MALFORMED);
 }
 
+/** The outline the kit's vector hands: a root holding two nodes, the first holding one that holds one, and a chain. */
+typedef struct outline_parts {
+    described_node deepest;
+    described_node inner;
+    described_node content[2];
+    described_node last;
+    described_node after;
+    described_node root;
+} outline_parts;
+
+static described_node *outline_of(outline_parts *parts) {
+    memset(parts, 0, sizeof *parts);
+    parts->deepest.label = "a11";
+    parts->inner.label = "a1";
+    parts->inner.content = &parts->deepest;
+    parts->inner.content_count = 1;
+    parts->content[0].label = "a";
+    parts->content[0].content = &parts->inner;
+    parts->content[0].content_count = 1;
+    parts->content[1].label = "b";
+    parts->content[1].depth = 77;
+    parts->last.label = "last";
+    parts->after.label = "after";
+    parts->after.next = &parts->last;
+    parts->root.label = "root";
+    parts->root.next = &parts->after;
+    parts->root.content = parts->content;
+    parts->root.content_count = 2;
+    return &parts->root;
+}
+
+/** Equal to `expected` but for `depth`, and holding its own copies of what it points at. */
+static int copied_node(const described_node *actual, const described_node *expected, uint32_t depth) {
+    return actual != expected && copied_text(actual->label, expected->label) && actual->depth == depth &&
+           actual->content_count == expected->content_count &&
+           (actual->content == NULL ? expected->content == NULL : actual->content != expected->content) &&
+           (actual->next == NULL ? expected->next == NULL : actual->next != expected->next);
+}
+
+static void copies_nodes_holding_nodes_at_every_depth(const described_mirror *mirror) {
+    outline_parts parts;
+    const described_node *root = outline_of(&parts);
+    described_outline copy = WEIVEL_INIT(described_outline);
+    described_releases before = releases_of(mirror);
+    const described_node *copied = &copy.root;
+    CHECK(mirror->outline(mirror->context, root, &copy, NULL) == WEIVEL_STATUS_OK);
+    CHECK(copy.size == sizeof(described_outline) && copy.storage != NULL);
+    CHECK(copied_node(copied, root, 0));
+    CHECK(copied->content != NULL && copied_node(&copied->content[0], &parts.content[0], 1) &&
+          copied_node(&copied->content[1], &parts.content[1], 1));
+    CHECK(copied->content != NULL && copied_node(&copied->content[0].content[0], &parts.inner, 2) &&
+          copied_node(&copied->content[0].content[0].content[0], &parts.deepest, 3));
+    CHECK(copied->next != NULL && copied_node(copied->next, &parts.after, 1) &&
+          copied_node(copied->next->next, &parts.last, 2));
+    mirror->release_outline(mirror->context, &copy);
+    CHECK(copy.storage == NULL && copy.root.label == NULL && copy.root.content == NULL);
+    CHECK(releases_of(mirror).outlines == before.outlines + 1);
+    mirror->release_outline(mirror->context, &copy);
+    CHECK(releases_of(mirror).outlines == before.outlines + 1);
+}
+
+static void refuses_an_outline_it_cannot_copy(const described_mirror *mirror) {
+    outline_parts parts;
+    described_node chain[DESCRIBED_OUTLINE_DEPTH_LIMIT + 2];
+    described_outline copy = WEIVEL_INIT(described_outline);
+    described_outline holding = WEIVEL_INIT(described_outline);
+    weivel_standard_service_refusal refusal = WEIVEL_INIT(weivel_standard_service_refusal);
+    described_node *root = outline_of(&parts);
+    size_t at;
+    int storage;
+    holding.storage = &storage;
+    CHECK(mirror->outline(mirror->context, NULL, &copy, NULL) == WEIVEL_STATUS_MALFORMED);
+    CHECK(mirror->outline(mirror->context, root, NULL, NULL) == WEIVEL_STATUS_MALFORMED);
+    CHECK(mirror->outline(mirror->context, root, &holding, NULL) == WEIVEL_STATUS_MALFORMED);
+    parts.inner.content = NULL;
+    CHECK(mirror->outline(mirror->context, root, &copy, NULL) == WEIVEL_STATUS_MALFORMED);
+    memset(chain, 0, sizeof chain);
+    for (at = 0; at + 1 < COUNT_OF(chain); at++) {
+        chain[at].next = &chain[at + 1];
+    }
+    CHECK(mirror->outline(mirror->context, &chain[0], &copy, NULL) == WEIVEL_STATUS_MALFORMED);
+    chain[COUNT_OF(chain) - 2].next = NULL;
+    CHECK(mirror->outline(mirror->context, &chain[0], &copy, NULL) == WEIVEL_STATUS_OK);
+    mirror->release_outline(mirror->context, &copy);
+    root->label = "refuse";
+    CHECK(mirror->outline(mirror->context, root, &copy, &refusal) == WEIVEL_STATUS_REFUSED);
+    CHECK(copy.storage == NULL && holding.storage == &storage);
+    check_refusal(&refusal);
+    mirror->release_refusal(mirror->context, &refusal);
+}
+
 static void calls_every_operation(described_library library) {
     described_definition_symbol mirror_symbol = described_library_definition(library, "described_mirror_definition");
     described_definition_symbol walker_symbol = described_library_definition(library, "described_walker_definition");
@@ -569,6 +660,8 @@ static void calls_every_operation(described_library library) {
     waits_and_answers_at_once(walker);
     lends_a_counter_called_through_its_own_context(walker);
     refuses_the_counters_sentinel_and_releases_the_refusal_once(mirror, walker);
+    copies_nodes_holding_nodes_at_every_depth(mirror);
+    refuses_an_outline_it_cannot_copy(mirror);
 }
 
 static void offers_every_operation_but_halve_without_it(described_library library) {
@@ -592,6 +685,7 @@ static void offers_every_operation_but_halve_without_it(described_library librar
     CHECK(without->count_releases == mirror->count_releases);
     CHECK(without->release_reflection == mirror->release_reflection && without->release_tree == mirror->release_tree);
     CHECK(without->release_refusal == mirror->release_refusal);
+    CHECK(without->outline == mirror->outline && without->release_outline == mirror->release_outline);
 }
 
 int main(int argument_count, char **arguments) {
