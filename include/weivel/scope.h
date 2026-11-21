@@ -37,7 +37,9 @@ typedef struct weivel_standard_scope {
 } weivel_standard_scope;
 
 /**
- * The scopes a host opens, served under WEIVEL_STANDARD_SERVICE_SCOPE. First shape ends at `release_refusal`.
+ * The scopes a host opens, served under WEIVEL_STANDARD_SERVICE_SCOPE. A host program opens a plugin's scope
+ * immediately before that plugin's activation, in the plan's order (`weivel/host.h`). First shape ends at
+ * `release_refusal`.
  */
 typedef struct weivel_standard_scopes {
     uint32_t size;

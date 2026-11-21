@@ -27,9 +27,9 @@ WEIVEL_STANDARD_API const char *weivel_standard_service_host(void);
 
 /** What a run does. 0 is no mode. The modes are append-only: a published mode keeps its number, and none is reused. */
 typedef enum weivel_standard_host_mode {
-    /** Activates the plugins and serves until stopped. */
+    /** Activates the plugins, ticks, and serves until a stop request. */
     WEIVEL_STANDARD_HOST_SERVE = 1,
-    /** Activates the plugins, runs one action, and stops. */
+    /** Activates the plugins, runs one action, and stops, without ever ticking. */
     WEIVEL_STANDARD_HOST_ACTION = 2
 } weivel_standard_host_mode;
 
@@ -65,9 +65,12 @@ typedef struct weivel_standard_host_plugin {
 
 /**
  * What a run does, as host's `start` answers it. Every text is NUL-terminated UTF-8. The program loads `libraries` in
- * order, then activates `plugins` in order. In ACTION mode it then runs the action `action_name` of the plugin whose
- * manifest is `action_plugin`, with `action_arguments`, of kind NONE when there are none; in SERVE mode both texts are
- * NULL and `action_arguments` is of kind NONE. First shape ends at `storage`.
+ * order, then activates `plugins` in order, opening each plugin's scope (`weivel/scope.h`) immediately before that
+ * plugin's activation and after the previous plugin's activation ended. The scope is asked of whichever library the
+ * program loaded serves `weivel.scope`, the library it was started with included, and a program none of them serves
+ * opens no scope and offers the plugin nothing. In ACTION mode it then runs the action `action_name` of the plugin
+ * whose manifest is `action_plugin`, with `action_arguments`, of kind NONE when there are none; in SERVE mode both
+ * texts are NULL and `action_arguments` is of kind NONE. First shape ends at `storage`.
  */
 typedef struct weivel_standard_host_plan {
     uint32_t size;
@@ -89,14 +92,17 @@ typedef struct weivel_standard_host_outcome {
     const char *manifest;
     /** A weivel_standard_host_plugin_state. */
     uint32_t state;
-    /** Why the plugin was refused or failed, as English UTF-8, or NULL for none. */
+    /**
+     * Why the plugin was refused or failed, as English UTF-8, or NULL for none. It is set, and not empty, whenever the
+     * scope's refusal or the activation's failure carried a reason.
+     */
     const char *detail;
 } weivel_standard_host_outcome;
 
 /**
  * When the program ticks next, as host's `tick` answers it: at `next`, milliseconds since the Unix epoch, when
- * `has_next` is 1. When `has_next` is 0, `tick` is never called again, and the program serves until a signal stops
- * it, or, in ACTION mode, until the action finishes. First shape ends at `storage`.
+ * `has_next` is 1. When `has_next` is 0, `tick` is never called again, and the program serves until a stop request.
+ * First shape ends at `storage`.
  */
 typedef struct weivel_standard_host_next {
     uint32_t size;
@@ -107,10 +113,18 @@ typedef struct weivel_standard_host_next {
 
 /**
  * The provider a host program runs, served under WEIVEL_STANDARD_SERVICE_HOST. The program calls `start` once, then
- * `started`, then `tick` whenever the time it answered comes, `finished` after an ACTION run, and `stop` last. Once
- * `start` has answered OK, the program calls `stop` last whatever happened, including after a REFUSED from `started`
- * or `tick`, after an action, and on a signal; when `start` does not answer OK, the program calls nothing else and
- * exits non-zero. First shape ends at `release_refusal`.
+ * opens each plugin's scope and activates the plugin, as the plan says, then calls `started` once with every
+ * plugin's outcome. In SERVE mode it then calls `tick` at once and again whenever the time it answered comes, until a
+ * stop request. In ACTION mode it never calls `tick`: it runs the action and tells `finished` how it ended. Once
+ * `start` has answered OK, the program calls `stop` last, once, whatever happened, including after a REFUSED from
+ * `started` or `tick`, after an action, and on a stop request, and exits with the code `stop` answered; when `start`
+ * does not answer OK, the program calls nothing else and exits non-zero.
+ *
+ * A stop request is how a program is asked to end a run: a program takes it through its own interface, and a
+ * program's command line takes it from its platform's terminate signals (SIGINT and SIGTERM on POSIX systems, SIGINT
+ * and SIGBREAK on Windows). It is honoured from the moment `start` answered OK. One that arrives during a call, as
+ * during a blocking `tick`, takes effect once that call returns: the program calls `stop` next, and no further `tick`.
+ * First shape ends at `release_refusal`.
  */
 typedef struct weivel_standard_host {
     uint32_t size;
@@ -137,8 +151,10 @@ typedef struct weivel_standard_host {
     weivel_status (*started)(void *context, const weivel_standard_host_outcome *outcomes, size_t outcome_count,
                              weivel_standard_service_refusal *refusal);
     /**
-     * Lets the provider act on the time, and asks when to tick next. @blocking the provider may check for updates,
-     * which waits on I/O.
+     * Lets the provider act on the time, and asks when to tick next. Called in SERVE mode only: at once after
+     * `started` answered OK, then whenever the time the previous call answered comes, the program reading its clock
+     * again before each call and waiting again while it still reads before `next`. @blocking the provider may check
+     * for updates, which waits on I/O.
      *
      * @param now milliseconds since the Unix epoch, as the program's clock reads.
      * @param next the consumer's empty answer. Required.
@@ -148,7 +164,7 @@ typedef struct weivel_standard_host {
     weivel_status (*tick)(void *context, int64_t now, weivel_standard_host_next *next,
                           weivel_standard_service_refusal *refusal);
     /**
-     * Tells how an ACTION run ended.
+     * Tells how an ACTION run ended, once, after the action ended.
      *
      * @param result what the action answered, read during the call only, of kind NONE when it answered nothing,
      * and NULL only when it threw.
