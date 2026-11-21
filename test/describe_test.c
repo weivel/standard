@@ -550,6 +550,28 @@ static void reads_a_struct_pointing_at_itself_by_its_tag(void) {
     describe_model_release(&model);
 }
 
+/** The status is a role, so a doc naming it binds nothing and is never refused, while another enum still must bind. */
+static void reads_a_doc_naming_the_status_as_a_role(void) {
+    describe_model model;
+    describe_refusal refusal;
+    const char *paths[] = {FIXTURE("status_named.h")};
+    const char *beside[] = {REFUSED("enum_beside_status.h")};
+    describe_names names = describe_names_of_the_standard();
+    static const expected_item job[] = {{"label", K(TEXT), MEMBER, NO, NULL, NULL, NULL}};
+    names.status = "probe_status";
+    if (read_all(&model, paths, COUNT_OF(paths), &names) != DESCRIBE_DONE) {
+        CHECK(0);
+        return;
+    }
+    check_members(&model, "probe_job", job, COUNT_OF(job));
+    describe_model_release(&model);
+    CHECK(describe_read(&model, beside, COUNT_OF(beside), &names, &refusal) == DESCRIBE_REFUSED);
+    check_number(refusal.line, 10, "enum_beside_status.h", "line");
+    CHECK(refusal.message != NULL &&
+          strstr(refusal.message, "the doc of `run` names `probe_mode` and binds it to no uint32_t of `run`") != NULL);
+    describe_refusal_release(&refusal);
+}
+
 static const expected_item REFUSAL_MEMBERS[] = {{"size", K(U32), MEMBER, NO, NULL, NULL, NULL},
                                                 {"detail", K(TEXT), MEMBER, NO, NULL, NULL, NULL},
                                                 {"fix", K(TEXT), MEMBER, NO, NULL, NULL, NULL},
@@ -1042,6 +1064,7 @@ int main(void) {
     counts_y_plurals_and_releases_only_what_owns_storage();
     walks_what_an_answer_holds_once_through_cycles();
     reads_a_struct_pointing_at_itself_by_its_tag();
+    reads_a_doc_naming_the_status_as_a_role();
     reads_every_struct_and_definition_of_services_h();
     reaches_what_each_service_of_services_h_uses();
     refuses_each_form_outside_the_grammar_at_its_line();

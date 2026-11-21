@@ -600,6 +600,19 @@ static void copies_nodes_holding_nodes_at_every_depth(const described_mirror *mi
     CHECK(releases_of(mirror).outlines == before.outlines + 1);
 }
 
+/** A caller compiled before `outlines` hands the first shape alone, which is filled and never written past. */
+static void counts_into_a_first_shape_alone(const described_mirror *mirror) {
+    described_releases releases = WEIVEL_INIT(described_releases);
+    const uint64_t untouched = 0x5eed5eed5eed5eedu;
+    releases.size = (uint32_t)(offsetof(described_releases, nested_refusals) + sizeof releases.nested_refusals);
+    releases.outlines = untouched;
+    CHECK(mirror->count_releases(mirror->context, &releases) == WEIVEL_STATUS_OK);
+    CHECK(releases.size == offsetof(described_releases, outlines) && releases.outlines == untouched);
+    CHECK(releases.nested_refusals == releases_of(mirror).nested_refusals);
+    releases.size = (uint32_t)offsetof(described_releases, nested_refusals);
+    CHECK(mirror->count_releases(mirror->context, &releases) == WEIVEL_STATUS_MALFORMED);
+}
+
 static void refuses_an_outline_it_cannot_copy(const described_mirror *mirror) {
     outline_parts parts;
     described_node chain[DESCRIBED_OUTLINE_DEPTH_LIMIT + 2];
@@ -662,6 +675,7 @@ static void calls_every_operation(described_library library) {
     refuses_the_counters_sentinel_and_releases_the_refusal_once(mirror, walker);
     copies_nodes_holding_nodes_at_every_depth(mirror);
     refuses_an_outline_it_cannot_copy(mirror);
+    counts_into_a_first_shape_alone(mirror);
 }
 
 static void offers_every_operation_but_halve_without_it(described_library library) {

@@ -506,28 +506,62 @@ static int fills_its_struct(const described_type *type, const described_member *
     return member->kind == WEIVEL_STANDARD_DESCRIBED_STRUCT && member->size == type->size;
 }
 
-/**
- * Whether `from` is `held`, or holds it by value through `steps` STRUCT members at most.
- *
- * @implNote A struct is never smaller than one it holds by value, so a cycle of them is of structs of one size, each
- * filling the one holding it, and the walk follows such members alone. A C struct filled by one member holds no
- * other, so the walk is a chain; `steps`, the description's type count, bounds it where members overlap.
- */
-static int holds_by_value(const weivel_standard_description *description, const described_type *from,
-                          const described_type *held, size_t steps) {
+/** The member filling `type`, NULL for none; holds_no_second_filler leaves at most one. */
+static const described_member *filler_of(const described_type *type) {
     size_t at;
-    if (from == held) {
-        return 1;
+    for (at = 0; at < type->member_count; at++) {
+        if (fills_its_struct(type, &type->members[at])) {
+            return &type->members[at];
+        }
     }
-    if (steps == 0) {
-        return 0;
+    return NULL;
+}
+
+/** No struct is filled by two STRUCT members, which would lie over each other as no C struct's members do. */
+static int holds_no_second_filler(checking *state, const weivel_standard_description *description) {
+    field_path types = {state->root, "types", 0};
+    size_t type_at;
+    size_t member_at;
+    for (type_at = 0; type_at < description->type_count; type_at++) {
+        const described_type *type = &description->types[type_at];
+        const described_member *first = filler_of(type);
+        field_path item = {&types, NULL, type_at};
+        field_path members = {&item, "members", 0};
+        for (member_at = 0; first != NULL && member_at < type->member_count; member_at++) {
+            field_path member = {&members, NULL, member_at};
+            field_path offset = {&member, "offset", 0};
+            if (&type->members[member_at] != first && fills_its_struct(type, &type->members[member_at])) {
+                return refuse_invalid(state, &offset,
+                                      "%s lays a second STRUCT member over the whole of its struct, where no C "
+                                      "struct lays two members over each other",
+                                      "set %s to offsetof the member, and its size to its sizeof");
+            }
+        }
     }
-    for (at = 0; at < from->member_count; at++) {
-        const described_member *member = &from->members[at];
-        if (fills_its_struct(from, member) &&
-            holds_by_value(description, type_named(description, member->type), held, steps - 1)) {
+    return 1;
+}
+
+/**
+ * Whether the struct `filler` names, followed through each struct's one filling member, comes back to `holder`.
+ *
+ * @implNote Sound and complete for a cycle of structs held by value: check_type has made every STRUCT member as
+ * large as the struct it names and lie inside its holder, so a struct is never smaller than one it holds, sizes are
+ * equal all round a cycle, and every member on the cycle fills its holder; holds_no_second_filler leaves each struct
+ * at most one such member, so the walk is a chain. The chain may run into a cycle that misses `holder`, so it stops
+ * after the description's type count of steps, each scanning one struct's members: a walk costs at most every
+ * member once, and the whole check at most the type count times that.
+ */
+static int comes_back_to(const weivel_standard_description *description, const described_type *holder,
+                         const described_member *filler) {
+    const described_type *at = type_named(description, filler->type);
+    size_t steps;
+    for (steps = 0; at != NULL && steps < description->type_count; steps++) {
+        const described_member *next;
+        if (at == holder) {
             return 1;
         }
+        next = filler_of(at);
+        at = next == NULL ? NULL : type_named(description, next->type);
     }
     return 0;
 }
@@ -536,23 +570,22 @@ static int holds_by_value(const weivel_standard_description *description, const 
 static int holds_nothing_inside_itself(checking *state, const weivel_standard_description *description) {
     field_path types = {state->root, "types", 0};
     size_t type_at;
-    size_t member_at;
+    if (!holds_no_second_filler(state, description)) {
+        return 0;
+    }
     for (type_at = 0; type_at < description->type_count; type_at++) {
         const described_type *type = &description->types[type_at];
+        const described_member *filler = filler_of(type);
         field_path item = {&types, NULL, type_at};
         field_path members = {&item, "members", 0};
-        for (member_at = 0; member_at < type->member_count; member_at++) {
-            const described_member *member = &type->members[member_at];
-            field_path held = {&members, NULL, member_at};
-            field_path named = {&held, "type", 0};
-            if (fills_its_struct(type, member) &&
-                holds_by_value(description, type_named(description, member->type), type, description->type_count)) {
-                return refuse_invalid(state, &named,
-                                      "%s names a struct holding by value the struct holding it, so neither has a "
-                                      "finite size",
-                                      "point at the struct %s names through a POINTER or an ARRAY, as a struct "
-                                      "reaching itself must");
-            }
+        field_path held = {&members, NULL, filler == NULL ? 0 : (size_t)(filler - type->members)};
+        field_path named = {&held, "type", 0};
+        if (filler != NULL && comes_back_to(description, type, filler)) {
+            return refuse_invalid(state, &named,
+                                  "%s names a struct that is, or holds by value, the struct holding it, so no "
+                                  "struct of that cycle has a finite size",
+                                  "point at the struct %s names through a POINTER or an ARRAY, as a struct "
+                                  "reaching itself must");
         }
     }
     return 1;

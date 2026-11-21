@@ -257,12 +257,13 @@ typedef struct weivel_standard_description {
  * none repeats among the types, the enums, the operations, a type's members, an enum's entries or an operation's
  * parameters; every kind, element, role and return is one this header publishes, in the one spelling the kinds
  * allow; `definition` and every `type` it requires name a struct or an enum it holds; every member lies inside its
- * struct, with the size its kind has; no struct holds itself by value, directly or through other structs, where a
- * POINTER or an ARRAY may point at it; every count names a SIZE member of the same struct, or a SIZE parameter of
- * the same operation; every release names one of its operations; every first shape lies within its struct; every
- * operation lies inside the definition's struct; every `blocking` name is set, names an operation that is no
- * release, and is listed once; every one of `definitions` is set, reaches its first shape and names its
- * `definition`, no two naming the same; and every DEFINITION's `type` is the `definition` of one of them.
+ * struct, with the size its kind has; no struct is filled whole by two STRUCT members, which no C struct lays over
+ * each other; no struct holds itself by value, directly or through other structs, where a POINTER or an ARRAY may
+ * point at it; every count names a SIZE member of the same struct, or a SIZE parameter of the same operation; every
+ * release names one of its operations; every first shape lies within its struct; every operation lies inside the
+ * definition's struct; every `blocking` name is set, names an operation that is no release, and is listed once;
+ * every one of `definitions` is set, reaches its first shape and names its `definition`, no two naming the same; and
+ * every DEFINITION's `type` is the `definition` of one of them.
  *
  * It then checks the description against the convention every binding builds on: an `element`, `type`, `count` or
  * `release` its kind or role leaves unused is NONE or NULL, as the member and parameter docs above say; every release

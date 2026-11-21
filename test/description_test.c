@@ -94,6 +94,75 @@ static void holds_by_value_one_holding_it(probe_description *probe) {
     fill_with(&probe->loan[0], "probe_item", probe->types[PROBE_LOAN_TYPE].size);
 }
 
+#define HELD_CHAIN_LENGTH 64
+
+/** Structs past the probe's own, each of one size and filled by a member naming the next. */
+typedef struct chain {
+    char names[HELD_CHAIN_LENGTH][16];
+    weivel_standard_described_member members[HELD_CHAIN_LENGTH][2];
+    weivel_standard_described_type types[PROBE_TYPE_COUNT + HELD_CHAIN_LENGTH];
+} chain;
+
+/**
+ * Appends `length` structs to the probe's types, each filled by `fillers` members naming the next; the last names
+ * none, or the first when `closes`, which makes a cycle of all `length`.
+ */
+static void append_chain(probe_description *probe, chain *links, size_t length, size_t fillers, int closes) {
+    size_t at;
+    size_t filler;
+    memcpy(links->types, probe->types, sizeof probe->types);
+    for (at = 0; at < length; at++) {
+        snprintf(links->names[at], sizeof links->names[at], "probe_chain_%02u", (unsigned)at);
+    }
+    for (at = 0; at < length; at++) {
+        weivel_standard_described_type *type = &links->types[PROBE_TYPE_COUNT + at];
+        size_t next = at + 1 < length ? at + 1 : 0;
+        int names_next = at + 1 < length || closes;
+        for (filler = 0; filler < fillers; filler++) {
+            fill_with(&links->members[at][filler], links->names[next], sizeof(uint64_t));
+            links->members[at][filler].name = filler == 0 ? "first" : "second";
+        }
+        type->name = links->names[at];
+        type->size = sizeof(uint64_t);
+        type->first_shape = sizeof(uint64_t);
+        type->members = links->members[at];
+        type->member_count = names_next ? fillers : 0;
+    }
+    probe->description.types = links->types;
+    probe->description.type_count = PROBE_TYPE_COUNT + length;
+}
+
+static void check_chain(size_t length, size_t fillers, int closes, const char *path, const char *says) {
+    static chain links;
+    probe_description probe;
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    weivel_status status;
+    probe_describe(&probe);
+    append_chain(&probe, &links, length, fillers, closes);
+    status = weivel_standard_description_check(&probe.description, &refusal);
+    if (path == NULL) {
+        CHECK(status == WEIVEL_STATUS_OK);
+    } else {
+        CHECK(status == WEIVEL_STATUS_MALFORMED);
+        check_text(refusal.path, path, says);
+        CHECK(refusal.detail != NULL && strstr(refusal.detail, says) != NULL);
+    }
+    weivel_standard_refusal_release(&refusal);
+}
+
+/**
+ * A long chain of structs each filled by the next is sound, and closing it at any length is refused at its first
+ * struct. Structs each filled by two members naming the next, which a walk following every filler takes 2^64 steps
+ * through, are refused for the second filler before any walk.
+ */
+static void checks_chains_of_structs_held_by_value(void) {
+    check_chain(HELD_CHAIN_LENGTH, 1, 0, NULL, NULL);
+    check_chain(3, 1, 1, "types[6].members[0].type", "names a struct that is, or holds by value, the struct holding it");
+    check_chain(HELD_CHAIN_LENGTH, 1, 1, "types[6].members[0].type",
+                "names a struct that is, or holds by value, the struct holding it");
+    check_chain(HELD_CHAIN_LENGTH, 2, 0, "types[6].members[1].offset", "lays a second STRUCT member over the whole");
+}
+
 static void names_no_struct(probe_description *probe) {
     probe->input[9].type = "probe_thing";
 }
@@ -545,9 +614,9 @@ static void refuses_through_a_definition(probe_description *probe) {
 
 static const refused_case REFUSED[] = {
     {"a struct holding itself by value", holds_itself_by_value, INVALID, "types[0].members[0].type",
-     "names a struct holding by value the struct holding it"},
+     "names a struct that is, or holds by value, the struct holding it"},
     {"two structs holding each other by value", holds_by_value_one_holding_it, INVALID, "types[0].members[0].type",
-     "names a struct holding by value the struct holding it"},
+     "names a struct that is, or holds by value, the struct holding it"},
     {"a blocking name naming no operation", blocks_in_no_operation, INVALID, "blocking[0]",
      "names an operation the description does not hold"},
     {"a blocking name naming a release", blocks_in_a_release, INVALID, "blocking[0]", "names a release"},
@@ -817,6 +886,7 @@ int main(void) {
     accepts_a_description_of_every_kind();
     accepts_a_struct_reaching_itself_through_a_pointer();
     accepts_a_struct_filled_by_another_holding_it_nowhere();
+    checks_chains_of_structs_held_by_value();
     reads_a_newer_description_up_to_what_it_knows();
     reads_an_older_description_as_holding_no_blocking_and_no_definitions();
     for (at = 0; at < sizeof REFUSED / sizeof REFUSED[0]; at++) {

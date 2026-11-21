@@ -766,12 +766,22 @@ static int span_holds_word(text_span span, const char *word) {
     return 0;
 }
 
-/** How many enums of the model `span` names, stopping at two, the first two into `named`. */
-static size_t enums_named(const describe_model *model, text_span span, const char *named[2]) {
+/** Whether `name` is a type the standard's convention gives a role, as the status every operation answers. */
+static int is_role_type(const describe_names *names, const char *name) {
+    return strcmp(name, names->status) == 0 || strcmp(name, names->refusal) == 0 || strcmp(name, names->value) == 0 ||
+           strcmp(name, names->tree) == 0;
+}
+
+/**
+ * How many enums of the model `span` names, stopping at two, the first two into `named`. An enum that is a role
+ * type is never counted: a doc naming the status an operation answers names a role, not a uint32_t's enum.
+ */
+static size_t enums_named(const resolving *state, text_span span, const char *named[2]) {
+    const describe_model *model = state->model;
     size_t found = 0;
     size_t at;
     for (at = 0; at < model->enum_count && found < 2; at++) {
-        if (span_holds_word(span, model->enums[at].name)) {
+        if (!is_role_type(state->names, model->enums[at].name) && span_holds_word(span, model->enums[at].name)) {
             named[found++] = model->enums[at].name;
         }
     }
@@ -819,7 +829,7 @@ static describe_outcome bind_own(resolving *state, describe_item *items, size_t 
         }
         doc.start = item->doc;
         doc.length = strlen(item->doc);
-        found = enums_named(state->model, doc, named);
+        found = enums_named(state, doc, named);
         if (found > 0 && !is_enum_candidate(items, item)) {
             outcome = refuse_enum_unheld(state, item, named[0]);
         } else if (found == 2) {
@@ -895,7 +905,7 @@ typedef struct container {
 
 static describe_outcome bind_clause(resolving *state, const container *owner, text_span clause) {
     const char *named[2] = {NULL, NULL};
-    size_t found = enums_named(state->model, clause, named);
+    size_t found = enums_named(state, clause, named);
     size_t mentioned;
     size_t candidates;
     describe_item *held;
@@ -937,7 +947,7 @@ static int holds_enum(const container *owner, const char *named) {
  */
 static describe_outcome check_clause_held(resolving *state, const container *owner, text_span clause) {
     const char *named[2] = {NULL, NULL};
-    if (enums_named(state->model, clause, named) == 0 || holds_enum(owner, named[0])) {
+    if (enums_named(state, clause, named) == 0 || holds_enum(owner, named[0])) {
         return DESCRIBE_DONE;
     }
     return describe_refuse(state->refusal, owner->where.file, owner->where.line,

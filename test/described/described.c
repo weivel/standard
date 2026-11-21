@@ -687,14 +687,16 @@ static weivel_status mirror_weigh(void *context, const weivel_standard_value *va
     return status;
 }
 
+/** Fills as much of `releases` as its `size` covers, from its first shape up, leaving what lies beyond untouched. */
 static weivel_status mirror_count_releases(void *context, described_releases *releases) {
+    const size_t first_shape = offsetof(described_releases, nested_refusals) + sizeof released.nested_refusals;
     uint32_t size;
     (void)context;
-    if (releases == NULL || releases->size < sizeof(described_releases)) {
+    if (releases == NULL || releases->size < first_shape) {
         return WEIVEL_STATUS_MALFORMED;
     }
     size = releases->size;
-    *releases = released;
+    memcpy(releases, &released, size < sizeof released ? size : sizeof released);
     releases->size = size;
     return WEIVEL_STATUS_OK;
 }

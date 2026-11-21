@@ -53,7 +53,9 @@
  * enum yet, and one uint32_t bound to two enums. Refused as unbound, since the uint32_t would otherwise be described
  * as a plain number: a clause naming an enum that no item of its struct or operation holds once every clause is
  * bound, as one backticking only items that are not uint32_t does, and the own doc of an item that is no uint32_t
- * naming an enum, an array of uint32_t included, whose elements a description never binds to one.
+ * naming an enum, an array of uint32_t included, whose elements a description never binds to one. A role type, the
+ * status, the refusal, the value or the tree type, is never an enum a doc names here, so a doc saying an operation
+ * answers the status binds nothing and is not refused, though the status is an enum.
  *
  * Definitions. A struct with function pointers is a definition: `uint32_t size; void *context;`, then only function
  * pointers, each an operation `<status> (*name)(void *context, <parameters>)` or a release
