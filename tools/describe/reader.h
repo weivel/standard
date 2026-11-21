@@ -31,6 +31,12 @@
  *   type, as weivel_standard_paths' are, has no refusal); `<tree> *` a value answer; `const char **` a text answer;
  *   a non-const pointer to a scalar a scalar answer; `H **` a handle answer.
  *
+ * A type is named by its typedef name, never spelled with `struct`, `union` or `enum`, but for one form: inside
+ * `typedef struct <tag> { ... } <tag>;` a member may spell its own struct `struct <tag>`, as C requires before the
+ * typedef name exists, read exactly as `<tag>` is, so `const struct <tag> *` is a POINTER, or an ARRAY with its
+ * count, of the struct holding it. `struct <tag>` held by value, which would leave the struct no finite size, is
+ * refused.
+ *
  * Counts. A TEXTS or an ARRAY named N is counted by the size_t beside it named `N_count`, N less a trailing `ies`
  * then `y_count` (`entries` by `entry_count`), N less a trailing `s` then `_count` (`tags` by `tag_count`), or
  * `count`; BYTES named N by `N_length` or `length`. Exactly one may exist, a candidate that is not a size_t is
@@ -44,8 +50,12 @@
  * uint32_t the clause names in backticks, or, when the clause names no member or parameter in backticks at all, to
  * the only uint32_t there is that holds no enum yet (a leading `size` never does). Refused as ambiguous: an own doc or
  * a clause naming two enums, a clause backticking two uint32_t, a clause backticking none when two uint32_t hold no
- * enum yet, and one uint32_t bound to two enums. A clause that backticks only items that are not uint32_t binds
- * nothing.
+ * enum yet, and one uint32_t bound to two enums. Refused as unbound, since the uint32_t would otherwise be described
+ * as a plain number: a clause naming an enum that no item of its struct or operation holds once every clause is
+ * bound, as one backticking only items that are not uint32_t does, and the own doc of an item that is no uint32_t
+ * naming an enum, an array of uint32_t included, whose elements a description never binds to one. A role type, the
+ * status, the refusal, the value or the tree type, is never an enum a doc names here, so a doc saying an operation
+ * answers the status binds nothing and is not refused, though the status is an enum.
  *
  * Definitions. A struct with function pointers is a definition: `uint32_t size; void *context;`, then only function
  * pointers, each an operation `<status> (*name)(void *context, <parameters>)` or a release

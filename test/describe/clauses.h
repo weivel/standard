@@ -2,10 +2,7 @@ typedef enum probe_level { PROBE_LOW = 0, PROBE_HIGH = 1 } probe_level;
 
 typedef enum probe_color { PROBE_RED = 0, PROBE_BLUE = 1 } probe_color;
 
-/**
- * A line: `start` is a time; `level` is a probe_level; `plain` 1 leaves it uncoloured. `start` is never a
- * probe_color, which a clause naming only members that hold no uint32_t binds to nothing.
- */
+/** A line: `start` is a time; `level` is a probe_level; `plain` 1 leaves it uncoloured. */
 typedef struct probe_line {
     const char *start;
     uint32_t level;
@@ -17,11 +14,6 @@ typedef struct probe_choice {
     const char *key;
     uint32_t color;
 } probe_choice;
-
-/** Holds nothing an enum names, so the probe_level here binds nothing. */
-typedef struct probe_label {
-    const char *text;
-} probe_label;
 
 /** A sized struct whose only other uint32_t holds the probe_color. First shape ends at `color`. */
 typedef struct probe_paint {

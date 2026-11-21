@@ -24,7 +24,7 @@ static int library_context;
 
 static described_releases released = {
     .size = (uint32_t)sizeof(described_releases), .reflections = 0, .trees = 0, .refusals = 0, .cursors = 0,
-    .nested_refusals = 0};
+    .nested_refusals = 0, .outlines = 0};
 
 static described_arena *arena_open(void) {
     described_arena *arena = malloc(sizeof *arena);
@@ -374,6 +374,100 @@ static weivel_status mirror_reflect(void *context, const described_sample *sampl
     return WEIVEL_STATUS_OK;
 }
 
+static weivel_status copy_node(described_arena *arena, const described_node *from, described_node *to, size_t depth);
+
+static weivel_status copy_next(described_arena *arena, const described_node *from, described_node *to,
+                               size_t depth) {
+    described_node *next;
+    weivel_status status;
+    if (from->next == NULL) {
+        return WEIVEL_STATUS_OK;
+    }
+    next = arena_take(arena, 1, sizeof *next);
+    if (next == NULL) {
+        return WEIVEL_STATUS_OUT_OF_MEMORY;
+    }
+    status = copy_node(arena, from->next, next, depth + 1);
+    to->next = next;
+    return status;
+}
+
+static weivel_status copy_content(described_arena *arena, const described_node *from, described_node *to,
+                                  size_t depth) {
+    described_node *content;
+    size_t at;
+    if (from->content_count == 0) {
+        return WEIVEL_STATUS_OK;
+    }
+    content = arena_take(arena, from->content_count, sizeof *content);
+    if (content == NULL) {
+        return WEIVEL_STATUS_OUT_OF_MEMORY;
+    }
+    for (at = 0; at < from->content_count; at++) {
+        weivel_status status = copy_node(arena, &from->content[at], &content[at], depth + 1);
+        if (status != WEIVEL_STATUS_OK) {
+            return status;
+        }
+    }
+    to->content = content;
+    return WEIVEL_STATUS_OK;
+}
+
+/** Copies a node lying `depth` pointers below the root, and every node it reaches, setting each copy's depth. */
+static weivel_status copy_node(described_arena *arena, const described_node *from, described_node *to, size_t depth) {
+    weivel_status status;
+    if (depth > DESCRIBED_OUTLINE_DEPTH_LIMIT || (from->content == NULL && from->content_count != 0)) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    *to = *from;
+    to->depth = (uint32_t)depth;
+    to->next = NULL;
+    to->content = NULL;
+    if (!copy_text(arena, from->label, &to->label)) {
+        return WEIVEL_STATUS_OUT_OF_MEMORY;
+    }
+    status = copy_next(arena, from, to, depth);
+    return status == WEIVEL_STATUS_OK ? copy_content(arena, from, to, depth) : status;
+}
+
+static weivel_status mirror_outline(void *context, const described_node *node, described_outline *copy,
+                                    weivel_standard_service_refusal *refusal) {
+    described_arena *arena;
+    described_node root;
+    weivel_status status;
+    (void)context;
+    if (node == NULL || copy == NULL || copy->size < sizeof(described_outline) || copy->storage != NULL ||
+        !refusal_is_usable(refusal)) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    if (is_refused(node->label)) {
+        return refuse(refusal);
+    }
+    arena = arena_open();
+    if (arena == NULL) {
+        return WEIVEL_STATUS_OUT_OF_MEMORY;
+    }
+    status = copy_node(arena, node, &root, 0);
+    if (status != WEIVEL_STATUS_OK) {
+        arena_close(arena);
+        return status;
+    }
+    copy->root = root;
+    copy->storage = arena;
+    return WEIVEL_STATUS_OK;
+}
+
+static void mirror_release_outline(void *context, described_outline *copy) {
+    (void)context;
+    if (copy == NULL || copy->size < sizeof(described_outline) || copy->storage == NULL) {
+        return;
+    }
+    arena_close(copy->storage);
+    memset(&copy->root, 0, sizeof copy->root);
+    copy->storage = NULL;
+    released.outlines++;
+}
+
 static int text_node(described_arena *arena, const char *text, weivel_standard_value *node) {
     memset(node, 0, sizeof *node);
     if (text == NULL) {
@@ -593,14 +687,16 @@ static weivel_status mirror_weigh(void *context, const weivel_standard_value *va
     return status;
 }
 
+/** Fills as much of `releases` as its `size` covers, from its first shape up, leaving what lies beyond untouched. */
 static weivel_status mirror_count_releases(void *context, described_releases *releases) {
+    const size_t first_shape = offsetof(described_releases, nested_refusals) + sizeof released.nested_refusals;
     uint32_t size;
     (void)context;
-    if (releases == NULL || releases->size < sizeof(described_releases)) {
+    if (releases == NULL || releases->size < first_shape) {
         return WEIVEL_STATUS_MALFORMED;
     }
     size = releases->size;
-    *releases = released;
+    memcpy(releases, &released, size < sizeof released ? size : sizeof released);
     releases->size = size;
     return WEIVEL_STATUS_OK;
 }
@@ -755,7 +851,9 @@ static weivel_status walker_lend(void *context, described_loan *loan) {
     .count_releases = mirror_count_releases,          \
     .release_reflection = mirror_release_reflection,  \
     .release_tree = mirror_release_tree,              \
-    .release_refusal = release_refusal
+    .release_refusal = release_refusal,               \
+    .outline = mirror_outline,                        \
+    .release_outline = mirror_release_outline
 
 static const described_mirror mirror = {MIRROR_BUT_HALVE, .halve = mirror_halve};
 

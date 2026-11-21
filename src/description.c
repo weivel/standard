@@ -501,6 +501,96 @@ static int check_type(checking *state, const described_type *type, const field_p
     return 1;
 }
 
+/** A STRUCT member as large as its struct, the only kind of member a struct holding itself by value can lie on. */
+static int fills_its_struct(const described_type *type, const described_member *member) {
+    return member->kind == WEIVEL_STANDARD_DESCRIBED_STRUCT && member->size == type->size;
+}
+
+/** The member filling `type`, NULL for none; holds_no_second_filler leaves at most one. */
+static const described_member *filler_of(const described_type *type) {
+    size_t at;
+    for (at = 0; at < type->member_count; at++) {
+        if (fills_its_struct(type, &type->members[at])) {
+            return &type->members[at];
+        }
+    }
+    return NULL;
+}
+
+/** No struct is filled by two STRUCT members, which would lie over each other as no C struct's members do. */
+static int holds_no_second_filler(checking *state, const weivel_standard_description *description) {
+    field_path types = {state->root, "types", 0};
+    size_t type_at;
+    size_t member_at;
+    for (type_at = 0; type_at < description->type_count; type_at++) {
+        const described_type *type = &description->types[type_at];
+        const described_member *first = filler_of(type);
+        field_path item = {&types, NULL, type_at};
+        field_path members = {&item, "members", 0};
+        for (member_at = 0; first != NULL && member_at < type->member_count; member_at++) {
+            field_path member = {&members, NULL, member_at};
+            field_path offset = {&member, "offset", 0};
+            if (&type->members[member_at] != first && fills_its_struct(type, &type->members[member_at])) {
+                return refuse_invalid(state, &offset,
+                                      "%s lays a second STRUCT member over the whole of its struct, where no C "
+                                      "struct lays two members over each other",
+                                      "set %s to offsetof the member, and its size to its sizeof");
+            }
+        }
+    }
+    return 1;
+}
+
+/**
+ * Whether the struct `filler` names, followed through each struct's one filling member, comes back to `holder`.
+ *
+ * @implNote Sound and complete for a cycle of structs held by value: check_type has made every STRUCT member as
+ * large as the struct it names and lie inside its holder, so a struct is never smaller than one it holds, sizes are
+ * equal all round a cycle, and every member on the cycle fills its holder; holds_no_second_filler leaves each struct
+ * at most one such member, so the walk is a chain. The chain may run into a cycle that misses `holder`, so it stops
+ * after the description's type count of steps, each scanning one struct's members: a walk costs at most every
+ * member once, and the whole check at most the type count times that.
+ */
+static int comes_back_to(const weivel_standard_description *description, const described_type *holder,
+                         const described_member *filler) {
+    const described_type *at = type_named(description, filler->type);
+    size_t steps;
+    for (steps = 0; at != NULL && steps < description->type_count; steps++) {
+        const described_member *next;
+        if (at == holder) {
+            return 1;
+        }
+        next = filler_of(at);
+        at = next == NULL ? NULL : type_named(description, next->type);
+    }
+    return 0;
+}
+
+/** No struct holds itself by value, directly or through others, which would leave it no finite size. */
+static int holds_nothing_inside_itself(checking *state, const weivel_standard_description *description) {
+    field_path types = {state->root, "types", 0};
+    size_t type_at;
+    if (!holds_no_second_filler(state, description)) {
+        return 0;
+    }
+    for (type_at = 0; type_at < description->type_count; type_at++) {
+        const described_type *type = &description->types[type_at];
+        const described_member *filler = filler_of(type);
+        field_path item = {&types, NULL, type_at};
+        field_path members = {&item, "members", 0};
+        field_path held = {&members, NULL, filler == NULL ? 0 : (size_t)(filler - type->members)};
+        field_path named = {&held, "type", 0};
+        if (filler != NULL && comes_back_to(description, type, filler)) {
+            return refuse_invalid(state, &named,
+                                  "%s names a struct that is, or holds by value, the struct holding it, so no "
+                                  "struct of that cycle has a finite size",
+                                  "point at the struct %s names through a POINTER or an ARRAY, as a struct "
+                                  "reaching itself must");
+        }
+    }
+    return 1;
+}
+
 static int is_published_role(uint32_t role) {
     return role > WEIVEL_STANDARD_DESCRIBED_NO_ROLE && role <= WEIVEL_STANDARD_DESCRIBED_ROLE_LAST;
 }
@@ -958,6 +1048,9 @@ static int check_described(checking *state, const weivel_standard_description *d
         if (!check_type(state, &description->types[at], &item)) {
             return 0;
         }
+    }
+    if (!holds_nothing_inside_itself(state, description)) {
+        return 0;
     }
     for (at = 0; at < description->operation_count; at++) {
         field_path item = {&operations, NULL, at};

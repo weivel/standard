@@ -515,6 +515,63 @@ static void walks_what_an_answer_holds_once_through_cycles(void) {
     describe_model_release(&model);
 }
 
+/** A member spelled `const struct <tag> *` inside its own struct describes as its typedef name would. */
+static void reads_a_struct_pointing_at_itself_by_its_tag(void) {
+    describe_model model;
+    const char *paths[] = {FIXTURE("self_reference.h")};
+    describe_names names = describe_names_of_the_standard();
+    static const expected_item spelled[] = {
+        {"label", K(TEXT), MEMBER, NO, NULL, NULL, NULL},
+        {"next", K(POINTER), MEMBER, K(STRUCT), "probe_spelled", NULL, NULL},
+        {"content", K(ARRAY), MEMBER, K(STRUCT), "probe_spelled", "content_count", NULL},
+        {"content_count", K(SIZE), MEMBER, NO, NULL, NULL, NULL}};
+    static const expected_item named[] = {
+        {"label", K(TEXT), MEMBER, NO, NULL, NULL, NULL},
+        {"next", K(POINTER), MEMBER, K(STRUCT), "probe_named", NULL, NULL},
+        {"content", K(ARRAY), MEMBER, K(STRUCT), "probe_named", "content_count", NULL},
+        {"content_count", K(SIZE), MEMBER, NO, NULL, NULL, NULL}};
+    static const expected_item copy[] = {
+        CONTEXT_PARAMETER,
+        {"spelled", K(POINTER), K(INPUT), K(STRUCT), "probe_spelled", NULL, NULL},
+        {"named", K(POINTER), K(INPUT), K(STRUCT), "probe_named", NULL, NULL},
+        {"tree", K(POINTER), K(ANSWER), K(STRUCT), "probe_tree", NULL, "release_tree"}};
+    static const expected_item release_tree[] = {CONTEXT_PARAMETER,
+                                                 {"tree", K(POINTER), K(ANSWER), K(STRUCT), "probe_tree", NULL, NULL}};
+    static const expected_operation operations[] = {OPERATION("copy", STATUS, NULL, copy),
+                                                    OPERATION("release_tree", NOTHING, "probe_tree", release_tree)};
+    if (read_all(&model, paths, COUNT_OF(paths), &names) != DESCRIBE_DONE) {
+        CHECK(0);
+        return;
+    }
+    check_members(&model, "probe_spelled", spelled, COUNT_OF(spelled));
+    check_members(&model, "probe_named", named, COUNT_OF(named));
+    check_shape(&model, "probe_spelled", 0, NULL);
+    check_operations(&model, "probe_trees", operations, COUNT_OF(operations));
+    describe_model_release(&model);
+}
+
+/** The status is a role, so a doc naming it binds nothing and is never refused, while another enum still must bind. */
+static void reads_a_doc_naming_the_status_as_a_role(void) {
+    describe_model model;
+    describe_refusal refusal;
+    const char *paths[] = {FIXTURE("status_named.h")};
+    const char *beside[] = {REFUSED("enum_beside_status.h")};
+    describe_names names = describe_names_of_the_standard();
+    static const expected_item job[] = {{"label", K(TEXT), MEMBER, NO, NULL, NULL, NULL}};
+    names.status = "probe_status";
+    if (read_all(&model, paths, COUNT_OF(paths), &names) != DESCRIBE_DONE) {
+        CHECK(0);
+        return;
+    }
+    check_members(&model, "probe_job", job, COUNT_OF(job));
+    describe_model_release(&model);
+    CHECK(describe_read(&model, beside, COUNT_OF(beside), &names, &refusal) == DESCRIBE_REFUSED);
+    check_number(refusal.line, 10, "enum_beside_status.h", "line");
+    CHECK(refusal.message != NULL &&
+          strstr(refusal.message, "the doc of `run` names `probe_mode` and binds it to no uint32_t of `run`") != NULL);
+    describe_refusal_release(&refusal);
+}
+
 static const expected_item REFUSAL_MEMBERS[] = {{"size", K(U32), MEMBER, NO, NULL, NULL, NULL},
                                                 {"detail", K(TEXT), MEMBER, NO, NULL, NULL, NULL},
                                                 {"fix", K(TEXT), MEMBER, NO, NULL, NULL, NULL},
@@ -712,6 +769,12 @@ static const refused_case REFUSED_CASES[] = {
     {REFUSED("unknown_type.h"), 2, "`probe_mystery`, the type of the member `thing`, which no scanned header declares, "
                                    GRAMMAR},
     {REFUSED("keyword_type.h"), 2, "`unsigned` in a type " GRAMMAR},
+    {REFUSED("struct_other_tag.h"), 2, "a type spelled with `struct` inside a struct " GRAMMAR ": a struct names "
+                                       "each type by its typedef name, and spells `struct` only in a member "
+                                       "pointing at its own struct, as `const struct probe_holder *`"},
+    {REFUSED("struct_held_by_itself.h"), 3, "`struct probe_block` held by value inside itself, which leaves it no "
+                                            "finite size, " GRAMMAR ": point at it as `const struct probe_block *`"},
+    {REFUSED("struct_own_tag_parameter.h"), 5, "a type spelled with `struct` inside a struct " GRAMMAR},
     {REFUSED("enum_by_value.h"), 4, "holds the enum `probe_mode` as its own type"},
     {REFUSED("mutable_text.h"), 2, "the member `name` of type `char *` " GRAMMAR},
     {REFUSED("mutable_struct_member.h"), 6, "the member `item` of type `probe_item *` " GRAMMAR},
@@ -763,6 +826,12 @@ static const refused_case REFUSED_CASES[] = {
                                        "holds it"},
     {REFUSED("clause_two_members.h"), 4, "the doc of `probe_run` names `probe_mode` without saying which uint32_t "
                                          "holds it"},
+    {REFUSED("enum_clause_unbound.h"), 4, "the doc of `probe_step` names `probe_step_kind` and binds it to no "
+                                          "uint32_t of `probe_step`; name `probe_step_kind` in the own doc of the "
+                                          "uint32_t holding it"},
+    {REFUSED("enum_doc_on_text.h"), 5, "the doc of `mode` names `probe_mode`, and `mode` is no uint32_t"},
+    {REFUSED("enum_array.h"), 5, "`notices` is an array of uint32_t, whose elements a description never binds to an "
+                                 "enum"},
     {REFUSED("bound_twice.h"), 7, "`mode` is said to hold both `probe_mode` and `probe_level`"},
     {REFUSED("anonymous_struct.h"), 1, "an anonymous struct " GRAMMAR},
     {REFUSED("anonymous_enum.h"), 1, "an anonymous enum " GRAMMAR},
@@ -994,6 +1063,8 @@ int main(void) {
     reads_restated_names_across_headers();
     counts_y_plurals_and_releases_only_what_owns_storage();
     walks_what_an_answer_holds_once_through_cycles();
+    reads_a_struct_pointing_at_itself_by_its_tag();
+    reads_a_doc_naming_the_status_as_a_role();
     reads_every_struct_and_definition_of_services_h();
     reaches_what_each_service_of_services_h_uses();
     refuses_each_form_outside_the_grammar_at_its_line();

@@ -14,6 +14,8 @@ typedef struct parser {
     const describe_token *doc;
     uint32_t extern_depth;
     describe_refusal *refusal;
+    /** The tag of the struct whose body is being read, NULL outside one. */
+    const describe_token *struct_tag;
 } parser;
 
 int describe_needs_growth(size_t count) {
@@ -120,19 +122,50 @@ static int is_keyword(const describe_token *token) {
 }
 
 static describe_outcome refuse_keyword(parser *state, const describe_token *token) {
+    const describe_token *tag = state->struct_tag;
     if (token_names(token, "union")) {
         return describe_refuse(state->refusal, state->file, token->line, "a union%s", GRAMMAR);
     }
-    if (token_names(token, "struct") || token_names(token, "enum")) {
+    if (!token_names(token, "struct") && !token_names(token, "enum")) {
+        return refuse_at(state, token, "in a type");
+    }
+    if (tag == NULL) {
         return describe_refuse(state->refusal, state->file, token->line,
                                "a type spelled with `%.*s` inside a struct%s", (int)token->length, token->text,
                                GRAMMAR);
     }
-    return refuse_at(state, token, "in a type");
+    return describe_refuse(state->refusal, state->file, token->line,
+                           "a type spelled with `%.*s` inside a struct%s: a struct names each type by its typedef "
+                           "name, and spells `struct` only in a member pointing at its own struct, as `const struct "
+                           "%.*s *`",
+                           (int)token->length, token->text, GRAMMAR, (int)tag->length, tag->text);
 }
 
-static describe_outcome parse_spelling(parser *state, describe_spelling *spelling) {
+/**
+ * Whether the cursor stands at `struct <tag>` naming the struct whose body is being read, which is how C spells a
+ * member pointing at its own struct, the typedef name not being declared until the body closes.
+ */
+static int at_own_tag(const parser *state, const describe_token *token) {
+    const describe_token *named = &state->tokens[state->at + 1];
+    const describe_token *tag = state->struct_tag;
+    return tag != NULL && token_names(token, "struct") && named->kind == DESCRIBE_TOKEN_IDENTIFIER &&
+           named->length == tag->length && memcmp(named->text, tag->text, tag->length) == 0;
+}
+
+static describe_outcome refuse_held_by_itself(parser *state, const describe_token *tag) {
+    return describe_refuse(state->refusal, state->file, tag->line,
+                           "`struct %.*s` held by value inside itself, which leaves it no finite size,%s: point at it "
+                           "as `const struct %.*s *`",
+                           (int)tag->length, tag->text, GRAMMAR, (int)tag->length, tag->text);
+}
+
+/**
+ * Reads a type. With `may_name_own_tag`, as a member's type is read, `struct <tag>` naming the struct being read is
+ * read as the typedef name, which the grammar makes equal to the tag; every other `struct` is refused.
+ */
+static describe_outcome parse_spelling(parser *state, describe_spelling *spelling, int may_name_own_tag) {
     const describe_token *token;
+    int own_tag = 0;
     if (is(state, "const")) {
         spelling->base_const = 1;
         take(state);
@@ -141,7 +174,11 @@ static describe_outcome parse_spelling(parser *state, describe_spelling *spellin
     if (token->kind != DESCRIBE_TOKEN_IDENTIFIER || token_names(token, "const")) {
         return refuse_at(state, token, "where a type belongs");
     }
-    if (is_keyword(token)) {
+    if (may_name_own_tag && at_own_tag(state, token)) {
+        own_tag = 1;
+        take(state);
+        token = current(state);
+    } else if (is_keyword(token)) {
         return refuse_keyword(state, token);
     }
     take(state);
@@ -166,7 +203,7 @@ static describe_outcome parse_spelling(parser *state, describe_spelling *spellin
         }
         spelling->pointers++;
     }
-    return DESCRIBE_DONE;
+    return own_tag && spelling->pointers == 0 ? refuse_held_by_itself(state, token) : DESCRIBE_DONE;
 }
 
 static describe_outcome refuse_after_name(parser *state, const describe_token *name) {
@@ -229,7 +266,7 @@ static describe_outcome parse_parameter(parser *state, describe_operation *opera
     if (parameter == NULL) {
         return DESCRIBE_OUT_OF_MEMORY;
     }
-    outcome = parse_spelling(state, &parameter->spelling);
+    outcome = parse_spelling(state, &parameter->spelling, 0);
     if (outcome == DESCRIBE_DONE && (is(state, ",") || is(state, ")"))) {
         return describe_refuse(state->refusal, state->file, current(state)->line, "a parameter without a name%s",
                                GRAMMAR);
@@ -343,7 +380,7 @@ static describe_outcome parse_member(parser *state, describe_type *type) {
     describe_spelling spelling;
     describe_outcome outcome;
     memset(&spelling, 0, sizeof spelling);
-    outcome = parse_spelling(state, &spelling);
+    outcome = parse_spelling(state, &spelling, 1);
     if (outcome == DESCRIBE_DONE) {
         outcome = is(state, "(") ? parse_operation(state, type, &spelling, doc)
                                  : add_member(state, type, &spelling, doc);
@@ -398,12 +435,15 @@ static describe_outcome parse_struct_body(parser *state, const describe_token *t
         outcome = copy_doc(doc, &type->doc);
     }
     take(state);
+    state->struct_tag = tag;
     while (outcome == DESCRIBE_DONE && !is(state, "}")) {
         if (current(state)->kind == DESCRIBE_TOKEN_END) {
+            state->struct_tag = NULL;
             return refuse_at(state, current(state), "a struct's closing `}`");
         }
         outcome = parse_member(state, type);
     }
+    state->struct_tag = NULL;
     state->doc = NULL;
     if (outcome == DESCRIBE_DONE) {
         take(state);

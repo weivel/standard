@@ -127,7 +127,20 @@ static const expected_member releases_members[] = {
     MEMBER(described_releases, trees, U64, NONE, NULL, NULL, NULL),
     MEMBER(described_releases, refusals, U64, NONE, NULL, NULL, NULL),
     MEMBER(described_releases, cursors, U64, NONE, NULL, NULL, NULL),
-    MEMBER(described_releases, nested_refusals, U64, NONE, NULL, NULL, NULL)};
+    MEMBER(described_releases, nested_refusals, U64, NONE, NULL, NULL, NULL),
+    MEMBER(described_releases, outlines, U64, NONE, NULL, NULL, NULL)};
+
+static const expected_member node_members[] = {
+    MEMBER(described_node, label, TEXT, NONE, NULL, NULL, NULL),
+    MEMBER(described_node, depth, U32, NONE, NULL, NULL, NULL),
+    MEMBER(described_node, next, POINTER, STRUCT, "described_node", NULL, NULL),
+    MEMBER(described_node, content, ARRAY, STRUCT, "described_node", "content_count", NULL),
+    MEMBER(described_node, content_count, SIZE, NONE, NULL, NULL, NULL)};
+
+static const expected_member outline_members[] = {
+    MEMBER(described_outline, size, U32, NONE, NULL, NULL, NULL),
+    MEMBER(described_outline, root, STRUCT, NONE, "described_node", NULL, NULL),
+    MEMBER(described_outline, storage, STORAGE, NONE, NULL, NULL, NULL)};
 
 static const expected_member mirror_members[] = {MEMBER(described_mirror, size, U32, NONE, NULL, NULL, NULL),
                                                  MEMBER(described_mirror, context, CONTEXT, NONE, NULL, NULL, NULL)};
@@ -156,6 +169,8 @@ static const expected_type mirror_types[] = {
     TYPE(described_sample, ENDS_AT(described_sample, value_count), sample_members),
     TYPE(described_reflection, ENDS_AT(described_reflection, storage), reflection_members),
     TYPE(described_releases, ENDS_AT(described_releases, nested_refusals), releases_members),
+    TYPE(described_node, sizeof(described_node), node_members),
+    TYPE(described_outline, ENDS_AT(described_outline, storage), outline_members),
     TYPE(described_mirror, ENDS_AT(described_mirror, release_refusal), mirror_members)};
 
 static const expected_type walker_types[] = {
@@ -232,6 +247,16 @@ static const expected_parameter release_refusal_parameters[] = {
     PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
     PARAMETER("refusal", POINTER, REFUSAL, STRUCT, "weivel_standard_service_refusal", NULL, NULL)};
 
+static const expected_parameter outline_parameters[] = {
+    PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+    PARAMETER("node", POINTER, INPUT, STRUCT, "described_node", NULL, NULL),
+    PARAMETER("copy", POINTER, ANSWER, STRUCT, "described_outline", NULL, "release_outline"),
+    PARAMETER("refusal", POINTER, REFUSAL, STRUCT, "weivel_standard_service_refusal", NULL, "release_refusal")};
+
+static const expected_parameter release_outline_parameters[] = {
+    PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
+    PARAMETER("copy", POINTER, ANSWER, STRUCT, "described_outline", NULL, NULL)};
+
 static const expected_parameter open_parameters[] = {
     PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
     PARAMETER("label", TEXT, INPUT, NONE, NULL, NULL, NULL),
@@ -267,7 +292,9 @@ static const expected_operation mirror_operations[] = {
     OPERATION(described_mirror, count_releases, STATUS, count_releases_parameters),
     OPERATION(described_mirror, release_reflection, NOTHING, release_reflection_parameters),
     OPERATION(described_mirror, release_tree, NOTHING, release_tree_parameters),
-    OPERATION(described_mirror, release_refusal, NOTHING, release_refusal_parameters)};
+    OPERATION(described_mirror, release_refusal, NOTHING, release_refusal_parameters),
+    OPERATION(described_mirror, outline, STATUS, outline_parameters),
+    OPERATION(described_mirror, release_outline, NOTHING, release_outline_parameters)};
 
 static const expected_parameter wait_parameters[] = {PARAMETER("context", CONTEXT, INPUT, NONE, NULL, NULL, NULL),
                                                      PARAMETER("ticks", U64, INPUT, NONE, NULL, NULL, NULL),

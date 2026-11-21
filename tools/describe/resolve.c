@@ -766,12 +766,22 @@ static int span_holds_word(text_span span, const char *word) {
     return 0;
 }
 
-/** How many enums of the model `span` names, stopping at two, the first two into `named`. */
-static size_t enums_named(const describe_model *model, text_span span, const char *named[2]) {
+/** Whether `name` is a type the standard's convention gives a role, as the status every operation answers. */
+static int is_role_type(const describe_names *names, const char *name) {
+    return strcmp(name, names->status) == 0 || strcmp(name, names->refusal) == 0 || strcmp(name, names->value) == 0 ||
+           strcmp(name, names->tree) == 0;
+}
+
+/**
+ * How many enums of the model `span` names, stopping at two, the first two into `named`. An enum that is a role
+ * type is never counted: a doc naming the status an operation answers names a role, not a uint32_t's enum.
+ */
+static size_t enums_named(const resolving *state, text_span span, const char *named[2]) {
+    const describe_model *model = state->model;
     size_t found = 0;
     size_t at;
     for (at = 0; at < model->enum_count && found < 2; at++) {
-        if (span_holds_word(span, model->enums[at].name)) {
+        if (!is_role_type(state->names, model->enums[at].name) && span_holds_word(span, model->enums[at].name)) {
             named[found++] = model->enums[at].name;
         }
     }
@@ -791,6 +801,21 @@ static describe_outcome bind(resolving *state, describe_item *item, const char *
     return item->type != NULL ? DESCRIBE_DONE : set_name(&item->type, named);
 }
 
+/** An own doc naming an enum its item cannot hold, which would otherwise describe the item as if it named nothing. */
+static describe_outcome refuse_enum_unheld(resolving *state, const describe_item *item, const char *named) {
+    if (item->kind == KIND(ARRAY) && item->element == KIND(U32)) {
+        return describe_refuse(state->refusal, item->where.file, item->where.line,
+                               "the doc of `%s` names `%s`, and `%s` is an array of uint32_t, whose elements a "
+                               "description never binds to an enum; describe them without naming `%s`, or hold each "
+                               "in a struct whose uint32_t member's own doc names it",
+                               item->name, named, item->name, named);
+    }
+    return describe_refuse(state->refusal, item->where.file, item->where.line,
+                           "the doc of `%s` names `%s`, and `%s` is no uint32_t, the one kind that holds an enum; "
+                           "name `%s` in the own doc of the uint32_t holding it",
+                           item->name, named, item->name, named);
+}
+
 static describe_outcome bind_own(resolving *state, describe_item *items, size_t count) {
     describe_outcome outcome = DESCRIBE_DONE;
     size_t at;
@@ -799,13 +824,15 @@ static describe_outcome bind_own(resolving *state, describe_item *items, size_t 
         const char *named[2] = {NULL, NULL};
         text_span doc;
         size_t found;
-        if (!is_enum_candidate(items, item) || item->doc == NULL) {
+        if (item->doc == NULL) {
             continue;
         }
         doc.start = item->doc;
         doc.length = strlen(item->doc);
-        found = enums_named(state->model, doc, named);
-        if (found == 2) {
+        found = enums_named(state, doc, named);
+        if (found > 0 && !is_enum_candidate(items, item)) {
+            outcome = refuse_enum_unheld(state, item, named[0]);
+        } else if (found == 2) {
             outcome = describe_refuse(state->refusal, item->where.file, item->where.line,
                                       "the doc of `%s` names both `%s` and `%s`; name the one enum it holds",
                                       item->name, named[0], named[1]);
@@ -878,7 +905,7 @@ typedef struct container {
 
 static describe_outcome bind_clause(resolving *state, const container *owner, text_span clause) {
     const char *named[2] = {NULL, NULL};
-    size_t found = enums_named(state->model, clause, named);
+    size_t found = enums_named(state, clause, named);
     size_t mentioned;
     size_t candidates;
     describe_item *held;
@@ -904,12 +931,39 @@ static describe_outcome bind_clause(resolving *state, const container *owner, te
     return held == NULL ? DESCRIBE_DONE : bind(state, held, named[0]);
 }
 
+static int holds_enum(const container *owner, const char *named) {
+    size_t at;
+    for (at = 0; at < owner->count; at++) {
+        if (owner->items[at].type != NULL && strcmp(owner->items[at].type, named) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**
+ * A clause naming an enum must leave an item of its owner holding it once every clause is bound: one that backticks
+ * no uint32_t, or names an enum when no uint32_t is free, would otherwise describe the uint32_t as a plain number.
+ */
+static describe_outcome check_clause_held(resolving *state, const container *owner, text_span clause) {
+    const char *named[2] = {NULL, NULL};
+    if (enums_named(state, clause, named) == 0 || holds_enum(owner, named[0])) {
+        return DESCRIBE_DONE;
+    }
+    return describe_refuse(state->refusal, owner->where.file, owner->where.line,
+                           "the doc of `%s` names `%s` and binds it to no uint32_t of `%s`; name `%s` in the own doc "
+                           "of the uint32_t holding it",
+                           owner->name, named[0], owner->name, named[0]);
+}
+
+typedef describe_outcome (*clause_pass)(resolving *state, const container *owner, text_span clause);
+
 static int ends_clause(text_span text, size_t at) {
     return text.start[at] == ';' ||
            (text.start[at] == '.' && (at + 1 == text.length || text.start[at + 1] == ' '));
 }
 
-static describe_outcome bind_clauses(resolving *state, const container *owner, text_span text) {
+static describe_outcome each_clause(resolving *state, const container *owner, text_span text, clause_pass pass) {
     describe_outcome outcome = DESCRIBE_DONE;
     size_t start = 0;
     size_t at;
@@ -918,11 +972,16 @@ static describe_outcome bind_clauses(resolving *state, const container *owner, t
             text_span clause;
             clause.start = text.start + start;
             clause.length = at - start;
-            outcome = bind_clause(state, owner, clause);
+            outcome = pass(state, owner, clause);
             start = at + 1;
         }
     }
     return outcome;
+}
+
+static describe_outcome bind_clauses(resolving *state, const container *owner, text_span text) {
+    describe_outcome outcome = each_clause(state, owner, text, bind_clause);
+    return outcome == DESCRIBE_DONE ? each_clause(state, owner, text, check_clause_held) : outcome;
 }
 
 static describe_outcome resolve_type_enums(resolving *state, describe_type *type) {

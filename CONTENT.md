@@ -10,7 +10,10 @@ check every binding runs on a description first, and the mirror list the core's 
 A description names the operations that may block (`blocking`, so a binding whose callers must not wait calls them
 away from its calling thread) and nests the whole description of every definition a DEFINITION member or parameter
 names, so an answer can carry a definition. `weivel-describe` writes one from a header: it reads `@blocking` on an
-operation, and takes a definition described elsewhere by its symbol. `descriptions.h` exports the descriptions of the
+operation, and takes a definition described elsewhere by its symbol. A struct may point at its own type, or at one
+reaching it, through a POINTER or an ARRAY, as a tree of blocks holds its blocks: `weivel-describe` reads the member
+as C spells it inside the struct's own body, `const struct <tag> *`, and the check refuses a struct holding itself by
+value, which has no finite size. `descriptions.h` exports the descriptions of the
 standard's own definitions, so a library serving one declares the symbol and never describes it again.
 
 Three more contracts are defined for a host program: `weivel.log` (`services.h`), `weivel.scope` (`scope.h`), which

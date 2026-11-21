@@ -4,10 +4,10 @@
 /**
  * @file
  * A neutral C library of two definition services, described by weivel-describe, that every weivel language binds
- * generically in its tests: the mirror, which answers what it is handed in every member kind, and the walker, which
- * answers handles, lends a counter, a definition of its own, and declares one operation that blocks. It is a test
- * target only, built by a plain configure of weivel/standard, never linked into the standard and exported by nothing
- * the standard ships.
+ * generically in its tests: the mirror, which answers what it is handed in every member kind and copies an outline of
+ * nodes holding nodes, and the walker, which answers handles, lends a counter, a definition of its own, and declares
+ * one operation that blocks. It is a test target only, built by a plain configure of weivel/standard, never linked
+ * into the standard and exported by nothing the standard ships.
  *
  * Every operation answers from its input alone, so a binding's round trip is checkable value for value. The two
  * definitions follow `weivel/services.h`'s conventions: an answer is filled on OK alone, MALFORMED is answered for a
@@ -37,6 +37,8 @@
 #define DESCRIBED_REFUSAL_DETAIL "described refused on purpose"
 /** The fix of every refusal the library answers. */
 #define DESCRIBED_REFUSAL_FIX "pass anything but \"refuse\""
+/** How many pointers below the root of an outline its deepest node may lie, as a value tree may nest. */
+#define DESCRIBED_OUTLINE_DEPTH_LIMIT WEIVEL_STANDARD_VALUE_DEPTH_LIMIT
 /** Where the counter the walker lends starts, which its own context holds. */
 #define DESCRIBED_COUNTER_START 1000
 /** The one amount the counter's `add` refuses, with the library's usual refusal. */
@@ -106,7 +108,7 @@ typedef struct described_reflection {
  * How many releases of each kind have freed something since the library was loaded, so a binding can prove it
  * releases every answer exactly once: a release handed an empty struct or NULL counts nothing. It owns nothing, so
  * nothing releases it. First shape ends at `nested_refusals`, the refusals the lent counter's own `release_refusal`
- * freed, which no other release counts.
+ * freed, which no other release counts, and `outlines` follows it, as a struct grows.
  *
  * @implNote The counts are kept without synchronisation, so they may be read only while no other thread releases.
  */
@@ -117,9 +119,36 @@ typedef struct described_releases {
     uint64_t refusals;
     uint64_t cursors;
     uint64_t nested_refusals;
+    uint64_t outlines;
 } described_releases;
 
-/** The mirror, the library's first service. First shape ends at `release_refusal`. */
+/**
+ * One node of an outline, which points at its own kind: `next` at the node after it, or NULL for none, and `content`
+ * at the nodes inside it, a NULL `content` with a count of 0 holding none. `depth` is how many pointers, through
+ * `next` and `content` alike, lie between the node and the root of the outline holding it.
+ */
+typedef struct described_node {
+    const char *label;
+    uint32_t depth;
+    const struct described_node *next;
+    const struct described_node *content;
+    size_t content_count;
+} described_node;
+
+/**
+ * What `outline` answers: a copy of the node and of every node it reaches, every node and text under it owned by
+ * `storage`. First shape ends at `storage`.
+ */
+typedef struct described_outline {
+    uint32_t size;
+    described_node root;
+    void *storage;
+} described_outline;
+
+/**
+ * The mirror, the library's first service. First shape ends at `release_refusal`, and `outline` and
+ * `release_outline` follow it, as a definition grows.
+ */
 typedef struct described_mirror {
     uint32_t size;
     void *context;
@@ -220,6 +249,20 @@ typedef struct described_mirror {
     void (*release_reflection)(void *context, described_reflection *reflection);
     void (*release_tree)(void *context, weivel_standard_value_tree *tree);
     void (*release_refusal)(void *context, weivel_standard_service_refusal *refusal);
+    /**
+     * Copies a node, and every node it reaches through `next` and `content`, into the answer, each copy's `depth`
+     * set to how many pointers lie between it and the root; the `depth` handed in is never read.
+     *
+     * @param node read during the call only. Required.
+     * @param copy the consumer's empty answer. Required.
+     * @param refusal the consumer's empty refusal, or NULL for none.
+     * @return OK; MALFORMED for a copy below its first shape or still holding storage, a `content_count` beside a
+     * NULL `content`, or a node lying more than DESCRIBED_OUTLINE_DEPTH_LIMIT pointers below the root; REFUSED when
+     * the root's `label` is "refuse".
+     */
+    weivel_status (*outline)(void *context, const described_node *node, described_outline *copy,
+                             weivel_standard_service_refusal *refusal);
+    void (*release_outline)(void *context, described_outline *copy);
 } described_mirror;
 
 /** Where to look from an open walk: its start, moved by `skip` and by every step. First shape ends at `step_count`. */
