@@ -67,15 +67,27 @@ typedef struct weivel_standard_host_plugin {
 } weivel_standard_host_plugin;
 
 /**
- * What a run does, as host's `start` answers it. Every text is NUL-terminated UTF-8. The program loads `libraries` in
- * order, then activates `plugins` in order, opening each plugin's scope (`weivel/scope.h`) immediately before that
- * plugin's activation and after the previous plugin's activation ended. The scope is asked of whichever library the
- * program loaded serves `weivel.scope`, the library it was started with included, and a program none of them serves
- * opens no scope and offers the plugin nothing. The program reads and checks a plugin's manifest before it opens that
- * plugin's scope: a plugin whose manifest cannot be read, or is refused, gets no scope and is told as REFUSED. In ACTION mode it then
- * runs the action `action_name` of the plugin whose manifest is `action_plugin`, with `action_arguments`, of kind NONE when there are none; in SERVE mode both
- * texts are NULL and `action_arguments` is of kind NONE. A library of the plan that will not load ends the run: the
- * program loads no further library, activates no plugin and calls `stop`. First shape ends at `storage`.
+ * What a run does, as host's `start` answers it. Every text is NUL-terminated UTF-8. `mode` is SERVE or ACTION: any
+ * other mode is a malformed answer, which ends the run, the program loading no library, activating no plugin and
+ * calling `stop`. The program loads `libraries` in order, then activates `plugins` in order, opening each plugin's
+ * scope (`weivel/scope.h`) immediately before that plugin's activation and after the previous plugin's activation
+ * ended. The scope is asked of whichever library the program loaded serves a described `weivel.scope`, the library it
+ * was started with included; when two of them do, the first loaded wins, the library it was started with first, and a
+ * program none of them serves opens no scope and offers the plugin nothing. A program offers no plugin `weivel.host`
+ * or `weivel.scope`: it loads and binds a library serving either, and never offers that service where a plugin could
+ * resolve it, since a scope is made for one plugin and handed to no other.
+ *
+ * A library serving `weivel.scope` declares none of `weivel.config`, `weivel.secrets`, `weivel.paths` and
+ * `weivel.log`, and offers them through the scope alone. When a loaded library declares one of them and a plugin's
+ * scope answers it, that scope cannot be offered: the program offers the plugin none of it, releases the scope, and
+ * tells the plugin as REFUSED, the detail saying why.
+ *
+ * The program reads and checks a plugin's manifest before it opens that plugin's scope: a plugin whose manifest cannot
+ * be read, or is refused, gets no scope and is told as REFUSED. In ACTION mode it then runs the action `action_name` of
+ * the plugin whose manifest is `action_plugin`, with `action_arguments`, of kind NONE when there are none; an action
+ * whose plugin was not activated, or which that plugin does not offer, is told to `finished` as a failure. In SERVE
+ * mode both texts are NULL and `action_arguments` is of kind NONE. A library of the plan that will not load ends the
+ * run: the program loads no further library, activates no plugin and calls `stop`. First shape ends at `storage`.
  */
 typedef struct weivel_standard_host_plan {
     uint32_t size;
@@ -123,18 +135,19 @@ typedef struct weivel_standard_host_next {
  * plugin's outcome. In SERVE mode it then calls `tick` at once and again whenever the time it answered comes, until a
  * stop request. In ACTION mode it never calls `tick`: it runs the action and tells `finished` how it ended. Once
  * `start` has answered OK, the program calls `stop` last, once, whatever happened, including after a REFUSED from
- * `started` or `tick`, after an action, and on a stop request, and exits with the code `stop` answered; when `start`
- * does not answer OK, the program calls nothing else and exits non-zero. Before it calls `stop`, the program
- * deactivates every plugin it activated and releases every scope it opened; it unloads the libraries after `stop`.
+ * `started` or `tick`, after an action, and on a stop request, and exits with the code `stop` answered, which is 0 to
+ * 255; when `stop` does not answer OK, the program exits 1. When `start` does not answer OK, the program calls nothing
+ * else and exits non-zero. Before it calls `stop`, the program deactivates every plugin it activated and releases
+ * every scope it opened; it unloads the libraries after `stop`.
  *
  * A stop request is how a program is asked to end a run: a program takes it through its own interface, and a
  * program's command line takes it from its platform's terminate signals (SIGINT and SIGTERM on POSIX systems, SIGINT
- * and SIGBREAK on Windows). It is honoured from the moment `start` answered OK. Activation is one phase: one that
- * arrives before `started` is called takes effect once `started` has been told the outcome of every plugin of the
- * plan, each one attempted, and the program then calls `stop`, with no `tick` and no action. One that arrives during a
- * later call, as during a blocking `tick`, takes effect once that call returns: the program calls `stop` next, and no
- * further `tick`. One that arrives while an ACTION run's action runs takes effect once `finished` has been told how
- * it ended. First shape ends at `release_refusal`.
+ * and SIGBREAK on Windows). Activation is one phase: one that arrives before `started` is called, including one that
+ * arrives before `start` answered OK, which the program keeps, takes effect once `started` has been told the outcome
+ * of every plugin of the plan, each one attempted, and the program then calls `stop`, with no `tick` and no action.
+ * One that arrives during a later call, as during a blocking `tick`, takes effect once that call returns: the program
+ * calls `stop` next, and no further `tick`. One that arrives while an ACTION run's action runs takes effect once
+ * `finished` has been told how it ended. First shape ends at `release_refusal`.
  */
 typedef struct weivel_standard_host {
     uint32_t size;
@@ -187,7 +200,7 @@ typedef struct weivel_standard_host {
     /**
      * Ends the run.
      *
-     * @param exit_code the code the program exits with. Required.
+     * @param exit_code the code the program exits with, 0 to 255. Required.
      * @param refusal the consumer's empty refusal, or NULL for none.
      * @return OK; REFUSED when the provider could not stop cleanly.
      */

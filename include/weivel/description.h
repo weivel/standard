@@ -89,8 +89,9 @@ typedef enum weivel_standard_described_kind {
     /**
      * `const T *`: a definition, a size-prefixed struct of function pointers with its own context, as
      * weivel_standard_config is, or NULL for none. Its `type` names T, the `definition` of one of the description's
-     * `definitions`, which describes it; nothing releases it, since it lives as long as the answer or the struct that
-     * carried it. As an answer it is `const T **`.
+     * `definitions`, which describes it. Nothing releases it: one answered at the top level, as `const T **`, lives as
+     * long as the library, and one carried in a struct as long as that struct, so a definition made for one call is
+     * answered only inside a struct its release frees.
      */
     WEIVEL_STANDARD_DESCRIBED_DEFINITION = 16
 } weivel_standard_described_kind;
