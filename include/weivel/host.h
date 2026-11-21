@@ -71,8 +71,9 @@ typedef struct weivel_standard_host_plugin {
  * order, then activates `plugins` in order, opening each plugin's scope (`weivel/scope.h`) immediately before that
  * plugin's activation and after the previous plugin's activation ended. The scope is asked of whichever library the
  * program loaded serves `weivel.scope`, the library it was started with included, and a program none of them serves
- * opens no scope and offers the plugin nothing. In ACTION mode it then runs the action `action_name` of the plugin
- * whose manifest is `action_plugin`, with `action_arguments`, of kind NONE when there are none; in SERVE mode both
+ * opens no scope and offers the plugin nothing. The program reads and checks a plugin's manifest before it opens that
+ * plugin's scope: a plugin whose manifest cannot be read, or is refused, gets no scope and is told as REFUSED. In ACTION mode it then
+ * runs the action `action_name` of the plugin whose manifest is `action_plugin`, with `action_arguments`, of kind NONE when there are none; in SERVE mode both
  * texts are NULL and `action_arguments` is of kind NONE. A library of the plan that will not load ends the run: the
  * program loads no further library, activates no plugin and calls `stop`. First shape ends at `storage`.
  */
