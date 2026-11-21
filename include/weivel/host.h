@@ -39,7 +39,10 @@ typedef enum weivel_standard_host_mode {
  */
 typedef enum weivel_standard_host_plugin_state {
     WEIVEL_STANDARD_HOST_ACTIVATED = 1,
-    /** The plugin was not activated, as when its scope was refused. */
+    /**
+     * The plugin was not activated: its scope was refused, or its manifest could not be read or was refused, by the
+     * program's standard or its core, the outcome's detail saying why.
+     */
     WEIVEL_STANDARD_HOST_REFUSED = 2,
     /** The plugin's activation threw. */
     WEIVEL_STANDARD_HOST_FAILED = 3
@@ -70,7 +73,8 @@ typedef struct weivel_standard_host_plugin {
  * program loaded serves `weivel.scope`, the library it was started with included, and a program none of them serves
  * opens no scope and offers the plugin nothing. In ACTION mode it then runs the action `action_name` of the plugin
  * whose manifest is `action_plugin`, with `action_arguments`, of kind NONE when there are none; in SERVE mode both
- * texts are NULL and `action_arguments` is of kind NONE. First shape ends at `storage`.
+ * texts are NULL and `action_arguments` is of kind NONE. A library of the plan that will not load ends the run: the
+ * program loads no further library, activates no plugin and calls `stop`. First shape ends at `storage`.
  */
 typedef struct weivel_standard_host_plan {
     uint32_t size;
@@ -118,13 +122,16 @@ typedef struct weivel_standard_host_next {
  * stop request. In ACTION mode it never calls `tick`: it runs the action and tells `finished` how it ended. Once
  * `start` has answered OK, the program calls `stop` last, once, whatever happened, including after a REFUSED from
  * `started` or `tick`, after an action, and on a stop request, and exits with the code `stop` answered; when `start`
- * does not answer OK, the program calls nothing else and exits non-zero.
+ * does not answer OK, the program calls nothing else and exits non-zero. Before it calls `stop`, the program
+ * deactivates every plugin it activated and releases every scope it opened; it unloads the libraries after `stop`.
  *
  * A stop request is how a program is asked to end a run: a program takes it through its own interface, and a
  * program's command line takes it from its platform's terminate signals (SIGINT and SIGTERM on POSIX systems, SIGINT
- * and SIGBREAK on Windows). It is honoured from the moment `start` answered OK. One that arrives during a call, as
- * during a blocking `tick`, takes effect once that call returns: the program calls `stop` next, and no further `tick`.
- * First shape ends at `release_refusal`.
+ * and SIGBREAK on Windows). It is honoured from the moment `start` answered OK. Activation is one phase: one that
+ * arrives before `started` is called takes effect once `started` has been told the outcome of every plugin of the
+ * plan, each one attempted, and the program then calls `stop`, with no `tick` and no action. One that arrives during a
+ * later call, as during a blocking `tick`, takes effect once that call returns: the program calls `stop` next, and no
+ * further `tick`. First shape ends at `release_refusal`.
  */
 typedef struct weivel_standard_host {
     uint32_t size;
