@@ -34,6 +34,7 @@ typedef struct library_storage {
     weivel_standard_library_service *services;
     weivel_standard_library_function *functions;
     const char **descriptions;
+    weivel_standard_library_contract *contracts;
 } library_storage;
 
 typedef struct context_name {
@@ -132,6 +133,11 @@ static const text_field FUNCTION_SYMBOL = {"symbol", matches_c_identifier, "is n
 static const text_field DESCRIPTION = {"description", matches_c_identifier, "is not a C identifier",
                                        "use a C identifier for the exported symbol answering the description, for "
                                        "example \"echo_description\""};
+
+static const text_field CAPABILITY = {"capability", matches_words,
+                                      "is not lowercase words joined by single hyphens or dots",
+                                      "use lowercase words joined by single hyphens or dots, for example "
+                                      "\"echo.provider\""};
 
 static const char *subject_of(const char *path) {
     return path[0] == '\0' ? "the declaration" : path;
@@ -401,11 +407,50 @@ static int check_release_needed(checking *state, const weivel_json_value *root) 
            refuse_missing(state, &path);
 }
 
+static int check_contract(checking *state, const weivel_json_value *contract, const field_path *path) {
+    return check_object(state, contract, path) && check_text_field(state, contract, path, &CAPABILITY) &&
+           check_text_field(state, contract, path, &DESCRIPTION);
+}
+
+static const char *capability_at(const weivel_json_value *contracts, size_t at) {
+    return weivel_json_as_string(weivel_json_object_get(weivel_json_array_at(contracts, at), CAPABILITY.key));
+}
+
+static int is_published_before(const weivel_json_value *contracts, size_t at) {
+    size_t before;
+    for (before = 0; before < at; before++) {
+        if (strcmp(capability_at(contracts, before), capability_at(contracts, at)) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int check_capabilities_unique(checking *state, const weivel_json_value *contracts) {
+    field_path list = {NULL, "contracts", 0};
+    size_t at;
+    for (at = 1; at < weivel_json_array_length(contracts); at++) {
+        field_path item = {&list, NULL, at};
+        field_path path = {&item, CAPABILITY.key, 0};
+        if (is_published_before(contracts, at)) {
+            return refuse(state, WEIVEL_STANDARD_REFUSAL_DUPLICATE, &path, "repeats a capability published before it",
+                          "publish each capability once in \"contracts\"");
+        }
+    }
+    return 1;
+}
+
+static int check_contracts(checking *state, const weivel_json_value *root) {
+    const weivel_json_value *contracts = weivel_json_object_get(root, "contracts");
+    return contracts == NULL || (check_list(state, root, NULL, "contracts", check_contract) &&
+                                 check_capabilities_unique(state, contracts));
+}
+
 static int check_library(checking *state, const weivel_json_value *root) {
     return check_object(state, root, NULL) &&
            check_text_field(state, root, NULL, &IMPORT_NAME) && check_text_field(state, root, NULL, &VERSION) &&
            check_release_if_present(state, root) && check_list(state, root, NULL, "services", check_service) &&
-           check_release_needed(state, root);
+           check_release_needed(state, root) && check_contracts(state, root);
 }
 
 static uint32_t context_of(const weivel_json_value *function) {
@@ -455,6 +500,15 @@ static void fill_services(library_storage *storage, const weivel_json_value *ser
     }
 }
 
+static void fill_contracts(library_storage *storage, const weivel_json_value *contracts) {
+    size_t at;
+    for (at = 0; at < weivel_json_array_length(contracts); at++) {
+        const weivel_json_value *contract = weivel_json_array_at(contracts, at);
+        storage->contracts[at].capability = text_of(contract, CAPABILITY.key);
+        storage->contracts[at].description = text_of(contract, DESCRIPTION.key);
+    }
+}
+
 static void release_storage(library_storage *storage) {
     if (storage == NULL) {
         return;
@@ -463,13 +517,16 @@ static void release_storage(library_storage *storage) {
     weivel_standard_memory_release(storage->services);
     weivel_standard_memory_release(storage->functions);
     weivel_standard_memory_release(storage->descriptions);
+    weivel_standard_memory_release(storage->contracts);
     weivel_standard_memory_release(storage);
 }
 
 /** Takes `document`, which has passed check_library, whatever it answers. */
 static weivel_status build_library(weivel_json_value *document, weivel_standard_library *library) {
     const weivel_json_value *services = weivel_json_object_get(document, "services");
+    const weivel_json_value *contracts = weivel_json_object_get(document, "contracts");
     size_t service_count = weivel_json_array_length(services);
+    size_t contract_count = weivel_json_array_length(contracts);
     weivel_standard_library built = WEIVEL_INIT(weivel_standard_library);
     library_storage *storage = weivel_standard_memory_allocate_zeroed(1, sizeof *storage);
     if (storage == NULL) {
@@ -480,11 +537,16 @@ static weivel_status build_library(weivel_json_value *document, weivel_standard_
     storage->services = weivel_standard_memory_allocate_zeroed(service_count, sizeof *storage->services);
     storage->functions = weivel_standard_memory_allocate_zeroed(count_functions(services), sizeof *storage->functions);
     storage->descriptions = weivel_standard_memory_allocate_zeroed(service_count, sizeof *storage->descriptions);
-    if (storage->services == NULL || storage->functions == NULL || storage->descriptions == NULL) {
+    if (contract_count > 0) {
+        storage->contracts = weivel_standard_memory_allocate_zeroed(contract_count, sizeof *storage->contracts);
+    }
+    if (storage->services == NULL || storage->functions == NULL || storage->descriptions == NULL ||
+        (contract_count > 0 && storage->contracts == NULL)) {
         release_storage(storage);
         return WEIVEL_STATUS_OUT_OF_MEMORY;
     }
     fill_services(storage, services);
+    fill_contracts(storage, contracts);
     built.import_name = text_of(document, "importName");
     built.version = text_of(document, "version");
     built.release = text_of(document, "release");
@@ -492,6 +554,8 @@ static weivel_status build_library(weivel_json_value *document, weivel_standard_
     built.service_count = service_count;
     built.storage = storage;
     built.descriptions = storage->descriptions;
+    built.contracts = storage->contracts;
+    built.contract_count = contract_count;
     weivel_standard_sized_write(library, &built, sizeof built);
     return WEIVEL_STATUS_OK;
 }

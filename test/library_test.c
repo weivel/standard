@@ -92,6 +92,12 @@ typedef struct refused_case {
     "{'importName': 'echo', 'version': '1', 'services': [{'id': 'echo', 'description': " description "," \
     " 'functions': [{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'}]}]}"
 
+#define CONTRACTS(contracts) \
+    "{'importName': 'echo', 'version': '1', 'services': [{'id': 'echo', 'functions': [" \
+    "{'name': 'definition', 'symbol': 'echo_definition', 'kind': 'definition'}]}], 'contracts': " contracts "}"
+
+#define ONE_CONTRACT(fields) CONTRACTS("[{" fields "}]")
+
 static const refused_case REFUSED[] = {
     {"not json", "{'importName': ", WEIVEL_STANDARD_REFUSAL_MALFORMED_JSON, ""},
     {"not an object", "['echo']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, ""},
@@ -207,6 +213,31 @@ static const refused_case REFUSED[] = {
      "{'importName': 'echo', 'version': '1', 'release': 'r', 'services': [{'id': 'echo', 'description': 'echo_d',"
      " 'functions': [{'name': 'repeat', 'symbol': 'echo_repeat', 'kind': 'bytes'}]}]}",
      WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD, "services[0].description"},
+    {"contracts an object", CONTRACTS("{}"), WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, "contracts"},
+    {"empty contracts", CONTRACTS("[]"), WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "contracts"},
+    {"a contract that is not an object", CONTRACTS("['echo.provider']"), WEIVEL_STANDARD_REFUSAL_WRONG_TYPE,
+     "contracts[0]"},
+    {"a contract with no capability", ONE_CONTRACT("'description': 'echo_provider_description'"),
+     WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, "contracts[0].capability"},
+    {"a contract capability that is not a string", ONE_CONTRACT("'capability': 7, 'description': 'd'"),
+     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, "contracts[0].capability"},
+    {"an empty contract capability", ONE_CONTRACT("'capability': '', 'description': 'd'"),
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "contracts[0].capability"},
+    {"a contract capability with a capital", ONE_CONTRACT("'capability': 'Echo.provider', 'description': 'd'"),
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "contracts[0].capability"},
+    {"a contract with no description", ONE_CONTRACT("'capability': 'echo.provider'"),
+     WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, "contracts[0].description"},
+    {"a contract description that is not a string", ONE_CONTRACT("'capability': 'echo.provider', 'description': []"),
+     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, "contracts[0].description"},
+    {"an empty contract description", ONE_CONTRACT("'capability': 'echo.provider', 'description': ''"),
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "contracts[0].description"},
+    {"a contract description not a C identifier",
+     ONE_CONTRACT("'capability': 'echo.provider', 'description': 'echo-provider'"),
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "contracts[0].description"},
+    {"a capability published twice",
+     CONTRACTS("[{'capability': 'echo.provider', 'description': 'a'}, {'capability': 'echo.other', 'description': 'b'},"
+               " {'capability': 'echo.provider', 'description': 'c'}]"),
+     WEIVEL_STANDARD_REFUSAL_DUPLICATE, "contracts[2].capability"},
 };
 
 static void refuses_by_path(const refused_case *item) {
@@ -343,6 +374,36 @@ static void reads_no_descriptions_where_none_is_declared(void) {
     weivel_standard_library_release(&library);
 }
 
+static const char *const CONTRACTED_LIBRARY = CONTRACTS(
+    "[{'capability': 'echo.provider', 'description': 'echo_provider_description', 'later': true},"
+    " {'capability': 'echo.listener', 'description': 'echo_listener_description'}]");
+
+static void reads_the_contracts_a_library_publishes(void) {
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    const char *json = json_of(CONTRACTED_LIBRARY);
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, &refusal) == WEIVEL_STATUS_OK);
+    CHECK(refusal.storage == NULL);
+    CHECK(library.contract_count == 2 && library.contracts != NULL);
+    if (library.contract_count == 2 && library.contracts != NULL) {
+        check_text(library.contracts[0].capability, "echo.provider", "contracts[0].capability");
+        check_text(library.contracts[0].description, "echo_provider_description", "contracts[0].description");
+        check_text(library.contracts[1].capability, "echo.listener", "contracts[1].capability");
+        check_text(library.contracts[1].description, "echo_listener_description", "contracts[1].description");
+    }
+    CHECK(library.service_count == 1);
+    weivel_standard_library_release(&library);
+    CHECK(library.contracts == NULL && library.contract_count == 0 && library.storage == NULL);
+}
+
+static void reads_no_contracts_where_none_is_declared(void) {
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    const char *json = json_of(DEFINITIONS_ALONE);
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, NULL) == WEIVEL_STATUS_OK);
+    CHECK(library.contracts == NULL && library.contract_count == 0);
+    weivel_standard_library_release(&library);
+}
+
 typedef union first_shape_library {
     weivel_standard_library library;
     unsigned char bytes[sizeof(weivel_standard_library)];
@@ -369,6 +430,27 @@ static void fills_a_first_shape_declaration_within_its_size(void) {
     CHECK(library->storage == NULL && library->services == NULL);
     library->size = (uint32_t)first_shape - 1;
     CHECK(weivel_standard_read_library(json, strlen(json), library, NULL) == WEIVEL_STATUS_MALFORMED);
+}
+
+/** A caller compiled before `contracts` was appended has a declaration ending at `descriptions`. */
+static void fills_a_declaration_ending_at_descriptions_within_its_size(void) {
+    first_shape_library caller;
+    weivel_standard_library *library = &caller.library;
+    const char *json = json_of(CONTRACTED_LIBRARY);
+    size_t shape = offsetof(weivel_standard_library, descriptions) + sizeof(void *);
+    size_t at;
+    int untouched = 1;
+    memset(caller.bytes, 0, shape);
+    memset(caller.bytes + shape, 0xab, sizeof caller.bytes - shape);
+    library->size = (uint32_t)shape;
+    CHECK(weivel_standard_read_library(json, strlen(json), library, NULL) == WEIVEL_STATUS_OK);
+    CHECK(library->descriptions != NULL && library->service_count == 1);
+    for (at = shape; at < sizeof caller.bytes; at++) {
+        untouched = untouched && caller.bytes[at] == 0xab;
+    }
+    CHECK(untouched);
+    weivel_standard_library_release(library);
+    CHECK(library->storage == NULL && library->descriptions == NULL);
 }
 
 static void refuses_a_nul_in_a_name(void) {
@@ -421,7 +503,10 @@ int main(void) {
     reads_a_definition_service_beside_a_bytes_service();
     reads_a_description_beside_a_definition();
     reads_no_descriptions_where_none_is_declared();
+    reads_the_contracts_a_library_publishes();
+    reads_no_contracts_where_none_is_declared();
     fills_a_first_shape_declaration_within_its_size();
+    fills_a_declaration_ending_at_descriptions_within_its_size();
     refuses_a_nul_in_a_name();
     refuses_without_a_refusal_to_fill();
     refuses_a_malformed_call();

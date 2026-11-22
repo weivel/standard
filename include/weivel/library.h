@@ -55,9 +55,21 @@ typedef struct weivel_standard_library_service {
 } weivel_standard_library_service;
 
 /**
+ * A description the library publishes for plugins to implement under a capability, where it serves no definition of
+ * its own: a definition no service of the library answers, whose layout a plugin providing the capability fills and
+ * a language binds from the description alone. An element of `contracts`: no size, and it never grows.
+ */
+typedef struct weivel_standard_library_contract {
+    /** The capability id a plugin implementing the contract provides, unique within the declaration. */
+    const char *capability;
+    /** The exported symbol answering the description, as a service's `description` does. */
+    const char *description;
+} weivel_standard_library_contract;
+
+/**
  * A C library's declaration: the name plugins import it by, its version, the symbol that frees what its bytes
- * functions return, NULL when it declares none and every service is a definition, and the services its functions
- * offer. Everything it points at lives in `storage`, private to the standard, until
+ * functions return, NULL when it declares none and every service is a definition, the services its functions
+ * offer, and the contracts it publishes for plugins to implement. Everything it points at lives in `storage`, private to the standard, until
  * weivel_standard_library_release. An empty declaration has its `size` set and every other field zero, as WEIVEL_INIT
  * or a release leaves it. First shape ends at `storage`.
  */
@@ -75,6 +87,9 @@ typedef struct weivel_standard_library {
      * no `description`. Only a definition's service declares one.
      */
     const char *const *descriptions;
+    /** The contracts the declaration's optional `contracts` lists, in its order; NULL and 0 when it lists none. */
+    const weivel_standard_library_contract *contracts;
+    size_t contract_count;
 } weivel_standard_library;
 
 /**

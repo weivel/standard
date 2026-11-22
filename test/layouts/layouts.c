@@ -90,6 +90,9 @@ static void print_library_layouts(void) {
     FIELD(weivel_standard_library_service, functions);
     FIELD(weivel_standard_library_service, function_count);
     SIZE(weivel_standard_library_service);
+    FIELD(weivel_standard_library_contract, capability);
+    FIELD(weivel_standard_library_contract, description);
+    SIZE(weivel_standard_library_contract);
     FIELD(weivel_standard_library, size);
     FIELD(weivel_standard_library, import_name);
     FIELD(weivel_standard_library, version);
@@ -98,6 +101,8 @@ static void print_library_layouts(void) {
     FIELD(weivel_standard_library, service_count);
     FIELD(weivel_standard_library, storage);
     FIELD(weivel_standard_library, descriptions);
+    FIELD(weivel_standard_library, contracts);
+    FIELD(weivel_standard_library, contract_count);
     SIZE(weivel_standard_library);
 }
 

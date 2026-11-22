@@ -13,7 +13,9 @@ names, so an answer can carry a definition. `weivel-describe` writes one from a 
 operation, and takes a definition described elsewhere by its symbol. A struct may point at its own type, or at one
 reaching it, through a POINTER or an ARRAY, as a tree of blocks holds its blocks: `weivel-describe` reads the member
 as C spells it inside the struct's own body, `const struct <tag> *`, and the check refuses a struct holding itself by
-value, which has no finite size. `descriptions.h` exports the descriptions of the
+value, which has no finite size. A library may also publish a description it implements nowhere, a `contracts` entry
+naming a capability id and the description's symbol, so plugins providing that capability implement one definition
+that every language binds alike. `descriptions.h` exports the descriptions of the
 standard's own definitions, so a library serving one declares the symbol and never describes it again.
 
 Three more contracts are defined for a host program: `weivel.log` (`services.h`), `weivel.scope` (`scope.h`), which
