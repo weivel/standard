@@ -5,8 +5,10 @@
  * @file
  * The language-neutral description a C library answers for one service's definition: the definition's structs and
  * enums, and each operation with its parameters, so a language that cannot read a C header binds the definition from
- * it. A library declares the symbol that answers it as its service's `description` in `library.json`, and the symbol
- * is `const weivel_standard_description *f(void)`, answering a static, read-only description that lives until the
+ * it. A library declares the symbol that answers it as its service's `description` in `library.json`, or, for a
+ * definition it publishes for plugins to implement and serves no implementation of, as a `contracts` entry's
+ * `description` beside the entry's `capability` id. The symbol is `const weivel_standard_description *f(void)`,
+ * answering a static, read-only description that lives until the
  * library is unloaded. No part of it is JSON.
  *
  * Conventions, beside `weivel/standard.h`'s and `weivel/services.h`'s:

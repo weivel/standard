@@ -33,6 +33,16 @@ static const char *const SAMPLES[] = {
     "{\"id\": \"echo\", \"description\": 7, \"functions\": [{\"name\": \"definition\","
     " \"symbol\": \"echo_definition\", \"kind\": \"definition\"}]}]}",
     "{\"importName\": \"echo\", \"version\": \"1\", \"release\": \"r\", \"services\": [{\"id\": \"Echo\"}]}",
+    "{\"importName\": \"echo\", \"version\": \"1\", \"services\": ["
+    "{\"id\": \"echo\", \"functions\": [{\"name\": \"definition\", \"symbol\": \"echo_definition\","
+    " \"kind\": \"definition\"}]}], \"contracts\": ["
+    "{\"capability\": \"echo.provider\", \"description\": \"echo_provider_description\"},"
+    " {\"capability\": \"echo.listener\", \"description\": \"echo_listener_description\"}]}",
+    "{\"importName\": \"echo\", \"version\": \"1\", \"services\": ["
+    "{\"id\": \"echo\", \"functions\": [{\"name\": \"definition\", \"symbol\": \"echo_definition\","
+    " \"kind\": \"definition\"}]}], \"contracts\": ["
+    "{\"capability\": \"echo.provider\", \"description\": \"a\"},"
+    " {\"capability\": \"echo.provider\", \"description\": \"b\"}]}",
     "{\"importName\": "};
 
 /** Fails each allocation in turn until a read needs no more, and checks every failure leaves nothing behind. */

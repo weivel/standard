@@ -590,6 +590,23 @@ static const weivel_standard_description *walker_declared_by(described_library l
     return walker;
 }
 
+/** A contract's description is exported like a service's, and a plugin implementing the capability binds it. */
+static void declares_a_contract_it_describes(described_library library) {
+    weivel_standard_library declaration = WEIVEL_INIT(weivel_standard_library);
+    const weivel_standard_description *contract = NULL;
+    if (!read_declaration("library.json", &declaration)) {
+        return;
+    }
+    CHECK(declaration.contract_count == 1 && declaration.contracts != NULL);
+    if (declaration.contract_count == 1 && declaration.contracts != NULL) {
+        check_name(declaration.contracts[0].capability, "described.mirroring", "a contract's capability");
+        check_name(declaration.contracts[0].description, "described_mirror_description", "a contract's description");
+        contract = resolve(library, declaration.contracts[0].description);
+    }
+    CHECK(contract != NULL && weivel_standard_description_check(contract, NULL) == WEIVEL_STATUS_OK);
+    weivel_standard_library_release(&declaration);
+}
+
 static void declares_both_services_and_each_broken_variant(described_library library) {
     const weivel_standard_description *walker =
         walker_declared_by(library, "library.json", "described_walker_description");
@@ -620,6 +637,7 @@ int main(int argument_count, char **arguments) {
     }
     describes_both_services_as_the_header_declares_them(library);
     declares_both_services_and_each_broken_variant(library);
+    declares_a_contract_it_describes(library);
     CHECK(described_library_close(library));
     return check_summary("described_description_test");
 }
