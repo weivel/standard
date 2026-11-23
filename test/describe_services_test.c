@@ -308,14 +308,21 @@ static const expected_parameter CONFIG_RELEASE_SETTINGS[] = {
 static const expected_parameter CONFIG_RELEASE_ANSWER[] = {
     CONTEXT_PARAMETER, PARAMETER("answer", POINTER, ANSWER, STRUCT, "weivel_standard_setting_answer", NULL, NULL)};
 static const expected_parameter RELEASE_REFUSAL[] = {CONTEXT_PARAMETER, RELEASED_REFUSAL};
+static const expected_parameter CONFIG_GET_TREE[] = {
+    CONTEXT_PARAMETER, PARAMETER("key", TEXT, INPUT, NONE, NULL, NULL, NULL),
+    PARAMETER("tree", VALUE, ANSWER, NONE, NULL, NULL, "release_tree"), REFUSAL_PARAMETER};
+static const expected_parameter CONFIG_RELEASE_TREE[] = {CONTEXT_PARAMETER,
+                                                         PARAMETER("tree", VALUE, ANSWER, NONE, NULL, NULL, NULL)};
 static const expected_operation CONFIG_OPERATIONS[] = {
     OPERATION(weivel_standard_config, all, STATUS, CONFIG_ALL),
     OPERATION(weivel_standard_config, get, STATUS, CONFIG_GET),
     OPERATION(weivel_standard_config, set, STATUS, CONFIG_SET),
     OPERATION(weivel_standard_config, release_settings, NOTHING, CONFIG_RELEASE_SETTINGS),
     OPERATION(weivel_standard_config, release_answer, NOTHING, CONFIG_RELEASE_ANSWER),
-    OPERATION(weivel_standard_config, release_refusal, NOTHING, RELEASE_REFUSAL)};
-static const expected_description CONFIG = {"weivel_standard_config", CONFIG_TYPES, COUNT(CONFIG_TYPES),
+    OPERATION(weivel_standard_config, release_refusal, NOTHING, RELEASE_REFUSAL),
+    OPERATION(weivel_standard_config, get_tree, STATUS, CONFIG_GET_TREE),
+    OPERATION(weivel_standard_config, release_tree, NOTHING, CONFIG_RELEASE_TREE)};
+static const expected_description CONFIG ={"weivel_standard_config", CONFIG_TYPES, COUNT(CONFIG_TYPES),
                                             CONFIG_ENUMS, COUNT(CONFIG_ENUMS), CONFIG_OPERATIONS,
                                             COUNT(CONFIG_OPERATIONS), NULL, 0};
 

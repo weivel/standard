@@ -24,3 +24,6 @@ what to run and tells it what happened. An action run calls either an action the
 a service the plugin itself provides, as the plan names it. A library's service id may be dotted, as `weivel.log` is,
 and its `importName` is refused when it names a Windows device name such as `con` or `com1`. A host that wants another
 format, another layout or no files at all builds the core's structures itself and never links this library.
+
+`weivel.config` answers a setting's text, number or boolean through `get`, and any setting whole as a value tree
+through `get_tree`, so a setting that is a list or a record is read as the host stores it.

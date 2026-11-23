@@ -18,6 +18,7 @@
 #define SETTINGS_FIRST_SHAPE FIRST_SHAPE(weivel_standard_settings, storage)
 #define ANSWER_FIRST_SHAPE FIRST_SHAPE(weivel_standard_setting_answer, storage)
 #define SECRET_FIRST_SHAPE FIRST_SHAPE(weivel_standard_secret, storage)
+#define TREE_FIRST_SHAPE FIRST_SHAPE(weivel_standard_value_tree, storage)
 
 static uint32_t size_of(const void *sized) {
     uint32_t size;
@@ -262,6 +263,60 @@ static void config_release_answer(void *context, weivel_standard_setting_answer 
     empty_within(answer);
 }
 
+/** The memory provider holds no list or record, so a tree it answers is the one node of a text, number or boolean. */
+static weivel_standard_value node_of(const weivel_standard_setting_value *value, char *text) {
+    weivel_standard_value node;
+    memset(&node, 0, sizeof node);
+    switch (value->kind) {
+    case WEIVEL_STANDARD_SETTING_TEXT:
+        node.kind = WEIVEL_STANDARD_VALUE_TEXT;
+        node.text = text;
+        node.length = value->text_length;
+        break;
+    case WEIVEL_STANDARD_SETTING_NUMBER:
+        node.kind = WEIVEL_STANDARD_VALUE_NUMBER;
+        node.number = value->number;
+        break;
+    default:
+        node.kind = WEIVEL_STANDARD_VALUE_BOOLEAN;
+        node.boolean = value->boolean;
+    }
+    return node;
+}
+
+static weivel_status config_get_tree(void *context, const char *key, weivel_standard_value_tree *tree,
+                                     weivel_standard_service_refusal *refusal) {
+    const weivel_standard_setting *setting;
+    char *text = NULL;
+    if (key == NULL || tree == NULL || tree->size < TREE_FIRST_SHAPE || tree->storage != NULL ||
+        tree->root.kind != WEIVEL_STANDARD_VALUE_NONE || refusal_is_unusable(refusal)) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    setting = effective_setting(context, key);
+    if (setting == NULL) {
+        return WEIVEL_STATUS_NONE;
+    }
+    if (setting->value.kind == WEIVEL_STANDARD_SETTING_TEXT) {
+        text = copy_text(setting->value.text, setting->value.text_length);
+        if (text == NULL) {
+            return WEIVEL_STATUS_OUT_OF_MEMORY;
+        }
+    }
+    zero_beyond(tree, sizeof *tree);
+    tree->root = node_of(&setting->value, text);
+    tree->storage = text;
+    return WEIVEL_STATUS_OK;
+}
+
+static void config_release_tree(void *context, weivel_standard_value_tree *tree) {
+    (void)context;
+    if (tree == NULL || tree->size < TREE_FIRST_SHAPE) {
+        return;
+    }
+    free(tree->storage);
+    empty_within(tree);
+}
+
 static void config_drop(memory_config *config) {
     size_t at;
     for (at = 0; at < config->stored_count; at++) {
@@ -441,6 +496,8 @@ static weivel_standard_config config_over(memory_config *config) {
     definition.release_settings = config_release_settings;
     definition.release_answer = config_release_answer;
     definition.release_refusal = release_refusal;
+    definition.get_tree = config_get_tree;
+    definition.release_tree = config_release_tree;
     return definition;
 }
 
@@ -457,6 +514,18 @@ static void check_text_setting(const weivel_standard_config *config, const char 
     check_text(answer.value.text, expected, key);
     config->release_answer(config->context, &answer);
     CHECK(answer_is_empty(&answer));
+}
+
+static void check_tree_setting(const weivel_standard_config *config) {
+    weivel_standard_value_tree tree = WEIVEL_INIT(weivel_standard_value_tree);
+    CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, config, get_tree));
+    CHECK(config->get_tree(config->context, "theme", &tree, NULL) == WEIVEL_STATUS_OK);
+    CHECK(tree.root.kind == WEIVEL_STANDARD_VALUE_TEXT && tree.root.length == 4);
+    check_text(tree.root.text, "dark", "a setting read as a tree");
+    config->release_tree(config->context, &tree);
+    CHECK(tree.size == sizeof tree && tree.root.kind == WEIVEL_STANDARD_VALUE_NONE && tree.storage == NULL);
+    CHECK(config->get_tree(config->context, "absent", &tree, NULL) == WEIVEL_STATUS_NONE);
+    CHECK(tree.root.kind == WEIVEL_STANDARD_VALUE_NONE && tree.storage == NULL);
 }
 
 static const weivel_standard_setting *setting_named(const weivel_standard_settings *settings, const char *key) {
@@ -495,6 +564,7 @@ static void config_reads_defaults_and_writes(void) {
     check_text_setting(config, "theme", "dark");
     CHECK(config->get(config->context, "absent", &answer, NULL) == WEIVEL_STATUS_NONE);
     CHECK(answer_is_empty(&answer));
+    check_tree_setting(config);
     CHECK(config->all(config->context, &before, NULL) == WEIVEL_STATUS_OK);
     CHECK(before.count == 2);
 
@@ -700,7 +770,12 @@ static void an_older_definition_offers_only_what_its_size_covers(void) {
     definition.size = (uint32_t)offsetof(weivel_standard_config, set);
     CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, get));
     CHECK(!WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, set));
+    definition.size = (uint32_t)FIRST_SHAPE(weivel_standard_config, release_refusal);
+    CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release_refusal));
+    CHECK(!WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, get_tree));
+    CHECK(!WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release_tree));
     definition.size = (uint32_t)sizeof definition;
+    CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release_tree));
     definition.release_refusal = NULL;
     CHECK(!WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release_refusal));
 }

@@ -622,6 +622,10 @@ static const expected_item RELEASE_SETTINGS[] = {
     CONTEXT_PARAMETER, {"settings", K(POINTER), K(ANSWER), K(STRUCT), "weivel_standard_settings", NULL, NULL}};
 static const expected_item RELEASE_SETTING_ANSWER[] = {
     CONTEXT_PARAMETER, {"answer", K(POINTER), K(ANSWER), K(STRUCT), "weivel_standard_setting_answer", NULL, NULL}};
+static const expected_item CONFIG_GET_TREE[] = {CONTEXT_PARAMETER,
+                                                 {"key", K(TEXT), K(INPUT), NO, NULL, NULL, NULL},
+                                                 {"tree", K(VALUE), K(ANSWER), NO, NULL, NULL, "release_tree"},
+                                                 REFUSAL_PARAMETER};
 
 static const expected_item SECRETS_REMOVE[] = {CONTEXT_PARAMETER, {"name", K(TEXT), K(INPUT), NO, NULL, NULL, NULL},
                                                REFUSAL_PARAMETER};
@@ -660,7 +664,9 @@ static void reads_every_struct_and_definition_of_services_h(void) {
         OPERATION("set", STATUS, NULL, CONFIG_SET),
         OPERATION("release_settings", NOTHING, "weivel_standard_settings", RELEASE_SETTINGS),
         OPERATION("release_answer", NOTHING, "weivel_standard_setting_answer", RELEASE_SETTING_ANSWER),
-        OPERATION("release_refusal", NOTHING, "weivel_standard_service_refusal", RELEASE_REFUSAL)};
+        OPERATION("release_refusal", NOTHING, "weivel_standard_service_refusal", RELEASE_REFUSAL),
+        OPERATION("get_tree", STATUS, NULL, CONFIG_GET_TREE),
+        OPERATION("release_tree", NOTHING, "weivel_standard_value_tree", RELEASE_TREE)};
     static const expected_operation secrets[] = {
         OPERATION("remove", STATUS, NULL, SECRETS_REMOVE),
         OPERATION("get", STATUS, NULL, SECRETS_GET),

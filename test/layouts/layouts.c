@@ -143,6 +143,8 @@ static void print_service_layouts(void) {
     FIELD(weivel_standard_config, release_settings);
     FIELD(weivel_standard_config, release_answer);
     FIELD(weivel_standard_config, release_refusal);
+    FIELD(weivel_standard_config, get_tree);
+    FIELD(weivel_standard_config, release_tree);
     SIZE(weivel_standard_config);
     FIELD(weivel_standard_secret, size);
     FIELD(weivel_standard_secret, bytes);

@@ -167,6 +167,20 @@ typedef struct weivel_standard_config {
     void (*release_settings)(void *context, weivel_standard_settings *settings);
     void (*release_answer)(void *context, weivel_standard_setting_answer *answer);
     void (*release_refusal)(void *context, weivel_standard_service_refusal *refusal);
+    /**
+     * One setting whole, as a value tree, so a setting that is a list or a record, which `get` cannot answer, is read
+     * as the host stores it; a text, number or boolean setting is answered as a tree of that one node. Appended after
+     * the first shape, so a consumer checks WEIVEL_STANDARD_OFFERS before calling it.
+     *
+     * @param key Required.
+     * @param tree the consumer's empty answer. Required.
+     * @param refusal the consumer's empty refusal, or NULL for none.
+     * @return OK, the setting's value at `tree`'s root; NONE when the key is neither stored nor defaulted; REFUSED
+     * when the settings cannot be read.
+     */
+    weivel_status (*get_tree)(void *context, const char *key, weivel_standard_value_tree *tree,
+                              weivel_standard_service_refusal *refusal);
+    void (*release_tree)(void *context, weivel_standard_value_tree *tree);
 } weivel_standard_config;
 
 /**
