@@ -19,6 +19,8 @@
 #define ANSWER_FIRST_SHAPE FIRST_SHAPE(weivel_standard_setting_answer, storage)
 #define SECRET_FIRST_SHAPE FIRST_SHAPE(weivel_standard_secret, storage)
 #define TREE_FIRST_SHAPE FIRST_SHAPE(weivel_standard_value_tree, storage)
+#define SETTINGS_FILE_FIRST_SHAPE FIRST_SHAPE(weivel_standard_settings_file, storage)
+#define MEMORY_SETTINGS_FILE "/memory/config.json"
 
 static uint32_t size_of(const void *sized) {
     uint32_t size;
@@ -317,6 +319,33 @@ static void config_release_tree(void *context, weivel_standard_value_tree *tree)
     empty_within(tree);
 }
 
+static weivel_status config_settings_file(void *context, weivel_standard_settings_file *file,
+                                          weivel_standard_service_refusal *refusal) {
+    char *path;
+    (void)context;
+    if (file == NULL || file->size < SETTINGS_FILE_FIRST_SHAPE || file->storage != NULL || file->path != NULL ||
+        refusal_is_unusable(refusal)) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    path = copy_text(MEMORY_SETTINGS_FILE, strlen(MEMORY_SETTINGS_FILE));
+    if (path == NULL) {
+        return WEIVEL_STATUS_OUT_OF_MEMORY;
+    }
+    zero_beyond(file, sizeof *file);
+    file->path = path;
+    file->storage = path;
+    return WEIVEL_STATUS_OK;
+}
+
+static void config_release_settings_file(void *context, weivel_standard_settings_file *file) {
+    (void)context;
+    if (file == NULL || file->size < SETTINGS_FILE_FIRST_SHAPE) {
+        return;
+    }
+    free(file->storage);
+    empty_within(file);
+}
+
 static void config_drop(memory_config *config) {
     size_t at;
     for (at = 0; at < config->stored_count; at++) {
@@ -498,6 +527,8 @@ static weivel_standard_config config_over(memory_config *config) {
     definition.release_refusal = release_refusal;
     definition.get_tree = config_get_tree;
     definition.release_tree = config_release_tree;
+    definition.settings_file = config_settings_file;
+    definition.release_settings_file = config_release_settings_file;
     return definition;
 }
 
@@ -526,6 +557,15 @@ static void check_tree_setting(const weivel_standard_config *config) {
     CHECK(tree.size == sizeof tree && tree.root.kind == WEIVEL_STANDARD_VALUE_NONE && tree.storage == NULL);
     CHECK(config->get_tree(config->context, "absent", &tree, NULL) == WEIVEL_STATUS_NONE);
     CHECK(tree.root.kind == WEIVEL_STANDARD_VALUE_NONE && tree.storage == NULL);
+}
+
+static void check_settings_file(const weivel_standard_config *config) {
+    weivel_standard_settings_file file = WEIVEL_INIT(weivel_standard_settings_file);
+    CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, config, settings_file));
+    CHECK(config->settings_file(config->context, &file, NULL) == WEIVEL_STATUS_OK);
+    check_text(file.path, MEMORY_SETTINGS_FILE, "the settings file");
+    config->release_settings_file(config->context, &file);
+    CHECK(file.size == sizeof file && file.path == NULL && file.storage == NULL);
 }
 
 static const weivel_standard_setting *setting_named(const weivel_standard_settings *settings, const char *key) {
@@ -565,6 +605,7 @@ static void config_reads_defaults_and_writes(void) {
     CHECK(config->get(config->context, "absent", &answer, NULL) == WEIVEL_STATUS_NONE);
     CHECK(answer_is_empty(&answer));
     check_tree_setting(config);
+    check_settings_file(config);
     CHECK(config->all(config->context, &before, NULL) == WEIVEL_STATUS_OK);
     CHECK(before.count == 2);
 
@@ -774,6 +815,9 @@ static void an_older_definition_offers_only_what_its_size_covers(void) {
     CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release_refusal));
     CHECK(!WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, get_tree));
     CHECK(!WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release_tree));
+    definition.size = (uint32_t)FIRST_SHAPE(weivel_standard_config, release_tree);
+    CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release_tree));
+    CHECK(!WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, settings_file));
     definition.size = (uint32_t)sizeof definition;
     CHECK(WEIVEL_STANDARD_OFFERS(weivel_standard_config, &definition, release_tree));
     definition.release_refusal = NULL;
@@ -807,6 +851,7 @@ static const published_number PUBLISHED[] = {
     {"paths size", offsetof(weivel_standard_paths, size), 0},
     {"settings size", offsetof(weivel_standard_settings, size), 0},
     {"setting answer size", offsetof(weivel_standard_setting_answer, size), 0},
+    {"settings file size", offsetof(weivel_standard_settings_file, size), 0},
     {"secret size", offsetof(weivel_standard_secret, size), 0},
     {"service refusal size", offsetof(weivel_standard_service_refusal, size), 0},
     {"log size", offsetof(weivel_standard_log, size), 0},

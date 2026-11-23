@@ -135,6 +135,10 @@ static void print_service_layouts(void) {
     FIELD(weivel_standard_setting_answer, value);
     FIELD(weivel_standard_setting_answer, storage);
     SIZE(weivel_standard_setting_answer);
+    FIELD(weivel_standard_settings_file, size);
+    FIELD(weivel_standard_settings_file, path);
+    FIELD(weivel_standard_settings_file, storage);
+    SIZE(weivel_standard_settings_file);
     FIELD(weivel_standard_config, size);
     FIELD(weivel_standard_config, context);
     FIELD(weivel_standard_config, all);
@@ -145,6 +149,8 @@ static void print_service_layouts(void) {
     FIELD(weivel_standard_config, release_refusal);
     FIELD(weivel_standard_config, get_tree);
     FIELD(weivel_standard_config, release_tree);
+    FIELD(weivel_standard_config, settings_file);
+    FIELD(weivel_standard_config, release_settings_file);
     SIZE(weivel_standard_config);
     FIELD(weivel_standard_secret, size);
     FIELD(weivel_standard_secret, bytes);
