@@ -26,4 +26,5 @@ and its `importName` is refused when it names a Windows device name such as `con
 format, another layout or no files at all builds the core's structures itself and never links this library.
 
 `weivel.config` answers a setting's text, number or boolean through `get`, and any setting whole as a value tree
-through `get_tree`, so a setting that is a list or a record is read as the host stores it.
+through `get_tree`, so a setting that is a list or a record is read as the host stores it, and names the file its
+`set` writes through `settings_file`, so a plugin can tell its user which file to edit.

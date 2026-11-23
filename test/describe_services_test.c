@@ -279,13 +279,18 @@ static const expected_member SETTING_ANSWER_MEMBERS[] = {
     MEMBER(weivel_standard_setting_answer, size, U32, NONE, NULL, NULL),
     MEMBER(weivel_standard_setting_answer, value, STRUCT, NONE, "weivel_standard_setting_value", NULL),
     MEMBER(weivel_standard_setting_answer, storage, STORAGE, NONE, NULL, NULL)};
+static const expected_member SETTINGS_FILE_MEMBERS[] = {
+    MEMBER(weivel_standard_settings_file, size, U32, NONE, NULL, NULL),
+    MEMBER(weivel_standard_settings_file, path, TEXT, NONE, NULL, NULL),
+    MEMBER(weivel_standard_settings_file, storage, STORAGE, NONE, NULL, NULL)};
 static const expected_type CONFIG_TYPES[] = {
     TYPE(weivel_standard_config, FIELD_END(weivel_standard_config, release_refusal), CONFIG_MEMBERS),
     REFUSAL_TYPE,
     TYPE(weivel_standard_setting_value, sizeof(weivel_standard_setting_value), SETTING_VALUE_MEMBERS),
     TYPE(weivel_standard_setting, sizeof(weivel_standard_setting), SETTING_MEMBERS),
     TYPE(weivel_standard_settings, FIELD_END(weivel_standard_settings, storage), SETTINGS_MEMBERS),
-    TYPE(weivel_standard_setting_answer, FIELD_END(weivel_standard_setting_answer, storage), SETTING_ANSWER_MEMBERS)};
+    TYPE(weivel_standard_setting_answer, FIELD_END(weivel_standard_setting_answer, storage), SETTING_ANSWER_MEMBERS),
+    TYPE(weivel_standard_settings_file, FIELD_END(weivel_standard_settings_file, storage), SETTINGS_FILE_MEMBERS)};
 static const weivel_standard_described_enum_entry SETTING_KINDS[] = {
     {"WEIVEL_STANDARD_SETTING_NONE", 0},
     {"WEIVEL_STANDARD_SETTING_TEXT", 1},
@@ -313,6 +318,12 @@ static const expected_parameter CONFIG_GET_TREE[] = {
     PARAMETER("tree", VALUE, ANSWER, NONE, NULL, NULL, "release_tree"), REFUSAL_PARAMETER};
 static const expected_parameter CONFIG_RELEASE_TREE[] = {CONTEXT_PARAMETER,
                                                          PARAMETER("tree", VALUE, ANSWER, NONE, NULL, NULL, NULL)};
+static const expected_parameter CONFIG_SETTINGS_FILE[] = {
+    CONTEXT_PARAMETER,
+    PARAMETER("file", POINTER, ANSWER, STRUCT, "weivel_standard_settings_file", NULL, "release_settings_file"),
+    REFUSAL_PARAMETER};
+static const expected_parameter CONFIG_RELEASE_SETTINGS_FILE[] = {
+    CONTEXT_PARAMETER, PARAMETER("file", POINTER, ANSWER, STRUCT, "weivel_standard_settings_file", NULL, NULL)};
 static const expected_operation CONFIG_OPERATIONS[] = {
     OPERATION(weivel_standard_config, all, STATUS, CONFIG_ALL),
     OPERATION(weivel_standard_config, get, STATUS, CONFIG_GET),
@@ -321,7 +332,9 @@ static const expected_operation CONFIG_OPERATIONS[] = {
     OPERATION(weivel_standard_config, release_answer, NOTHING, CONFIG_RELEASE_ANSWER),
     OPERATION(weivel_standard_config, release_refusal, NOTHING, RELEASE_REFUSAL),
     OPERATION(weivel_standard_config, get_tree, STATUS, CONFIG_GET_TREE),
-    OPERATION(weivel_standard_config, release_tree, NOTHING, CONFIG_RELEASE_TREE)};
+    OPERATION(weivel_standard_config, release_tree, NOTHING, CONFIG_RELEASE_TREE),
+    OPERATION(weivel_standard_config, settings_file, STATUS, CONFIG_SETTINGS_FILE),
+    OPERATION(weivel_standard_config, release_settings_file, NOTHING, CONFIG_RELEASE_SETTINGS_FILE)};
 static const expected_description CONFIG ={"weivel_standard_config", CONFIG_TYPES, COUNT(CONFIG_TYPES),
                                             CONFIG_ENUMS, COUNT(CONFIG_ENUMS), CONFIG_OPERATIONS,
                                             COUNT(CONFIG_OPERATIONS), NULL, 0};

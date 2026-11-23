@@ -128,6 +128,16 @@ typedef struct weivel_standard_setting_answer {
 } weivel_standard_setting_answer;
 
 /**
+ * The file config's `set` writes, as config's `settings_file` answers it: `path` absolute, NUL-terminated UTF-8, a
+ * file that need not exist yet. First shape ends at `storage`.
+ */
+typedef struct weivel_standard_settings_file {
+    uint32_t size;
+    const char *path;
+    void *storage;
+} weivel_standard_settings_file;
+
+/**
  * The settings a host reads, served under WEIVEL_STANDARD_SERVICE_CONFIG. A key is NUL-terminated UTF-8. First shape
  * ends at `release_refusal`.
  */
@@ -181,6 +191,18 @@ typedef struct weivel_standard_config {
     weivel_status (*get_tree)(void *context, const char *key, weivel_standard_value_tree *tree,
                               weivel_standard_service_refusal *refusal);
     void (*release_tree)(void *context, weivel_standard_value_tree *tree);
+    /**
+     * The settings file `set` writes when it is given no other place, the one a user edits by hand, so a consumer can
+     * name it in what it tells the user. Appended after the first shape, so a consumer checks WEIVEL_STANDARD_OFFERS
+     * before calling it.
+     *
+     * @param file the consumer's empty answer. Required.
+     * @param refusal the consumer's empty refusal, or NULL for none.
+     * @return OK; NONE when the provider keeps the settings in no file; REFUSED when the file cannot be named.
+     */
+    weivel_status (*settings_file)(void *context, weivel_standard_settings_file *file,
+                                   weivel_standard_service_refusal *refusal);
+    void (*release_settings_file)(void *context, weivel_standard_settings_file *file);
 } weivel_standard_config;
 
 /**

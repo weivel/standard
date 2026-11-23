@@ -622,6 +622,12 @@ static const expected_item RELEASE_SETTINGS[] = {
     CONTEXT_PARAMETER, {"settings", K(POINTER), K(ANSWER), K(STRUCT), "weivel_standard_settings", NULL, NULL}};
 static const expected_item RELEASE_SETTING_ANSWER[] = {
     CONTEXT_PARAMETER, {"answer", K(POINTER), K(ANSWER), K(STRUCT), "weivel_standard_setting_answer", NULL, NULL}};
+static const expected_item SETTINGS_FILE[] = {
+    CONTEXT_PARAMETER,
+    {"file", K(POINTER), K(ANSWER), K(STRUCT), "weivel_standard_settings_file", NULL, "release_settings_file"},
+    REFUSAL_PARAMETER};
+static const expected_item RELEASE_SETTINGS_FILE[] = {
+    CONTEXT_PARAMETER, {"file", K(POINTER), K(ANSWER), K(STRUCT), "weivel_standard_settings_file", NULL, NULL}};
 static const expected_item CONFIG_GET_TREE[] = {CONTEXT_PARAMETER,
                                                  {"key", K(TEXT), K(INPUT), NO, NULL, NULL, NULL},
                                                  {"tree", K(VALUE), K(ANSWER), NO, NULL, NULL, "release_tree"},
@@ -655,7 +661,8 @@ static void reads_every_struct_and_definition_of_services_h(void) {
     describe_names names = describe_names_of_the_standard();
     static const char *const types[] = {"weivel_standard_service_refusal", "weivel_standard_setting_value",
                                         "weivel_standard_setting",         "weivel_standard_settings",
-                                        "weivel_standard_setting_answer",  "weivel_standard_config",
+                                        "weivel_standard_setting_answer",  "weivel_standard_settings_file",
+                                        "weivel_standard_config",
                                         "weivel_standard_secret",          "weivel_standard_secrets",
                                         "weivel_standard_paths",           "weivel_standard_log"};
     static const expected_operation config[] = {
@@ -666,7 +673,9 @@ static void reads_every_struct_and_definition_of_services_h(void) {
         OPERATION("release_answer", NOTHING, "weivel_standard_setting_answer", RELEASE_SETTING_ANSWER),
         OPERATION("release_refusal", NOTHING, "weivel_standard_service_refusal", RELEASE_REFUSAL),
         OPERATION("get_tree", STATUS, NULL, CONFIG_GET_TREE),
-        OPERATION("release_tree", NOTHING, "weivel_standard_value_tree", RELEASE_TREE)};
+        OPERATION("release_tree", NOTHING, "weivel_standard_value_tree", RELEASE_TREE),
+        OPERATION("settings_file", STATUS, NULL, SETTINGS_FILE),
+        OPERATION("release_settings_file", NOTHING, "weivel_standard_settings_file", RELEASE_SETTINGS_FILE)};
     static const expected_operation secrets[] = {
         OPERATION("remove", STATUS, NULL, SECRETS_REMOVE),
         OPERATION("get", STATUS, NULL, SECRETS_GET),
@@ -740,7 +749,8 @@ static void reaches_what_each_service_of_services_h_uses(void) {
     describe_names names = describe_names_of_the_standard();
     static const char *const config[] = {"weivel_standard_service_refusal", "weivel_standard_setting_value",
                                          "weivel_standard_setting", "weivel_standard_settings",
-                                         "weivel_standard_setting_answer", "weivel_standard_config"};
+                                         "weivel_standard_setting_answer", "weivel_standard_settings_file",
+                                         "weivel_standard_config"};
     static const char *const kinds[] = {"weivel_standard_setting_kind"};
     static const char *const secrets[] = {"weivel_standard_service_refusal", "weivel_standard_secret",
                                           "weivel_standard_secrets"};
