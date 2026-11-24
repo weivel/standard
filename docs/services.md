@@ -6,7 +6,8 @@ ships the ids, the structs and their descriptions, and no provider (see [replaci
 in `include/weivel/services.h`, `scope.h`, `host.h` and `value.h`, the ids' accessor functions in `src/services.c`, and
 the conventions every one follows are [conventions.md](conventions.md)'s.
 
-A plugin gets a service object by listing its id under `services` in its manifest (see [manifests.md](manifests.md)); resolving the id to the provider's object is the core's job and the language layer's, never the standard's.
+A plugin gets a service object by listing its id under `services.consumes` in its manifest (see
+[manifests.md](manifests.md)), and the core refuses a service the plugin does not consume; resolving the id to the provider's object is the core's job and the language layer's, never the standard's.
 
 No value crossing these definitions is JSON: JSON is a file format of the standard's defaults, and a service reached
 from any language hands its data over as typed structs and the value tree below. An id is also a function, for a binding
@@ -19,8 +20,9 @@ that cannot read a macro.
   tree, so a setting that is a list or a record is read as the host stores it. `set` stores a value, replacing any, and
   `settings_file` names the file `set` writes, the one a user edits by hand, so a consumer can tell a user which file
   to change. A value of kind none, or a number that is not finite, is never a value to store.
-- **`weivel.secrets`** keeps secrets as bytes, any bytes at all, under a name. Removing a name that holds nothing
-  succeeds. A provider should overwrite a secret's bytes before freeing them. The operation is `remove`, not `delete`,
+- **`weivel.secrets`** keeps secrets as bytes, any bytes at all, under a name. `get` answers the bytes under a name,
+  released with `release_secret`, `set` stores them, replacing any, and `remove` deletes them; removing a name that
+  holds nothing succeeds. A provider should overwrite a secret's bytes before freeing them. The operation is `remove`, not `delete`,
   so the header stays includable from C++.
 - **`weivel.paths`** answers absolute directories the provider owns and keeps the same for the definition's life, so
   nothing is released: where rebuildable files are kept, where settings are kept, and the directory offered as a
