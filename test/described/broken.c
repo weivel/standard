@@ -1,7 +1,8 @@
 /**
  * @file
  * Three descriptions of the walker, written by hand as copies of the one weivel-describe writes, each with one fault,
- * so a host can prove it refuses to bind any of them.
+ * so a host can prove it refuses to bind any of them. Each names described_walker_definition as the function answering
+ * it, so a host refuses it for its own fault rather than for naming no function.
  */
 
 #include <stddef.h>
@@ -117,7 +118,8 @@ static const weivel_standard_description counter = {.size = (uint32_t)sizeof(wei
                                                      .blocking = NULL,
                                                      .blocking_count = 0,
                                                      .definitions = NULL,
-                                                     .definition_count = 0};
+                                                     .definition_count = 0,
+                                                     .answered_by = NULL};
 
 static const weivel_standard_description *const definitions[] = {&counter};
 
@@ -196,7 +198,8 @@ static const weivel_standard_described_type definition_types[] = {
      .blocking = blocking,                                         \
      .blocking_count = COUNT_OF(blocking),                         \
      .definitions = nested_array,                                  \
-     .definition_count = nested_count}
+     .definition_count = nested_count,                             \
+     .answered_by = described_walker_definition}
 
 static const weivel_standard_description broken_offset = WALKER_OF(offset_types, definitions, COUNT_OF(definitions));
 

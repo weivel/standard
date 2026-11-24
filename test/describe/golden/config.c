@@ -534,7 +534,8 @@ static const weivel_standard_description config_description = {
     .blocking = config_blocking,
     .blocking_count = sizeof(config_blocking) / sizeof(config_blocking[0]),
     .definitions = NULL,
-    .definition_count = 0};
+    .definition_count = 0,
+    .answered_by = NULL};
 
 const weivel_standard_description *describe_config(void);
 

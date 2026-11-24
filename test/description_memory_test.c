@@ -50,10 +50,37 @@ static void a_whole_description_allocates_nothing(void) {
     weivel_standard_memory_fail_at(0);
 }
 
+/** Fails each allocation in turn until refusing a description that names no function needs no more. */
+static void every_failed_allocation_refusing_an_answer_leaves_nothing(void) {
+    static const int definition = 0;
+    probe_description probe;
+    uint64_t nth;
+    probe_describe(&probe);
+    for (nth = 1; nth < 100; nth++) {
+        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+        weivel_status status;
+        weivel_standard_memory_fail_at(nth);
+        status = weivel_standard_description_answers(&probe.description, &definition, &refusal);
+        if (!weivel_standard_memory_failed()) {
+            weivel_standard_memory_fail_at(0);
+            CHECK(status == WEIVEL_STATUS_MALFORMED && refusal.code == WEIVEL_STANDARD_REFUSAL_MISSING_FIELD);
+            weivel_standard_refusal_release(&refusal);
+            CHECK(weivel_standard_memory_live_blocks() == 0);
+            return;
+        }
+        weivel_standard_memory_fail_at(0);
+        CHECK(status == WEIVEL_STATUS_OUT_OF_MEMORY);
+        CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_NONE && refusal.storage == NULL);
+        CHECK(weivel_standard_memory_live_blocks() == 0);
+    }
+    CHECK(0);
+}
+
 int main(void) {
     every_failed_allocation_leaves_nothing(breaks_a_count);
     every_failed_allocation_leaves_nothing(breaks_a_name);
     every_failed_allocation_leaves_nothing(breaks_a_nested_name);
     a_whole_description_allocates_nothing();
+    every_failed_allocation_refusing_an_answer_leaves_nothing();
     return check_summary("description_memory_test");
 }

@@ -71,6 +71,20 @@ weivel_describe(describe_elsewhere_test
 
 standard_test(describe_services_test describe_services_test weivel_standard)
 standard_test(describe_services_shared_test describe_services_test weivel_standard_shared)
+foreach(services_target describe_services_test describe_services_shared_test)
+    set(headers ${PROJECT_SOURCE_DIR}/include/weivel)
+    weivel_describe(${services_target}
+        HEADERS ${headers}/services.h ${headers}/scope.h ${headers}/host.h ${headers}/descriptions.h
+        PREFIX services_test_
+        SERVICE weivel_standard_scopes SYMBOL services_test_scopes_description
+            ANSWERED_BY services_test_scopes_definition
+        SERVICE weivel_standard_host SYMBOL services_test_host_description
+            ANSWERED_BY services_test_host_definition
+        DESCRIBED_ELSEWHERE weivel_standard_config weivel_standard_secrets weivel_standard_paths weivel_standard_log)
+    if(NOT WIN32)
+        target_link_libraries(${services_target} PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+    endif()
+endforeach()
 
 add_library(weivel_standard_described SHARED described/described.c described/broken.c)
 target_compile_definitions(weivel_standard_described PRIVATE DESCRIBED_BUILDING)
@@ -82,8 +96,10 @@ weivel_describe(weivel_standard_described
     HEADERS ${PROJECT_SOURCE_DIR}/include/weivel/services.h described/described.h
     PREFIX described_generated_
     EXPORT DESCRIBED_API
-    SERVICE described_mirror SYMBOL described_mirror_description
-    SERVICE described_walker SYMBOL described_walker_description)
+    SERVICE described_mirror SYMBOL described_mirror_description ANSWERED_BY described_mirror_definition
+    SERVICE described_mirror SYMBOL described_mirror_without_halve_description
+        ANSWERED_BY described_mirror_without_halve_definition
+    SERVICE described_walker SYMBOL described_walker_description ANSWERED_BY described_walker_definition)
 
 foreach(described_test described_description_test described_calls_test)
     add_executable(${described_test} ${described_test}.c described/loader.c)
@@ -97,7 +113,7 @@ endforeach()
 target_compile_definitions(described_description_test PRIVATE
     WEIVEL_DESCRIBED_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/described")
 
-foreach(scenario refused usage elsewhere unchanged)
+foreach(scenario refused usage elsewhere answered unchanged)
     add_test(NAME describe_program_${scenario}
         COMMAND ${CMAKE_COMMAND} -DSCENARIO=${scenario} -DDESCRIBE=$<TARGET_FILE:weivel-describe>
             -DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/describe -DWORK=${CMAKE_CURRENT_BINARY_DIR}/describe-program

@@ -359,15 +359,21 @@ DESCRIBED_API const void *described_walker_definition(void);
 
 /**
  * Answers a mirror that does not offer `halve`, holding NULL there and every other operation the mirror's own, so a
- * binding shows what a call of an operation its provider does not offer does. It is described by the mirror's
- * description.
+ * binding shows what a call of an operation its provider does not offer does. It is described by
+ * described_mirror_without_halve_description.
  */
 DESCRIBED_API const void *described_mirror_without_halve_definition(void);
 
-/** The mirror's description, written by weivel-describe. */
+/** The mirror's description, written by weivel-describe, naming described_mirror_definition. */
 DESCRIBED_API const weivel_standard_description *described_mirror_description(void);
 
-/** The walker's description, written by weivel-describe. */
+/**
+ * The description of the mirror without `halve`, written by weivel-describe from the same struct as the mirror's,
+ * naming described_mirror_without_halve_definition, since a description names the one definition it describes.
+ */
+DESCRIBED_API const weivel_standard_description *described_mirror_without_halve_description(void);
+
+/** The walker's description, written by weivel-describe, naming described_walker_definition. */
 DESCRIBED_API const weivel_standard_description *described_walker_description(void);
 
 #ifdef __cplusplus

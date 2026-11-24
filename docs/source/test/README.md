@@ -8,7 +8,7 @@ The standard's tests and the fixtures they plant, registered by this folder's CM
 - [describe_elsewhere_test.c](../../../test/describe_elsewhere_test.c) - the description written when a definition is described elsewhere, both headers scanned
 - [describe_memory_test.c](../../../test/describe_memory_test.c) - reading and writing a description with each allocation failing in turn
 - [describe_program_memory_test.c](../../../test/describe_program_memory_test.c) - the program run in its own process with each allocation failing in turn
-- [describe_services_test.c](../../../test/describe_services_test.c) - every description the standard ships, member by member, against hand-written expectations
+- [describe_services_test.c](../../../test/describe_services_test.c) - every description the standard ships, and the scopes and host described as a library serving them describes them, member by member, against hand-written expectations
 - [describe_test.c](../../../test/describe_test.c) - the reader: every form it accepts and every header it refuses, with the exact refusal
 - [describe_write_test.c](../../../test/describe_write_test.c) - the writer: each golden source written and compared byte for byte
 - [described/](described/) - a described shared library bound as a host binds it

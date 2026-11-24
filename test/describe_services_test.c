@@ -1,6 +1,8 @@
 /**
  * Walks every description the standard ships against the layout this compile gives its headers: each expectation
- * below is written by hand from the header, with `offsetof` and `sizeof`, never read from the generated source.
+ * below is written by hand from the header, with `offsetof` and `sizeof`, never read from the generated source. The
+ * scopes and the host are described here as a library serving them describes them, by weivel_describe over the
+ * standard's headers naming this test's own definitions, since the standard ships no description of either.
  */
 #include <stdio.h>
 #include <string.h>
@@ -514,6 +516,24 @@ static const expected_description HOST = {"weivel_standard_host", HOST_TYPES,   
                                           HOST_ENUMS,             COUNT(HOST_ENUMS), HOST_OPERATIONS,
                                           COUNT(HOST_OPERATIONS), HOST_BLOCKING,   COUNT(HOST_BLOCKING)};
 
+static const weivel_standard_scopes SCOPES_DEFINITION = {.size = (uint32_t)sizeof(weivel_standard_scopes)};
+static const weivel_standard_host HOST_DEFINITION = {.size = (uint32_t)sizeof(weivel_standard_host)};
+
+/** The definition the scopes' description generated in this test names. */
+const void *services_test_scopes_definition(void);
+/** The definition the host's description generated in this test names. */
+const void *services_test_host_definition(void);
+const weivel_standard_description *services_test_scopes_description(void);
+const weivel_standard_description *services_test_host_description(void);
+
+const void *services_test_scopes_definition(void) {
+    return &SCOPES_DEFINITION;
+}
+
+const void *services_test_host_definition(void) {
+    return &HOST_DEFINITION;
+}
+
 static void describes_without_nesting(const weivel_standard_description *description,
                                       const expected_description *expected) {
     if (walk(description, expected)) {
@@ -521,9 +541,16 @@ static void describes_without_nesting(const weivel_standard_description *descrip
     }
 }
 
+/** A description the standard exports is only ever nested, so it names no function. */
+static void describes_nested_only(const weivel_standard_description *description,
+                                  const expected_description *expected) {
+    describes_without_nesting(description, expected);
+    CHECK(description->answered_by == NULL);
+}
+
 /** The scopes' description nests the four services by the very descriptions the standard exports for them. */
 static void describes_scopes(void) {
-    const weivel_standard_description *scopes = weivel_standard_scopes_description();
+    const weivel_standard_description *scopes = services_test_scopes_description();
     const weivel_standard_description *const services[] = {
         weivel_standard_config_description(), weivel_standard_secrets_description(),
         weivel_standard_paths_description(), weivel_standard_log_description()};
@@ -539,15 +566,23 @@ static void describes_scopes(void) {
             check_failures++;
         }
     }
-    CHECK(weivel_standard_scopes_description() == scopes);
+    CHECK(services_test_scopes_description() == scopes);
+    CHECK(weivel_standard_description_answers(scopes, &SCOPES_DEFINITION, NULL) == WEIVEL_STATUS_OK);
+}
+
+static void describes_the_host(void) {
+    const weivel_standard_description *host = services_test_host_description();
+    describes_without_nesting(host, &HOST);
+    CHECK(weivel_standard_description_answers(host, &HOST_DEFINITION, NULL) == WEIVEL_STATUS_OK);
+    CHECK(weivel_standard_description_answers(host, &SCOPES_DEFINITION, NULL) == WEIVEL_STATUS_MALFORMED);
 }
 
 int main(void) {
-    describes_without_nesting(weivel_standard_config_description(), &CONFIG);
-    describes_without_nesting(weivel_standard_secrets_description(), &SECRETS);
-    describes_without_nesting(weivel_standard_paths_description(), &PATHS);
-    describes_without_nesting(weivel_standard_log_description(), &LOG);
+    describes_nested_only(weivel_standard_config_description(), &CONFIG);
+    describes_nested_only(weivel_standard_secrets_description(), &SECRETS);
+    describes_nested_only(weivel_standard_paths_description(), &PATHS);
+    describes_nested_only(weivel_standard_log_description(), &LOG);
     describes_scopes();
-    describes_without_nesting(weivel_standard_host_description(), &HOST);
+    describes_the_host();
     return check_summary("describe_services_test");
 }

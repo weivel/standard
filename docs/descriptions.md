@@ -38,6 +38,22 @@ followed. It reads only, and stops at the first fault, whose path it gives (as `
 the rules here once means no language implementation has to rediscover them, and a malformed description from a
 library cannot reach a binding as a wrong pointer arithmetic.
 
+## Which definition: the answering function
+
+A definition is a struct of function pointers that carries no name, so nothing in it says which description is its
+own: a library declaring one definition under another's description would load, and a binding would read the one
+through the other's layout. So a description a service declares names the function that answers its definition, in
+`answered_by`, the same symbol the service declares as its definition. After the check passes, a host calls
+`weivel_standard_description_answers` with the definition the service's symbol answered, and loads no service whose
+description names no function or one answering another definition. It compares the two definitions' addresses, never
+the two functions': a definition is a static struct living until the library unloads, so one function answers the same
+pointer every time, while a function's own address may differ between the export table and the library's code.
+
+So one description describes one definition. Two definitions of the same struct served by one library each have their
+own description, one more service in the generator's call. `answered_by` is not read when a description is nested in
+another's `definitions` or declared by a `contracts` entry, which answer no definition of their own, and the check does
+not police it.
+
 ## weivel-describe
 
 `weivel-describe` writes a description from a library's own header, so a description is never typed by hand and cannot
@@ -45,7 +61,9 @@ drift from the struct it describes. It is not a C parser: it reads the few forms
 refuses everything else, so a header it accepts is described whole or not at all. The accepted forms, the count and
 enum binding rules and the `@blocking` tag are stated at the head of `tools/describe/reader.h`. It takes a definition
 described elsewhere by its symbol, so a library that nests one of the standard's definitions declares that symbol and
-does not describe it again.
+does not describe it again. Given the function answering the definition (`--answered-by`), it names it in the
+description and declares it, with the export macro, unless a header it read declares it, so a misspelt function is a
+link error rather than a NULL at run time; given none, the description names none, as one only ever nested does.
 
 The program writes one C source per service. Every offset and size in it is `offsetof` or `sizeof` of the header's own
 type, so the library's compiler fills them and a member the header no longer declares is a compile error. Running a
@@ -56,8 +74,16 @@ an earlier run left, so a stale source never outlives a run that could not repla
 ## In a build
 
 `cmake/weivel_describe.cmake` provides `weivel_describe`, which runs the program at build time over named headers and
-adds the generated source to a target. The standard uses it for its own definitions: `include/weivel/descriptions.h`
-exports `weivel_standard_config_description`, `weivel_standard_secrets_description`, `weivel_standard_paths_description`,
-`weivel_standard_log_description`, `weivel_standard_scopes_description` (nesting the four before it) and
-`weivel_standard_host_description`. A library serving one of those services declares the matching symbol and never
-describes it again. The program runs on the build machine, so a cross-compiled library cannot be described.
+adds the generated source to a target, each `SERVICE <struct> SYMBOL <symbol>` optionally followed by
+`ANSWERED_BY <function>`. The standard uses it for the definitions other definitions nest:
+`include/weivel/descriptions.h` exports `weivel_standard_config_description`, `weivel_standard_secrets_description`,
+`weivel_standard_paths_description` and `weivel_standard_log_description`, each naming no answering function, and a
+library describing a definition that holds one names it as described elsewhere and never describes it again.
+
+A library serving one of the standard's services describes it itself, since a description shared by every library
+serving the service could name the function of none of them. It runs `weivel_describe` over the standard's header for
+that definition, `ANSWERED_BY` its own function and `DESCRIBED_ELSEWHERE` the definitions it nests: a library serving
+`weivel.scope` names `weivel_standard_config`, `weivel_standard_secrets`, `weivel_standard_paths` and
+`weivel_standard_log`. The bytes are generated from the same header by `offsetof` and `sizeof`, so its copy cannot
+drift from the standard's struct. The program runs on the build machine, so a cross-compiled library cannot be
+described.

@@ -24,7 +24,8 @@
  * - Kinds. The kinds below are append-only: a published kind keeps its number and none is reused. A binding that
  *   meets a kind it does not know refuses the whole description rather than binding part of it.
  * - Trust. A binding calls weivel_standard_description_check before it reads anything else of a description, and
- *   binds nothing of one the check refuses.
+ *   binds nothing of one the check refuses. A host then calls weivel_standard_description_answers with the definition
+ *   the service's definition symbol answered, and loads no service whose description describes another definition.
  */
 
 #include <stddef.h>
@@ -248,6 +249,14 @@ typedef struct weivel_standard_description {
      */
     const struct weivel_standard_description *const *definitions;
     size_t definition_count;
+    /**
+     * The library function answering the definition this describes, as `const void *f(void)`, the same symbol a
+     * service declares as its definition. Set for a description a service declares; not read when the description is
+     * nested in `definitions` or declared by a `contracts` entry, so one description may serve as all three. NULL in a
+     * description only ever nested, as the standard's config, secrets, paths and log descriptions are.
+     * weivel_standard_description_check does not police it; weivel_standard_description_answers does.
+     */
+    const void *(*answered_by)(void);
 } weivel_standard_description;
 
 /** How deep `definitions` may nest below the description checked: a description nested deeper is refused. */
@@ -291,5 +300,22 @@ typedef struct weivel_standard_description {
  */
 WEIVEL_STANDARD_API weivel_status weivel_standard_description_check(const weivel_standard_description *description,
                                                                     weivel_standard_refusal *refusal);
+
+/**
+ * Checks that `description` describes `definition`: `answered_by` is set and answers `definition`. Call it after
+ * weivel_standard_description_check passed. Calls `answered_by` once. A description whose `size` ends before
+ * `answered_by` reads it as NULL.
+ *
+ * @param description Required: the description a service declares.
+ * @param definition Required: what the service's definition symbol answered.
+ * @param refusal the caller's empty refusal, or NULL for none.
+ * @return OK; MALFORMED, with path `answered_by`, MISSING_FIELD when it is NULL and INVALID_VALUE when it answers
+ * another definition; MALFORMED_CALL at path "" for a NULL argument or a description below its first shape; MALFORMED,
+ * the refusal left as it was, for a refusal below its first shape or still holding one; OUT_OF_MEMORY when the
+ * refusal's texts cannot be made, the refusal left empty.
+ */
+WEIVEL_STANDARD_API weivel_status weivel_standard_description_answers(const weivel_standard_description *description,
+                                                                      const void *definition,
+                                                                      weivel_standard_refusal *refusal);
 
 #endif

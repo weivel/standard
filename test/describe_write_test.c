@@ -104,6 +104,20 @@ static describe_service service_of(const char *definition, const char *symbol, c
 const weivel_standard_description *nested_description_of(void);
 const weivel_standard_description *scanned_description_of(void);
 
+static const int PROBE_DEFINITION = 1;
+static const int LENDER_DEFINITION = 2;
+
+/** The function golden/probe.c names and declares itself, since every_form.h does not. */
+WEIVEL_STANDARD_API const void *probe_definition_of(void);
+
+WEIVEL_STANDARD_API const void *probe_definition_of(void) {
+    return &PROBE_DEFINITION;
+}
+
+const void *probe_lender_definition(void) {
+    return &LENDER_DEFINITION;
+}
+
 static void writes_each_golden_source(void) {
     static const char *const services[] = {WEIVEL_DESCRIBE_SERVICES_HEADER};
     static const char *const services_include[] = {"weivel/services.h"};
@@ -144,6 +158,7 @@ static void writes_each_golden_source(void) {
     cases[3].header_count = COUNT_OF(probe);
     cases[3].names = standard;
     cases[3].service = service_of("probe_definition", "probe_description_of", "probe_", "WEIVEL_STANDARD_API");
+    cases[3].service.answered_by = "probe_definition_of";
     cases[4].golden = "restated.c";
     cases[4].paths = restated;
     cases[4].includes = restated_includes;
@@ -165,6 +180,7 @@ static void writes_each_golden_source(void) {
     cases[6].header_count = COUNT_OF(scanned);
     cases[6].names = nested_names;
     cases[6].service = service_of("probe_lender", "scanned_description_of", "scanned_", NULL);
+    cases[6].service.answered_by = "probe_lender_definition";
     for (at = 0; at < COUNT_OF(cases); at++) {
         writes_the_golden_source(&cases[at]);
     }
@@ -211,7 +227,7 @@ static void refuses_what_it_cannot_write(void) {
     describe_names names = describe_names_of_the_standard();
     describe_model model;
     describe_refusal refusal;
-    refused_service cases[9];
+    refused_service cases[10];
     size_t at;
     if (describe_read(&model, paths, 1, &names, &refusal) != DESCRIBE_DONE) {
         CHECK(0);
@@ -249,6 +265,9 @@ static void refuses_what_it_cannot_write(void) {
     cases[8].label = "no such struct";
     cases[8].service.definition = "weivel_standard_missing";
     cases[8].says = "`weivel_standard_missing` is not a definition any scanned header declares";
+    cases[9].label = "answering function";
+    cases[9].service.answered_by = "paths()";
+    cases[9].says = "the answering function `paths()` is not a C identifier";
     for (at = 0; at < COUNT_OF(cases); at++) {
         refuses_a_service_it_cannot_write(&model, &cases[at]);
     }
@@ -267,6 +286,8 @@ static void compiles_the_golden_probe_into_a_description_that_checks(void) {
         return;
     }
     check_text(probe->definition, "probe_definition", "golden probe definition");
+    CHECK(probe->answered_by == probe_definition_of);
+    CHECK(weivel_standard_description_answers(probe, &PROBE_DEFINITION, NULL) == WEIVEL_STATUS_OK);
     CHECK(probe->type_count == 5 && probe->enum_count == 1 && probe->operation_count == 9);
     CHECK(probe->type_count == 5 && probe->types[2].member_count == 17 &&
           probe->types[2].members[9].offset == offsetof(probe_input, first) &&
@@ -285,11 +306,13 @@ static void compiles_the_golden_nested_into_a_description_that_checks(void) {
         return;
     }
     check_text(lender->definition, "probe_lender", "golden nested definition");
+    CHECK(lender->answered_by == NULL);
     CHECK(lender->blocking_count == 1 && strcmp(lender->blocking[0], "lend") == 0);
     CHECK(lender->definition_count == 2);
     if (lender->definition_count == 2) {
         check_text(lender->definitions[0]->definition, "probe_counter", "golden nested counter");
         CHECK(lender->definitions[0]->operation_count == 1 && lender->definitions[0]->definitions == NULL);
+        CHECK(lender->definitions[0]->answered_by == NULL);
         CHECK(lender->definitions[1] == probe_remote_description());
     }
     CHECK(nested_description_of() == lender);
@@ -297,14 +320,18 @@ static void compiles_the_golden_nested_into_a_description_that_checks(void) {
 
 /**
  * golden/scanned.c reads nested_remote.h too, so probe_remote is declared by a scanned header and still described
- * elsewhere: it is called, never written, and its declaration is the header's alone.
+ * elsewhere: it is called, never written, and its declaration is the header's alone. It names probe_lender_definition,
+ * which nested.h declares, so that declaration is the header's alone too.
  */
 static void compiles_the_golden_scanned_into_a_description_calling_the_remote(void) {
     const weivel_standard_description *lender = scanned_description_of();
     CHECK(weivel_standard_description_check(lender, NULL) == WEIVEL_STATUS_OK);
+    CHECK(lender->answered_by == probe_lender_definition);
+    CHECK(weivel_standard_description_answers(lender, &LENDER_DEFINITION, NULL) == WEIVEL_STATUS_OK);
     CHECK(lender->definition_count == 2);
     if (lender->definition_count == 2) {
         check_text(lender->definitions[0]->definition, "probe_counter", "golden scanned counter");
+        CHECK(lender->definitions[0]->answered_by == NULL);
         CHECK(lender->definitions[1] == probe_remote_description());
     }
 }

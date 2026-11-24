@@ -191,6 +191,9 @@ const describe_operation *describe_type_operation(const describe_type *type, con
 /** Whether the headers declare the function `<definition>_description`. */
 int describe_model_declares_description(const describe_model *model, const char *definition);
 
+/** Whether the headers declare the function `name`. */
+int describe_model_declares_function(const describe_model *model, const char *name);
+
 /**
  * What one definition's description holds: the definition and every struct its operations reach, through
  * parameters and then members, and every enum a reached U32 names, each in the model's declaration order; and

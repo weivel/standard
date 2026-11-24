@@ -221,7 +221,8 @@ static const weivel_standard_description restated_description = {
     .blocking = NULL,
     .blocking_count = 0,
     .definitions = NULL,
-    .definition_count = 0};
+    .definition_count = 0,
+    .answered_by = NULL};
 
 const weivel_standard_description *probe_restated_description(void);
 

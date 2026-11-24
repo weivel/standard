@@ -7,6 +7,8 @@
 #include "weivel/services.h"
 #include "every_form.h"
 
+WEIVEL_STANDARD_API const void *probe_definition_of(void);
+
 static const weivel_standard_described_member probe_weivel_standard_service_refusal_members[] = {
     {.name = "size",
      .offset = offsetof(weivel_standard_service_refusal, size),
@@ -564,7 +566,8 @@ static const weivel_standard_description probe_description = {
     .blocking = NULL,
     .blocking_count = 0,
     .definitions = NULL,
-    .definition_count = 0};
+    .definition_count = 0,
+    .answered_by = probe_definition_of};
 
 WEIVEL_STANDARD_API const weivel_standard_description *probe_description_of(void);
 
