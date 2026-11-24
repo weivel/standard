@@ -1,8 +1,14 @@
 # Mirrors and downloads
 
-The core's binary is fetched, never bundled, and this doc covers the two things the standard does for that: the list of
-places to fetch it from, and the check that what came back is what was asked for. The declarations are in
-`include/weivel/mirrors.h` and `include/weivel/sha256.h`; the code is `src/mirrors.c` and `src/sha256.c`.
+Fetching the core's binary by its content is how a host is meant to obtain it, and this doc covers the two things the
+standard does for that: the list of places to fetch it from, and the check that what came back is what was asked for.
+The declarations are in `include/weivel/mirrors.h` and `include/weivel/sha256.h`; the code is `src/mirrors.c` and
+`src/sha256.c`.
+
+Nothing fetches the core's binary today. The core publishes no binary, and no language implementation calls these
+functions to obtain it: Java's and TypeScript's standard modules wrap them for a caller and nothing more. Each language
+implementation builds the core with CMake from the core checkout it pins and loads it from a path, the TypeScript
+package by default from the `native/` folder its own build fills.
 
 ## The mirror list
 

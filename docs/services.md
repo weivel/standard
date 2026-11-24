@@ -42,14 +42,17 @@ operation names a plugin still holds.
 **`weivel.host`** (`host.h`) is how a program asks its provider what to run and tells it what happened. The program
 decides nothing of its own: the provider's `start` answers a plan, which libraries to load, which plugins to activate
 in which order, and whether to serve or to run one action. Time reaches C only through `tick`'s `now`, which keeps the
-core's rule that it reads no clock.
+core's rule that it reads no clock. `tick` is marked blocking (see [descriptions.md](descriptions.md)), since a provider
+may wait on I/O in it, as when it checks for updates.
 
 The plan is followed in a fixed order: the program loads the libraries in order, then activates the plugins in order,
 opening each plugin's scope immediately before that plugin's activation. It reads and checks a plugin's manifest before
 opening its scope, so a plugin whose manifest cannot be read gets no scope and is told as refused. The scope is asked of
 whichever library the program loaded serves a described `weivel.scope`, the library it was started with included; when
 two do, the first loaded wins, the library it was started with first, and a program none of them serves opens none and
-offers the plugin nothing. A program never offers a plugin `weivel.host` or `weivel.scope`, since a scope is made for one
+offers the plugin nothing. The program offers each definition the scope answers to that plugin alone, under the
+standard's id for it, so the plugin resolves `weivel.config` and the rest by the same ids whether or not a scope
+stands behind them. A program never offers a plugin `weivel.host` or `weivel.scope`, since a scope is made for one
 plugin and handed to no other, and a library serving `weivel.scope` offers config, secrets, paths and log through the
 scope alone.
 
