@@ -3,4 +3,4 @@ build-*/
 siblings/
 
 # Generated on the default branch by the readme job.
-README.md
+/README.md
