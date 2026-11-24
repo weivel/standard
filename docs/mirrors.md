@@ -1,7 +1,7 @@
 # Mirrors and downloads
 
-Fetching the core's binary by its content is how a host is meant to obtain it, and this doc covers the two things the
-standard does for that: the list of places to fetch it from, and the check that what came back is what was asked for.
+This doc covers the two things the standard offers a host that fetches the core's binary by its content: the format of
+a list of places it can fetch the binary from, and the check that what came back is what was asked for.
 The declarations are in `include/weivel/mirrors.h` and `include/weivel/sha256.h`; the code is `src/mirrors.c` and
 `src/sha256.c`.
 
