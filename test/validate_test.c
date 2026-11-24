@@ -150,7 +150,7 @@ typedef struct vector_case {
 } vector_case;
 
 /**
- * The kit's 32 `vectors/standard/validate` vectors, each manifest and well-known list as the vector gives it and the
+ * The kit's 33 `vectors/standard/validate` vectors, each manifest and well-known list as the vector gives it and the
  * paths it expects; `reports-a-missing-entry-beside-another-error` asserts `contains`, and is held here to the exact
  * list this validator answers. The four that still assert wording are held to the refusal code that wording meant.
  */
@@ -178,6 +178,10 @@ static const vector_case VECTOR_CASES[] = {
     {"refuses-a-bare-service-id-that-is-not-well-known",
      "{'importName': 'a', 'api': 2, 'services': {'provides': ['routing']}}", "['accounts']",
      "['services.provides[0]']", WEIVEL_STANDARD_REFUSAL_NOT_WELL_KNOWN},
+    {"refuses-a-capability-id-outside-the-grammar",
+     "{'importName': 'config-ledger', 'api': 2, 'entry': 'dist/index.js', 'capabilities': {'provides': ['provider', "
+     "'Store:Read']}}",
+     NULL, "['capabilities.provides[1]']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-a-dependency-name-that-is-a-single-dot",
      "{'importName': 'a', 'api': 2, 'dependencies': [{'importName': 'runtime', 'name': 'vendor/.'}]}", NULL,
      "['dependencies[0].name']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
@@ -261,7 +265,7 @@ static const size_t VECTOR_CASE_COUNT = sizeof VECTOR_CASES / sizeof VECTOR_CASE
 
 static void every_kit_vector_validates_as_it_expects(void) {
     size_t at;
-    CHECK(VECTOR_CASE_COUNT == 32);
+    CHECK(VECTOR_CASE_COUNT == 33);
     for (at = 0; at < VECTOR_CASE_COUNT; at++) {
         const vector_case *vector = &VECTOR_CASES[at];
         check_validates_as(vector->name, vector->manifest, vector->well_known, vector->paths, vector->first_code);

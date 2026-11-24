@@ -128,6 +128,10 @@ int weivel_standard_matches_import_name(const char *text, size_t length) {
            is_lowercase_words(text, length);
 }
 
+int weivel_standard_matches_capability_id(const char *text, size_t length) {
+    return is_lowercase_words(text, length);
+}
+
 static int holds_control_or_line_separator(const char *text, size_t length) {
     size_t position = 0;
     while (position < length) {

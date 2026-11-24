@@ -43,6 +43,9 @@ static const char *const SAMPLES[] = {
     " \"kind\": \"definition\"}]}], \"contracts\": ["
     "{\"capability\": \"echo.provider\", \"description\": \"a\"},"
     " {\"capability\": \"echo.provider\", \"description\": \"b\"}]}",
+    "{\"importName\": \"echo\", \"version\": \"1\", \"contracts\": ["
+    "{\"capability\": \"echo.provider\", \"description\": \"echo_provider_description\"}]}",
+    "{\"importName\": \"echo\", \"version\": \"1\", \"services\": []}",
     "{\"importName\": "};
 
 /** Fails each allocation in turn until a read needs no more, and checks every failure leaves nothing behind. */

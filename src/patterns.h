@@ -14,6 +14,12 @@ typedef int (*weivel_standard_pattern_matcher)(const char *text, size_t length);
 /** `importName`: lowercase words joined by single hyphens or dots, not a Windows device name. */
 int weivel_standard_matches_import_name(const char *text, size_t length);
 
+/**
+ * A capability id, wherever one is written: a manifest's `capabilities.provides` and `capabilities.consumes`, and a
+ * library declaration's `contracts[].capability`. Lowercase words joined by single hyphens or dots.
+ */
+int weivel_standard_matches_capability_id(const char *text, size_t length);
+
 /** `entry`: no leading separator or drive, no control or line-separator character, no `..` segment. */
 int weivel_standard_matches_entry(const char *text, size_t length);
 

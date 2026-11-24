@@ -238,6 +238,20 @@ static const refused_case REFUSED[] = {
      CONTRACTS("[{'capability': 'echo.provider', 'description': 'a'}, {'capability': 'echo.other', 'description': 'b'},"
                " {'capability': 'echo.provider', 'description': 'c'}]"),
      WEIVEL_STANDARD_REFUSAL_DUPLICATE, "contracts[2].capability"},
+    {"neither services nor contracts", "{'importName': 'echo', 'version': '1'}", WEIVEL_STANDARD_REFUSAL_MISSING_FIELD,
+     "services"},
+    {"empty services and empty contracts", "{'importName': 'echo', 'version': '1', 'services': [], 'contracts': []}",
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services"},
+    {"empty services beside contracts of the wrong type",
+     "{'importName': 'echo', 'version': '1', 'services': [], 'contracts': {}}", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
+     "services"},
+    {"services of the wrong type beside a contract",
+     "{'importName': 'echo', 'version': '1', 'services': {}, 'contracts': [{'capability': 'echo.provider',"
+     " 'description': 'echo_provider_description'}]}",
+     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, "services"},
+    {"a contract-only declaration whose capability is not a capability id",
+     "{'importName': 'echo', 'version': '1', 'contracts': [{'capability': 'echo:provider', 'description': 'd'}]}",
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "contracts[0].capability"},
 };
 
 static void refuses_by_path(const refused_case *item) {
@@ -396,6 +410,31 @@ static void reads_the_contracts_a_library_publishes(void) {
     CHECK(library.contracts == NULL && library.contract_count == 0 && library.storage == NULL);
 }
 
+static void check_contract_only(const char *declaration) {
+    weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    const char *json = json_of(declaration);
+    CHECK(weivel_standard_read_library(json, strlen(json), &library, &refusal) == WEIVEL_STATUS_OK);
+    CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_NONE && refusal.storage == NULL);
+    CHECK(library.service_count == 0 && library.services == NULL && library.descriptions == NULL);
+    CHECK(library.release == NULL);
+    CHECK(library.contract_count == 1 && library.contracts != NULL);
+    if (library.contract_count == 1 && library.contracts != NULL) {
+        check_text(library.contracts[0].capability, "echo.provider", "a contract-only capability");
+        check_text(library.contracts[0].description, "echo_provider_description", "a contract-only description");
+    }
+    weivel_standard_library_release(&library);
+    CHECK(library.storage == NULL && library.contracts == NULL);
+    weivel_standard_refusal_release(&refusal);
+}
+
+static void reads_a_declaration_that_only_publishes_contracts(void) {
+    check_contract_only("{'importName': 'echo', 'version': '1', 'contracts': [{'capability': 'echo.provider',"
+                        " 'description': 'echo_provider_description'}]}");
+    check_contract_only("{'importName': 'echo', 'version': '1', 'services': [], 'contracts': [{'capability':"
+                        " 'echo.provider', 'description': 'echo_provider_description'}]}");
+}
+
 static void reads_no_contracts_where_none_is_declared(void) {
     weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
     const char *json = json_of(DEFINITIONS_ALONE);
@@ -505,6 +544,7 @@ int main(void) {
     reads_no_descriptions_where_none_is_declared();
     reads_the_contracts_a_library_publishes();
     reads_no_contracts_where_none_is_declared();
+    reads_a_declaration_that_only_publishes_contracts();
     fills_a_first_shape_declaration_within_its_size();
     fills_a_declaration_ending_at_descriptions_within_its_size();
     refuses_a_nul_in_a_name();

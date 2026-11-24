@@ -134,7 +134,7 @@ static const text_field DESCRIPTION = {"description", matches_c_identifier, "is 
                                        "use a C identifier for the exported symbol answering the description, for "
                                        "example \"echo_description\""};
 
-static const text_field CAPABILITY = {"capability", matches_words,
+static const text_field CAPABILITY = {"capability", weivel_standard_matches_capability_id,
                                       "is not lowercase words joined by single hyphens or dots",
                                       "use lowercase words joined by single hyphens or dots, for example "
                                       "\"echo.provider\""};
@@ -446,10 +446,38 @@ static int check_contracts(checking *state, const weivel_json_value *root) {
                                  check_capabilities_unique(state, contracts));
 }
 
+static int lists_a_contract(const weivel_json_value *root) {
+    return weivel_json_array_length(weivel_json_object_get(root, "contracts")) > 0;
+}
+
+static int is_absent_or_empty_list(const weivel_json_value *value) {
+    return value == NULL || (weivel_json_kind_of(value) == WEIVEL_JSON_ARRAY && weivel_json_array_length(value) == 0);
+}
+
+/** A declaration must declare something: a service, or a contract it publishes, so either alone suffices. */
+static int check_services(checking *state, const weivel_json_value *root) {
+    const weivel_json_value *services = weivel_json_object_get(root, "services");
+    field_path path = {NULL, "services", 0};
+    if (!is_absent_or_empty_list(services)) {
+        return check_list(state, root, NULL, "services", check_service);
+    }
+    if (lists_a_contract(root)) {
+        return 1;
+    }
+    if (services == NULL) {
+        return refuse(state, WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, &path,
+                      "is missing, and a declaration listing no contract requires it",
+                      "add %s, or publish a capability in \"contracts\"");
+    }
+    return refuse(state, WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, &path,
+                  "is empty, and a declaration listing no contract needs at least one service",
+                  "list at least one service in %s, or publish a capability in \"contracts\"");
+}
+
 static int check_library(checking *state, const weivel_json_value *root) {
     return check_object(state, root, NULL) &&
            check_text_field(state, root, NULL, &IMPORT_NAME) && check_text_field(state, root, NULL, &VERSION) &&
-           check_release_if_present(state, root) && check_list(state, root, NULL, "services", check_service) &&
+           check_release_if_present(state, root) && check_services(state, root) &&
            check_release_needed(state, root) && check_contracts(state, root);
 }
 
@@ -521,12 +549,22 @@ static void release_storage(library_storage *storage) {
     weivel_standard_memory_release(storage);
 }
 
+/** NULL for no items, since calloc may answer either NULL or a block for none. */
+static void *allocate_items(size_t count, size_t item_size) {
+    return count == 0 ? NULL : weivel_standard_memory_allocate_zeroed(count, item_size);
+}
+
+static int is_missing(const void *items, size_t count) {
+    return count > 0 && items == NULL;
+}
+
 /** Takes `document`, which has passed check_library, whatever it answers. */
 static weivel_status build_library(weivel_json_value *document, weivel_standard_library *library) {
     const weivel_json_value *services = weivel_json_object_get(document, "services");
     const weivel_json_value *contracts = weivel_json_object_get(document, "contracts");
     size_t service_count = weivel_json_array_length(services);
     size_t contract_count = weivel_json_array_length(contracts);
+    size_t function_count = count_functions(services);
     weivel_standard_library built = WEIVEL_INIT(weivel_standard_library);
     library_storage *storage = weivel_standard_memory_allocate_zeroed(1, sizeof *storage);
     if (storage == NULL) {
@@ -534,14 +572,12 @@ static weivel_status build_library(weivel_json_value *document, weivel_standard_
         return WEIVEL_STATUS_OUT_OF_MEMORY;
     }
     storage->document = document;
-    storage->services = weivel_standard_memory_allocate_zeroed(service_count, sizeof *storage->services);
-    storage->functions = weivel_standard_memory_allocate_zeroed(count_functions(services), sizeof *storage->functions);
-    storage->descriptions = weivel_standard_memory_allocate_zeroed(service_count, sizeof *storage->descriptions);
-    if (contract_count > 0) {
-        storage->contracts = weivel_standard_memory_allocate_zeroed(contract_count, sizeof *storage->contracts);
-    }
-    if (storage->services == NULL || storage->functions == NULL || storage->descriptions == NULL ||
-        (contract_count > 0 && storage->contracts == NULL)) {
+    storage->services = allocate_items(service_count, sizeof *storage->services);
+    storage->functions = allocate_items(function_count, sizeof *storage->functions);
+    storage->descriptions = allocate_items(service_count, sizeof *storage->descriptions);
+    storage->contracts = allocate_items(contract_count, sizeof *storage->contracts);
+    if (is_missing(storage->services, service_count) || is_missing(storage->functions, function_count) ||
+        is_missing(storage->descriptions, service_count) || is_missing(storage->contracts, contract_count)) {
         release_storage(storage);
         return WEIVEL_STATUS_OUT_OF_MEMORY;
     }

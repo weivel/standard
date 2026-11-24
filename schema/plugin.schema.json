@@ -32,18 +32,20 @@
       "type": "object",
       "properties": {
         "provides": {
-          "description": "Capability ids this plugin provides at activation.",
+          "description": "Capability ids this plugin provides at activation. A capability id is lowercase words joined by single hyphens or dots, the id a library's contract publishes.",
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-z0-9]+([-.][a-z0-9]+)*(?![\\s\\S])"
           },
           "uniqueItems": true
         },
         "consumes": {
-          "description": "Capability ids this plugin asks to see the verified implementations of.",
+          "description": "Capability ids this plugin asks to see the verified implementations of. A capability id is lowercase words joined by single hyphens or dots, the id a library's contract publishes.",
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-z0-9]+([-.][a-z0-9]+)*(?![\\s\\S])"
           },
           "uniqueItems": true
         }

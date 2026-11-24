@@ -17,7 +17,7 @@ The implementation of the library, one file per part and a few helpers they shar
 - [library.c](../../../src/library.c) - reading a library declaration and checking it field by field
 - [manifest.c](../../../src/manifest.c) - converting a JSON manifest into the core's manifest structure
 - [mirrors.c](../../../src/mirrors.c) - reading and loading a mirror list, and expanding a template
-- [patterns.c](../../../src/patterns.c) - the hand-written matchers for the schema's `pattern` strings
+- [patterns.c](../../../src/patterns.c) - the hand-written matchers for the schema's `pattern` strings, the capability id's shared with the library declaration
 - [patterns.h](../../../src/patterns.h) - the matchers' declarations and what each decides
 - [report.c](../../../src/report.c) - building refusals: field paths, formatted texts and the filled refusal
 - [report.h](../../../src/report.h) - the refusal builders and the field path they write from

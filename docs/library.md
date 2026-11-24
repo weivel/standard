@@ -6,7 +6,9 @@ The struct and its parts are in `include/weivel/library.h`; the code is `src/lib
 ## What it declares
 
 A declaration names the library by the `importName` plugins import it by, its version, the services its functions
-offer and, optionally, the contracts it publishes. Each service has an id plugins request and a list of functions, each
+offer and the contracts it publishes. It must declare something, so it lists at least one service or at least one
+contract: a library that only publishes a contract has no service to invent, and its `services` may be empty or left
+out, while a declaration listing neither is refused. Each service has an id plugins request and a list of functions, each
 with the name a plugin calls it by, the exported C symbol that implements it, and its kind. A service id is lowercase
 words joined by single hyphens or dots, so a dotted id such as `weivel.log` is legal, and an `importName` is refused
 when it names a Windows device name such as `con` or `com1`, since a name that cannot be a file name cannot be the
@@ -31,7 +33,10 @@ names the function answering the service's definition, and a host loads the serv
 definition the service's symbol answered, so a description cannot describe one definition while another is served.
 A library may also publish a description it implements nowhere, as a `contracts` entry naming a capability id and the
 description's symbol: plugins that provide that capability implement one definition, and every language binds it
-alike. Each capability is published once, and a contract's description answers no definition, so its answering
+alike. A capability id has one grammar wherever it is written, lowercase words joined by single hyphens or dots
+(`^[a-z0-9]+([-.][a-z0-9]+)*$`), the same one a manifest's `capabilities` lists are held to (see
+[manifests.md](manifests.md)), so a plugin can provide every capability a contract can describe and no other. Each
+capability is published once, and a contract's description answers no definition, so its answering
 function is not compared.
 
 ## Reading it
