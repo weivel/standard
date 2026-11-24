@@ -5,6 +5,8 @@
 #define REPOSITORY_ID_PATTERN                                                                                     \
     "^(local:[^/\\s]+|[a-z][a-z0-9-]*(@[a-z0-9.-]+)?:[0-9]+)(/(?!\\.{1,2}(/|(?![\\s\\S])))[a-z0-9._-]+)*(?![\\s\\S])"
 
+#define CAPABILITY_ID_PATTERN "^[a-z0-9]+([-.][a-z0-9]+)*(?![\\s\\S])"
+
 #define OFFER "/properties/services/properties/provides/items/anyOf/1"
 #define WANT "/properties/services/properties/consumes/items/anyOf/1"
 #define DEPENDENCY "/properties/dependencies/items"
@@ -26,9 +28,11 @@ const schema_rule SCHEMA_RULES[] = {
     {"/properties/capabilities/type", "object"},
     {"/properties/capabilities/properties/provides/type", "array"},
     {"/properties/capabilities/properties/provides/items/type", "string"},
+    {"/properties/capabilities/properties/provides/items/pattern", CAPABILITY_ID_PATTERN},
     {"/properties/capabilities/properties/provides/uniqueItems", "true"},
     {"/properties/capabilities/properties/consumes/type", "array"},
     {"/properties/capabilities/properties/consumes/items/type", "string"},
+    {"/properties/capabilities/properties/consumes/items/pattern", CAPABILITY_ID_PATTERN},
     {"/properties/capabilities/properties/consumes/uniqueItems", "true"},
     {"/properties/services/type", "object"},
     {"/properties/services/properties/provides/type", "array"},
@@ -149,6 +153,16 @@ const rule_case RULE_CASES[] = {
     {"/properties/capabilities/properties/provides/items/type",
      "{" BASE ", 'entry': 'lib/a.so', 'capabilities': {'provides': ['screens', {'id': 'menus'}]}}", NULL,
      "['capabilities.provides[1]']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
+    {"/properties/capabilities/properties/provides/items/pattern",
+     "{" BASE ", 'entry': 'lib/a.so', 'capabilities': {'provides': ['screens', 'Screens']}}", NULL,
+     "['capabilities.provides[1]']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
+    {"/properties/capabilities/properties/provides/items/pattern",
+     "{" BASE ", 'entry': 'lib/a.so', 'capabilities': {'provides': ['store:read', 'a..b', '']}}", NULL,
+     "['capabilities.provides[0]', 'capabilities.provides[1]', 'capabilities.provides[2]']",
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
+    {"/properties/capabilities/properties/provides/items/pattern",
+     "{" BASE ", 'entry': 'lib/a.so', 'capabilities': {'provides': ['echo.provider', 'store-2.cache']}}", NULL, "[]",
+     WEIVEL_STANDARD_REFUSAL_NONE},
     {"/properties/capabilities/properties/provides/uniqueItems",
      "{" BASE ", 'entry': 'lib/a.so', 'capabilities': {'provides': ['screens', 'menus', 'screens']}}", NULL,
      "['capabilities.provides[2]']", WEIVEL_STANDARD_REFUSAL_DUPLICATE},
@@ -156,6 +170,11 @@ const rule_case RULE_CASES[] = {
      "['capabilities.consumes']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"/properties/capabilities/properties/consumes/items/type", "{" BASE ", 'capabilities': {'consumes': [true]}}",
      NULL, "['capabilities.consumes[0]']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
+    {"/properties/capabilities/properties/consumes/items/pattern",
+     "{" BASE ", 'capabilities': {'consumes': ['provider', 'a_b']}}", NULL, "['capabilities.consumes[1]']",
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
+    {"/properties/capabilities/properties/consumes/items/pattern", "{" BASE ", 'capabilities': {'consumes': ['a.b-c']}}",
+     NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
     {"/properties/capabilities/properties/consumes/uniqueItems",
      "{" BASE ", 'capabilities': {'consumes': [{'id': 1}, {'id': 1.0}]}}", NULL,
      "['capabilities.consumes[0]', 'capabilities.consumes[1]']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},

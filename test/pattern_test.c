@@ -23,6 +23,13 @@ static const sample IMPORT_NAMES[] = {
     {TEXT("a_b"), 0},        {TEXT("a b"), 0},           {TEXT("a\nb"), 0},         {TEXT("a\0b"), 0},
 };
 
+static const sample CAPABILITY_IDS[] = {
+    {TEXT("screens"), 1}, {TEXT("echo.provider"), 1}, {TEXT("store-2.cache"), 1}, {TEXT("con"), 1},
+    {TEXT("0"), 1},       {TEXT(""), 0},              {TEXT("Screens"), 0},       {TEXT("a_b"), 0},
+    {TEXT("store:read"), 0}, {TEXT("a..b"), 0},       {TEXT("a.-b"), 0},          {TEXT(".a"), 0},
+    {TEXT("a-"), 0},      {TEXT("a b"), 0},           {TEXT("a\nb"), 0},          {TEXT("a\0b"), 0},
+};
+
 static const sample ENTRIES[] = {
     {TEXT(""), 1},
     {TEXT("dist/index.js"), 1},
@@ -63,6 +70,8 @@ static const sample OWNER_AND_NAMES[] = {
 int main(void) {
     check_samples("importName", weivel_standard_matches_import_name, IMPORT_NAMES,
                   sizeof IMPORT_NAMES / sizeof IMPORT_NAMES[0]);
+    check_samples("capability id", weivel_standard_matches_capability_id, CAPABILITY_IDS,
+                  sizeof CAPABILITY_IDS / sizeof CAPABILITY_IDS[0]);
     check_samples("entry", weivel_standard_matches_entry, ENTRIES, sizeof ENTRIES / sizeof ENTRIES[0]);
     check_samples("repository id", weivel_standard_matches_repository_id, REPOSITORY_IDS,
                   sizeof REPOSITORY_IDS / sizeof REPOSITORY_IDS[0]);

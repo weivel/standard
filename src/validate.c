@@ -62,6 +62,10 @@ static const pattern_rule ENTRY_PATTERN = {weivel_standard_matches_entry,
                                            "leaves the plugin's directory or holds a control character", NULL};
 static const pattern_rule REPOSITORY_ID_PATTERN = {weivel_standard_matches_repository_id, "is not a repository id",
                                                    NULL};
+static const pattern_rule CAPABILITY_ID_PATTERN = {
+    weivel_standard_matches_capability_id, "is not a capability id",
+    "use lowercase words joined by single hyphens or dots for a capability id, for example \"screens\" or "
+    "\"store.cache\""};
 static const pattern_rule OWNER_AND_NAME_PATTERN = {
     weivel_standard_matches_owner_and_name, "is not owner/name",
     "write the dependency name as owner/name, for example \"vendor/runtime\"; a dependency carries an id or a name, "
@@ -258,17 +262,22 @@ static void check_unique_items(validating *state, const weivel_json_value *array
     }
 }
 
+/** `item_rule` is the `pattern` every item must match, NULL for none. */
 static void check_string_list(validating *state, const weivel_json_value *value, const field_path *path,
-                              int unique_items, const char *fix) {
+                              int unique_items, const pattern_rule *item_rule) {
     size_t length;
     size_t at;
-    if (value == NULL || !check_type(state, value, path, WEIVEL_JSON_ARRAY, "an array", fix)) {
+    if (value == NULL || !check_type(state, value, path, WEIVEL_JSON_ARRAY, "an array", NULL)) {
         return;
     }
     length = weivel_json_array_length(value);
     for (at = 0; at < length; at++) {
         field_path item = {path, NULL, at};
-        check_string(state, weivel_json_array_at(value, at), &item, fix);
+        if (item_rule == NULL) {
+            check_string(state, weivel_json_array_at(value, at), &item, NULL);
+        } else {
+            check_patterned_string(state, weivel_json_array_at(value, at), &item, item_rule, NULL);
+        }
     }
     if (unique_items) {
         check_unique_items(state, value, path);
@@ -341,8 +350,8 @@ static void check_capabilities(validating *state, const weivel_json_value *root)
     if (value == NULL || !check_type(state, value, &path, WEIVEL_JSON_OBJECT, "an object", CAPABILITIES_FIX)) {
         return;
     }
-    check_string_list(state, weivel_json_object_get(value, "provides"), &provides, 1, NULL);
-    check_string_list(state, weivel_json_object_get(value, "consumes"), &consumes, 1, NULL);
+    check_string_list(state, weivel_json_object_get(value, "provides"), &provides, 1, &CAPABILITY_ID_PATTERN);
+    check_string_list(state, weivel_json_object_get(value, "consumes"), &consumes, 1, &CAPABILITY_ID_PATTERN);
 }
 
 /** The service an entry names, in either form; NULL when the entry carries no id as a string. */

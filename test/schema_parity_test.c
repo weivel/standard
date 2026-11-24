@@ -18,6 +18,8 @@ typedef struct pattern_binding {
 static const pattern_binding PATTERN_BINDINGS[] = {
     {"/properties/importName/pattern", weivel_standard_matches_import_name},
     {"/properties/entry/pattern", weivel_standard_matches_entry},
+    {"/properties/capabilities/properties/provides/items/pattern", weivel_standard_matches_capability_id},
+    {"/properties/capabilities/properties/consumes/items/pattern", weivel_standard_matches_capability_id},
     {"/properties/services/properties/consumes/items/anyOf/1/properties/provider/pattern",
      weivel_standard_matches_repository_id},
     {"/properties/dependencies/items/properties/id/pattern", weivel_standard_matches_repository_id},

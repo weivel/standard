@@ -26,7 +26,10 @@ may still want the reader.
 hand-written C, not a general schema engine, because the library has to run anywhere C does with nothing beside it.
 That would let the schema and the code drift apart, so a parity test walks the schema and fails on a property no rule
 of the validator covers, on a rule that names a location the schema does not hold, and on a pattern with no matcher;
-each rule has a test case that proves it. A field the schema does not name validates and is ignored at any depth, which
+each rule has a test case that proves it. A capability id in `capabilities.provides` or `capabilities.consumes` is
+lowercase words joined by single hyphens or dots, the grammar a library's contract names a capability by (see
+[library.md](library.md)); one matcher decides it for both, so a manifest cannot provide a capability no contract could
+describe. A field the schema does not name validates and is ignored at any depth, which
 is how a later manifest still loads on an older reader.
 
 ## The JSON reader
