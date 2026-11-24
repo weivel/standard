@@ -7,6 +7,8 @@
 #include "restated.h"
 #include "restated_types.h"
 
+const void *probe_restated_definition(void);
+
 static const weivel_standard_described_member restated_probe_restated_members[] = {
     {.name = "size",
      .offset = offsetof(probe_restated, size),
@@ -222,7 +224,7 @@ static const weivel_standard_description restated_description = {
     .blocking_count = 0,
     .definitions = NULL,
     .definition_count = 0,
-    .answered_by = NULL};
+    .answered_by = probe_restated_definition};
 
 const weivel_standard_description *probe_restated_description(void);
 

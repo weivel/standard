@@ -5,7 +5,7 @@ The sources `weivel-describe` is expected to write, byte for byte. `describe_wri
 - [nested.c](../../../../../test/describe/golden/nested.c) - the nested definition, with its remote definition described elsewhere
 - [paths.c](../../../../../test/describe/golden/paths.c) - the paths definition described, with the export macro
 - [probe.c](../../../../../test/describe/golden/probe.c) - the every-form fixture described together with the services header
-- [restated.c](../../../../../test/describe/golden/restated.c) - the restated service, described with its own status and refusal names
+- [restated.c](../../../../../test/describe/golden/restated.c) - the restated service, described with its own status and refusal names and declaring its answering function without an export macro
 - [scanned.c](../../../../../test/describe/golden/scanned.c) - the nested definition with the remote header scanned too
 - [secrets.c](../../../../../test/describe/golden/secrets.c) - the secrets definition described
 <!-- end generated -->

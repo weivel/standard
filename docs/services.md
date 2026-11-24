@@ -3,9 +3,9 @@
 The standard defines six services a host provides, each an id and a C struct of function pointers that every language
 translates. A provider fills the struct and serves it as its service object; a consumer calls through it. The standard
 ships the ids, the structs, the descriptions of the four definitions a scope nests, and no provider (see
-[replacing.md](replacing.md)); a library serving a service describes it itself (see
-[descriptions.md](descriptions.md)). The structs are in `include/weivel/services.h`, `scope.h`, `host.h` and `value.h`, the ids' accessor functions in `src/services.c`, and
-the conventions every one follows are [conventions.md](conventions.md)'s.
+[replacing.md](replacing.md)); a library serving a service describes it itself (see [descriptions.md](descriptions.md)).
+The structs are in `include/weivel/services.h`, `scope.h`, `host.h` and `value.h`, the ids' accessor functions in
+`src/services.c`, and the conventions every one follows are [conventions.md](conventions.md)'s.
 
 A plugin gets a service object by listing its id under `services.consumes` in its manifest (see
 [manifests.md](manifests.md)), and the core refuses a service the plugin does not consume; resolving the id to the provider's object is the core's job and the language layer's, never the standard's.

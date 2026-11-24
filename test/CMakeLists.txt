@@ -130,6 +130,13 @@ add_test(NAME describe_function_refuses_another_directory
         -DPLATFORM=${CMAKE_GENERATOR_PLATFORM} -DTOOLSET=${CMAKE_GENERATOR_TOOLSET} ${describe_compiler}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/describe/function_check.cmake)
 set_tests_properties(describe_function_refuses_another_directory PROPERTIES TIMEOUT 300)
+foreach(scenario answered_twice answered_for_two)
+    add_test(NAME describe_function_refuses_${scenario}
+        COMMAND ${CMAKE_COMMAND} -DSCENARIO=${scenario} -DSTANDARD=${PROJECT_SOURCE_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/describe-arguments-${scenario} -DGENERATOR=${CMAKE_GENERATOR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/describe/arguments_check.cmake)
+    set_tests_properties(describe_function_refuses_${scenario} PROPERTIES TIMEOUT 120)
+endforeach()
 
 function(layout_test name source)
     standard_test(${name} ${source} ${ARGN})
