@@ -520,6 +520,8 @@ static const weivel_standard_described_operation config_operations[] = {
      .parameters = config_release_settings_file_parameters,
      .parameter_count = sizeof(config_release_settings_file_parameters) / sizeof(config_release_settings_file_parameters[0])}};
 
+static const char *const config_blocking[] = {"all", "get", "set", "get_tree", "settings_file"};
+
 static const weivel_standard_description config_description = {
     .size = (uint32_t)sizeof(weivel_standard_description),
     .definition = "weivel_standard_config",
@@ -529,8 +531,8 @@ static const weivel_standard_description config_description = {
     .enum_count = sizeof(config_enums) / sizeof(config_enums[0]),
     .operations = config_operations,
     .operation_count = sizeof(config_operations) / sizeof(config_operations[0]),
-    .blocking = NULL,
-    .blocking_count = 0,
+    .blocking = config_blocking,
+    .blocking_count = sizeof(config_blocking) / sizeof(config_blocking[0]),
     .definitions = NULL,
     .definition_count = 0};
 

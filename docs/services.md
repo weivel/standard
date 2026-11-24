@@ -19,16 +19,20 @@ that cannot read a macro.
   winning, and `get` answers one setting as text, a number or a boolean. `get_tree` answers any setting whole as a value
   tree, so a setting that is a list or a record is read as the host stores it. `set` stores a value, replacing any, and
   `settings_file` names the file `set` writes, the one a user edits by hand, so a consumer can tell a user which file
-  to change. A value of kind none, or a number that is not finite, is never a value to store.
+  to change. A value of kind none, or a number that is not finite, is never a value to store. Every operation but a
+  release is marked blocking (see [descriptions.md](descriptions.md)), since a provider reads and rewrites its
+  settings files under a lock.
 - **`weivel.secrets`** keeps secrets as bytes, any bytes at all, under a name. `get` answers the bytes under a name,
   released with `release_secret`, `set` stores them, replacing any, and `remove` deletes them; removing a name that
   holds nothing succeeds. A provider should overwrite a secret's bytes before freeing them. The operation is `remove`, not `delete`,
-  so the header stays includable from C++.
+  so the header stays includable from C++. Every operation but a release is marked blocking, since an OS credential
+  store may prompt the user.
 - **`weivel.paths`** answers absolute directories the provider owns and keeps the same for the definition's life, so
   nothing is released: where rebuildable files are kept, where settings are kept, and the directory offered as a
   plugin's own. Whether a directory exists yet is not promised.
 - **`weivel.log`** takes entries at a level (least important first, append-only). Where an entry goes, how it is
-  formatted and which levels are kept are the provider's.
+  formatted and which levels are kept are the provider's. `write` is not blocking: a provider buffers an entry or
+  hands it off rather than wait on I/O.
 
 ## Scope: each plugin sees its own
 

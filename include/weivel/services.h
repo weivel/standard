@@ -145,7 +145,8 @@ typedef struct weivel_standard_config {
     uint32_t size;
     void *context;
     /**
-     * Every setting: the provider's defaults merged with what the host stores, a stored value winning.
+     * Every setting: the provider's defaults merged with what the host stores, a stored value winning. @blocking a
+     * provider reads its settings files under a lock.
      *
      * @param settings the consumer's empty answer. Required.
      * @param refusal the consumer's empty refusal, or NULL for none.
@@ -153,7 +154,7 @@ typedef struct weivel_standard_config {
      */
     weivel_status (*all)(void *context, weivel_standard_settings *settings, weivel_standard_service_refusal *refusal);
     /**
-     * One setting.
+     * One setting. @blocking a provider reads its settings files under a lock.
      *
      * @param key Required.
      * @param answer the consumer's empty answer. Required.
@@ -163,7 +164,8 @@ typedef struct weivel_standard_config {
     weivel_status (*get)(void *context, const char *key, weivel_standard_setting_answer *answer,
                          weivel_standard_service_refusal *refusal);
     /**
-     * Stores one setting, replacing any value it had, so `get` and `all` answer it from then on.
+     * Stores one setting, replacing any value it had, so `get` and `all` answer it from then on. @blocking a provider
+     * rewrites its settings file under a lock.
      *
      * @param key Required.
      * @param value read during the call only. Required.
@@ -180,7 +182,8 @@ typedef struct weivel_standard_config {
     /**
      * One setting whole, as a value tree, so a setting that is a list or a record, which `get` cannot answer, is read
      * as the host stores it; a text, number or boolean setting is answered as a tree of that one node. Appended after
-     * the first shape, so a consumer checks WEIVEL_STANDARD_OFFERS before calling it.
+     * the first shape, so a consumer checks WEIVEL_STANDARD_OFFERS before calling it. @blocking a provider reads its
+     * settings files under a lock.
      *
      * @param key Required.
      * @param tree the consumer's empty answer. Required.
@@ -193,7 +196,8 @@ typedef struct weivel_standard_config {
     void (*release_tree)(void *context, weivel_standard_value_tree *tree);
     /**
      * The settings file `set` writes, the one a user edits by hand, so a consumer can name it in what it tells the
-     * user. Appended after the first shape, so a consumer checks WEIVEL_STANDARD_OFFERS before calling it.
+     * user. Appended after the first shape, so a consumer checks WEIVEL_STANDARD_OFFERS before calling it. @blocking
+     * a provider resolves the file it reads and rewrites under a lock.
      *
      * @param file the consumer's empty answer. Required.
      * @param refusal the consumer's empty refusal, or NULL for none.
@@ -225,13 +229,13 @@ typedef struct weivel_standard_secrets {
     uint32_t size;
     void *context;
     /**
-     * Removes one secret.
+     * Removes one secret. @blocking an OS credential store may prompt the user.
      *
      * @return OK, also when the name holds no secret; REFUSED when the secrets cannot be written.
      */
     weivel_status (*remove)(void *context, const char *name, weivel_standard_service_refusal *refusal);
     /**
-     * One secret.
+     * One secret. @blocking an OS credential store may prompt the user.
      *
      * @param secret the consumer's empty answer. Required.
      * @return OK; NONE when the name holds no secret; REFUSED when the secrets cannot be read.
@@ -239,7 +243,7 @@ typedef struct weivel_standard_secrets {
     weivel_status (*get)(void *context, const char *name, weivel_standard_secret *secret,
                          weivel_standard_service_refusal *refusal);
     /**
-     * Stores one secret, replacing any value it had.
+     * Stores one secret, replacing any value it had. @blocking an OS credential store may prompt the user.
      *
      * @param bytes `length` bytes, read during the call only; NULL only when `length` is 0.
      * @return OK; REFUSED when the provider will not store it or cannot write.

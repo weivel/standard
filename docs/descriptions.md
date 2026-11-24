@@ -17,9 +17,9 @@ rather than binding part of it.
 
 Two things a binding needs beyond layout. An operation that may block is named in `blocking`, so a binding whose callers
 must not wait calls it away from its calling thread. A header marks such an operation with the `@blocking` tag
-([weivel-describe](#weivel-describe)); among the standard's own services only the host's `tick` carries it
-([services.md](services.md#host-what-a-program-runs)). What a language does with `blocking` is its own, stated in each
-language implementation's own docs and gathered in one table in weivel's `docs/languages/reaching-c.md`. A member or a parameter that holds a definition names the
+([weivel-describe](#weivel-describe)); among the standard's own services every operation of config and of secrets but
+a release carries it, and the host's `tick` ([services.md](services.md#config-secrets-paths-and-log)). What a language does with
+`blocking` is its own, stated in each language implementation's own docs and gathered in one table in weivel's `docs/languages/reaching-c.md`. A member or a parameter that holds a definition names the
 definition's own description, nested whole inside this one, so an answer can carry a definition and the binding binds it
 in the same pass.
 
