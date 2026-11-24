@@ -1,0 +1,46 @@
+The standard's tests and the fixtures they plant, registered by this folder's CMake when the standard is the top project. Most behaviours have three tests in the same shape: a test of the behaviour against the static library, the same test against the shared library (`*_shared_test`), which proves the exports and the ABI, and a memory test (`*_memory_test`) against the testing build, which fails each allocation in turn and checks that the answer is out of memory and that no block is left. `abi_test.c` holds the size convention to every public struct with a caller compiled before and after a field was appended, and the layouts program prints every struct's layout so a language that declares the same layouts by hand compares its own against the C compiler's. `schema_parity_test.c` holds the validator to the published schema, with `validate_rules.c` as the table of rules; [the validation doc](../../validation.md) states the two rules beside the schema. The `describe_*` tests hold `weivel-describe` to its grammar, its refusals and its golden output (see [the descriptions doc](../../descriptions.md)), and the `described_*` tests load a real shared library that is described by the program and bind it as a host does.
+
+<!-- generated: source-children -->
+- [CMakeLists.txt](../../../test/CMakeLists.txt) - every test target, the fixtures' compile definitions and the scripted scenarios
+- [abi_test.c](../../../test/abi_test.c) - every public struct against a caller compiled before and after a field was appended
+- [check.h](../../../test/check.h) - the `CHECK` macro and the summary every test ends with
+- [describe/](describe/) - headers and scripts for the `weivel-describe` tests
+- [describe_elsewhere_test.c](../../../test/describe_elsewhere_test.c) - the description written when a definition is described elsewhere, both headers scanned
+- [describe_memory_test.c](../../../test/describe_memory_test.c) - reading and writing a description with each allocation failing in turn
+- [describe_program_memory_test.c](../../../test/describe_program_memory_test.c) - the program run in its own process with each allocation failing in turn
+- [describe_services_test.c](../../../test/describe_services_test.c) - every description the standard ships, member by member, against hand-written expectations
+- [describe_test.c](../../../test/describe_test.c) - the reader: every form it accepts and every header it refuses, with the exact refusal
+- [describe_write_test.c](../../../test/describe_write_test.c) - the writer: each golden source written and compared byte for byte
+- [described/](described/) - a described shared library bound as a host binds it
+- [described_calls_test.c](../../../test/described_calls_test.c) - calling the described library through its descriptions, member kind by member kind
+- [described_description_test.c](../../../test/described_description_test.c) - checking the described library's descriptions and refusing the broken ones
+- [description_fixture.c](../../../test/description_fixture.c) - a description written by hand, covering every kind, for the check's tests
+- [description_fixture.h](../../../test/description_fixture.h) - the fixture's types and the faults the tests plant
+- [description_memory_test.c](../../../test/description_memory_test.c) - the description check with each allocation failing in turn
+- [description_test.c](../../../test/description_test.c) - the description check: what it accepts and each fault it refuses
+- [fixtures.c](../../../test/fixtures.c) - creating, emptying and filling scratch directories for the tests
+- [fixtures.h](../../../test/fixtures.h) - the scratch directory helpers
+- [identity_memory_test.c](../../../test/identity_memory_test.c) - parsing identities with each allocation failing in turn
+- [identity_test.c](../../../test/identity_test.c) - parsing and comparing identities, including the numbers that do not fit
+- [json_equality_test.c](../../../test/json_equality_test.c) - `uniqueItems` equality across spellings of a number
+- [json_memory_test.c](../../../test/json_memory_test.c) - reading JSON with each allocation failing in turn
+- [json_test.c](../../../test/json_test.c) - the JSON reader against the grammar and the refusals beyond it
+- [layout_memory_test.c](../../../test/layout_memory_test.c) - discovery with each allocation failing in turn
+- [layout_test.c](../../../test/layout_test.c) - discovery: order, failures, duplicates, links and entries
+- [layouts/](layouts/) - the program that prints every struct's layout and the scripts that check it
+- [library_memory_test.c](../../../test/library_memory_test.c) - reading a library declaration with each allocation failing in turn
+- [library_test.c](../../../test/library_test.c) - the library declaration: every accepted shape and every refusal
+- [manifest_memory_test.c](../../../test/manifest_memory_test.c) - reading a manifest with each allocation failing in turn
+- [manifest_test.c](../../../test/manifest_test.c) - reading a manifest into the core's structure, and loading with validation
+- [mirrors_memory_test.c](../../../test/mirrors_memory_test.c) - reading a mirror list with each allocation failing in turn
+- [mirrors_test.c](../../../test/mirrors_test.c) - the mirror list, expanding a template and loading from a file
+- [pattern_test.c](../../../test/pattern_test.c) - each pattern matcher against samples that must and must not match
+- [repository_id_samples.h](../../../test/repository_id_samples.h) - the identity samples the pattern and identity tests share
+- [schema_parity_test.c](../../../test/schema_parity_test.c) - the schema against the validator's rule table, so neither can move alone
+- [services_test.c](../../../test/services_test.c) - the service ids and the size convention of the service definitions
+- [sha256_test.c](../../../test/sha256_test.c) - SHA-256 vectors and the download check
+- [validate_memory_test.c](../../../test/validate_memory_test.c) - validation with each allocation failing in turn
+- [validate_rules.c](../../../test/validate_rules.c) - the table of every rule the validator implements, each with the cases that prove it
+- [validate_rules.h](../../../test/validate_rules.h) - the rule and case types of that table
+- [validate_test.c](../../../test/validate_test.c) - validation: every rule against its cases, and the order and uniqueness of the paths
+<!-- end generated -->

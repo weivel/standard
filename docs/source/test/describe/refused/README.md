@@ -1,0 +1,73 @@
+One header per way a header can fall outside the description grammar, each of which `weivel-describe` must refuse with a message naming the file and line. `describe_test.c` pairs each file here with the exact refusal and line it expects. The grammar they test is stated at the head of `tools/describe/reader.h`.
+
+<!-- generated: source-children -->
+- [anonymous_enum.h](../../../../../test/describe/refused/anonymous_enum.h) - an enum with no name
+- [anonymous_struct.h](../../../../../test/describe/refused/anonymous_struct.h) - a struct with no name
+- [answer_unreleased.h](../../../../../test/describe/refused/answer_unreleased.h) - an answer that owns storage and has no release
+- [array_uncounted.h](../../../../../test/describe/refused/array_uncounted.h) - an array with no count beside it
+- [bit_field.h](../../../../../test/describe/refused/bit_field.h) - a bit field member
+- [blocking_release.h](../../../../../test/describe/refused/blocking_release.h) - a release tagged as blocking
+- [bound_twice.h](../../../../../test/describe/refused/bound_twice.h) - one uint32 bound to two enums
+- [bytes_uncounted.h](../../../../../test/describe/refused/bytes_uncounted.h) - bytes with no length beside them
+- [clause_ambiguous.h](../../../../../test/describe/refused/clause_ambiguous.h) - a clause naming an enum with two uint32 members to choose from
+- [clause_two_enums.h](../../../../../test/describe/refused/clause_two_enums.h) - a clause naming two enums
+- [clause_two_members.h](../../../../../test/describe/refused/clause_two_members.h) - a clause backticking two uint32 members for one enum
+- [context_outside.h](../../../../../test/describe/refused/context_outside.h) - a context member outside a definition
+- [count_counting_nothing.h](../../../../../test/describe/refused/count_counting_nothing.h) - a count whose name misses the array it should count
+- [count_not_size.h](../../../../../test/describe/refused/count_not_size.h) - a count that is not a size
+- [counted_twice.h](../../../../../test/describe/refused/counted_twice.h) - an array counted by two sizes
+- [cycle_storage_unreleased.h](../../../../../test/describe/refused/cycle_storage_unreleased.h) - storage reached through structs that point at each other, with no release
+- [defined_after_forward.h](../../../../../test/describe/refused/defined_after_forward.h) - an opaque handle later given a body
+- [definition_cycle.h](../../../../../test/describe/refused/definition_cycle.h) - a definition that answers itself
+- [definition_extra.h](../../../../../test/describe/refused/definition_extra.h) - a data member in a definition
+- [definition_input.h](../../../../../test/describe/refused/definition_input.h) - a definition taken as an input
+- [definition_unsized.h](../../../../../test/describe/refused/definition_unsized.h) - a definition with no size
+- [enum_array.h](../../../../../test/describe/refused/enum_array.h) - an array of uint32 documented as an enum
+- [enum_beside_status.h](../../../../../test/describe/refused/enum_beside_status.h) - a doc naming an enum and the status together
+- [enum_by_value.h](../../../../../test/describe/refused/enum_by_value.h) - an enum held by value rather than as a uint32
+- [enum_clause_unbound.h](../../../../../test/describe/refused/enum_clause_unbound.h) - a clause naming an enum that no member holds
+- [enum_doc_on_text.h](../../../../../test/describe/refused/enum_doc_on_text.h) - an enum documented on a text member
+- [fixed_array.h](../../../../../test/describe/refused/fixed_array.h) - an array of fixed length
+- [function_shape.h](../../../../../test/describe/refused/function_shape.h) - an array of function pointers
+- [function_with_body.h](../../../../../test/describe/refused/function_with_body.h) - a function with a body
+- [handle_two_names.h](../../../../../test/describe/refused/handle_two_names.h) - a handle released under two names
+- [handle_unreleased.h](../../../../../test/describe/refused/handle_unreleased.h) - a handle with no release
+- [implicit_overflow.h](../../../../../test/describe/refused/implicit_overflow.h) - an implicit enum number past the largest
+- [keyword_type.h](../../../../../test/describe/refused/keyword_type.h) - a type spelled with a C keyword
+- [large_entry.h](../../../../../test/describe/refused/large_entry.h) - an enum number above 2^32
+- [length_counting_nothing.h](../../../../../test/describe/refused/length_counting_nothing.h) - a length that counts nothing
+- [member_after_operations.h](../../../../../test/describe/refused/member_after_operations.h) - a data member after the operations
+- [mutable_struct_member.h](../../../../../test/describe/refused/mutable_struct_member.h) - a pointer to a struct that is not const
+- [mutable_text.h](../../../../../test/describe/refused/mutable_text.h) - a text that is not const
+- [negative_entry.h](../../../../../test/describe/refused/negative_entry.h) - a negative enum number
+- [nested_storage_unreleased.h](../../../../../test/describe/refused/nested_storage_unreleased.h) - storage held inside a struct a definition answers, with no release
+- [no_context.h](../../../../../test/describe/refused/no_context.h) - an operation that does not take the context first
+- [no_first_shape.h](../../../../../test/describe/refused/no_first_shape.h) - a sized struct that says nothing of its first shape
+- [open_comment.h](../../../../../test/describe/refused/open_comment.h) - a comment that never closes
+- [open_extern.h](../../../../../test/describe/refused/open_extern.h) - an `extern "C"` block that never closes
+- [other_void.h](../../../../../test/describe/refused/other_void.h) - a void pointer that is neither context nor storage
+- [own_doc_two_enums.h](../../../../../test/describe/refused/own_doc_two_enums.h) - a member's own doc naming two enums
+- [reach_handle.h](../../../../../test/describe/refused/reach_handle.h) - a handle reached with no release in the definition
+- [refusal_not_last.h](../../../../../test/describe/refused/refusal_not_last.h) - a refusal that is not the last parameter
+- [refusal_undeclared.h](../../../../../test/describe/refused/refusal_undeclared.h) - a refusal whose type is not declared
+- [release_shape.h](../../../../../test/describe/refused/release_shape.h) - a release that does not take the context and one thing
+- [repeated_entry.h](../../../../../test/describe/refused/repeated_entry.h) - two enum entries with one name
+- [repeated_member.h](../../../../../test/describe/refused/repeated_member.h) - two members with one name
+- [repeated_struct.h](../../../../../test/describe/refused/repeated_struct.h) - two structs with one name
+- [returns_other.h](../../../../../test/describe/refused/returns_other.h) - an operation that returns something other than the status
+- [shape_undeclared.h](../../../../../test/describe/refused/shape_undeclared.h) - a first shape that names a member the struct does not have
+- [struct_by_value_parameter.h](../../../../../test/describe/refused/struct_by_value_parameter.h) - a struct passed by value
+- [struct_held_by_itself.h](../../../../../test/describe/refused/struct_held_by_itself.h) - a struct that holds itself by value
+- [struct_other_tag.h](../../../../../test/describe/refused/struct_other_tag.h) - a struct spelled with another struct's tag
+- [struct_own_tag_parameter.h](../../../../../test/describe/refused/struct_own_tag_parameter.h) - a parameter spelled with the struct's own tag
+- [texts_uncounted.h](../../../../../test/describe/refused/texts_uncounted.h) - texts with no count beside them
+- [top_level.h](../../../../../test/describe/refused/top_level.h) - a declaration the grammar does not read at the top level
+- [two_counts.h](../../../../../test/describe/refused/two_counts.h) - an array two sizes could count
+- [two_releases.h](../../../../../test/describe/refused/two_releases.h) - two releases for one type
+- [typedef_mismatch.h](../../../../../test/describe/refused/typedef_mismatch.h) - a typedef whose two names differ
+- [typedef_other.h](../../../../../test/describe/refused/typedef_other.h) - a typedef of a scalar
+- [union.h](../../../../../test/describe/refused/union.h) - a union
+- [unknown_type.h](../../../../../test/describe/refused/unknown_type.h) - a type no scanned header declares
+- [unnamed_parameter.h](../../../../../test/describe/refused/unnamed_parameter.h) - a parameter with no name
+- [unsized_shape.h](../../../../../test/describe/refused/unsized_shape.h) - a first shape stated for a struct with no size
+<!-- end generated -->
