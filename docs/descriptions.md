@@ -16,7 +16,9 @@ forms are append-only, and a binding that meets one it does not know refuses the
 part of it.
 
 Two things a binding needs beyond layout. An operation that may block is named in `blocking`, so a binding whose callers
-must not wait calls it away from its calling thread. A member or a parameter that holds a definition names the
+must not wait calls it away from its calling thread. A header marks such an operation with the `@blocking` tag
+([weivel-describe](#weivel-describe)); among the standard's own services only the host's `tick` carries it
+([services.md](services.md#host-what-a-program-runs)). A member or a parameter that holds a definition names the
 definition's own description, nested whole inside this one, so an answer can carry a definition and the binding binds it
 in the same pass.
 
