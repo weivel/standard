@@ -8,8 +8,8 @@ repository publishes. The declarations are in `include/weivel/standard.h` and `i
 
 `weivel_standard_read_manifest` converts and does not validate: a field the core's manifest has no place for is ignored
 (a dependency list among them), a field left out takes the core's default, and `null` is a value of the wrong type,
-never an absent field. All of them take the document's bytes: the host, or discovery (see [layout.md](layout.md)),
-reads the file, and the standard never opens the manifest itself. What a read answers is an opaque
+never an absent field. All of them take the document's bytes and open no file: the host reads the file, or the
+standard's discovery (see [layout.md](layout.md)) reads it for the host. What a read answers is an opaque
 `weivel_standard_manifest`, and `weivel_standard_manifest_view` gives the core's `weivel_manifest` from it, ready for
 `weivel_supports` and `weivel_register_manifest` and alive until the manifest's release. The view's identity is empty
 because it is supplied by whatever loaded the plugin, never written in the manifest, so a host that supplies one copies
