@@ -11,9 +11,9 @@ size, and every operation with its parameters, so a binding reconstructs the lay
 A description is the definition's struct, the structs and enums its operations reach, and its operations, each with its
 parameters in call order and what each is to the call: an input read during the call, an answer filled on success and
 freed by a named release, or the refusal. Every parameter and member has a kind (a scalar, a text, texts, bytes, a
-struct, a pointer, a counted array, a value tree, a handle, a context or a definition). The kinds, roles and return
-forms are append-only, and a binding that meets one it does not know refuses the whole description rather than binding
-part of it.
+struct, a pointer, a counted array, a value tree, a handle, a context, an answer's storage or a definition). The kinds,
+roles and return forms are append-only, and a binding that meets one it does not know refuses the whole description
+rather than binding part of it.
 
 Two things a binding needs beyond layout. An operation that may block is named in `blocking`, so a binding whose callers
 must not wait calls it away from its calling thread. A header marks such an operation with the `@blocking` tag
