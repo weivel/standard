@@ -162,11 +162,11 @@ typedef struct weivel_standard_validation {
 } weivel_standard_validation;
 
 /**
- * Validates a JSON manifest by the standard's schema, `schema/plugin.schema.json`, and alongside it the two rules this
- * repository's `VALIDATION.md` states: V1 (a service is listed at most once on each side, its string and object forms
- * naming the same service) and V2 (a provided id is namespaced or well-known) when `options` carries a well-known
- * list. Every wrong field is listed, whichever rule found it. A field the schema does not name validates and is
- * ignored, at any depth.
+ * Validates a JSON manifest by the standard's schema, `schema/plugin.schema.json`, and alongside it the two rules
+ * this repository's `docs/validation.md` states: V1 (a service is listed at most once on each side, its string and
+ * object forms naming the same service) and V2 (a provided id is namespaced or well-known) when `options` carries a
+ * well-known list. Every wrong field is listed, whichever rule found it. A field the schema does not name validates
+ * and is ignored, at any depth.
  *
  * @param json the document, read only during the call; it need not be NUL-terminated. Required.
  * @param options NULL for every default.

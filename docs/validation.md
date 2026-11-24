@@ -4,7 +4,7 @@
 expressed there, so `weivel_standard_validate` applies them alongside the schema's rules, in the same
 walk: a manifest is not first checked by the schema and only then by these. Every wrong field is
 listed, whichever rule found it, each once, in the order the validator reached it; the first of them is
-also the validation's refusal. The conformance kit's `validate` vectors hold the validator to both.
+also the validation's refusal. The conformance kit's `validate` vectors (in the conformance kit's `docs/vectors/`) hold the validator to both.
 
 Each rule names the path its refusal reports, its code, and the `fix` it carries, because a refusal is
 data and an author reads the fix.

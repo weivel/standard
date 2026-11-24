@@ -8,7 +8,7 @@
  * One rule the validator implements. A schema rule's `location` is a JSON pointer to one constraint keyword of
  * `schema/plugin.schema.json`, with `required/<name>` for each name a `required` lists, and `expected` is that
  * keyword's value: a string's own text, or JSON text for any other value, NULL for a required name. A rule from
- * VALIDATION.md has a location that does not start with `/` and no expected value.
+ * docs/validation.md has a location that does not start with `/` and no expected value.
  */
 typedef struct schema_rule {
     const char *location;
