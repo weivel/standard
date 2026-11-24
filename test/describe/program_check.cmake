@@ -1,10 +1,11 @@
-# -DSCENARIO=<refused|usage|elsewhere> -DDESCRIBE=<weivel-describe> -DFIXTURES=<test/describe>
+# -DSCENARIO=<refused|usage|elsewhere|unchanged> -DDESCRIBE=<weivel-describe> -DFIXTURES=<test/describe>
 # -DWORK=<scratch directory>
 #
 # refused: a header outside the grammar exits 1, prints the refusal as `<file>:<line>: <message>` and leaves no
 # source behind, even where an earlier run wrote one. usage: a call missing a required option exits 2 and writes
 # nothing. elsewhere: `--described-elsewhere probe_remote` over nested.h, named from the fixtures directory as an
-# include names it, writes golden/nested.c byte for byte.
+# include names it, writes golden/nested.c byte for byte. unchanged: a second run over the same headers leaves the source
+# it wrote untouched, its modification time included, so nothing built from it is rebuilt.
 
 cmake_minimum_required(VERSION 3.15)
 
@@ -55,6 +56,23 @@ elseif(SCENARIO STREQUAL "elsewhere")
     file(READ ${FIXTURES}/golden/nested.c golden)
     if(NOT written STREQUAL golden)
         message(FATAL_ERROR "${output} differs from golden/nested.c")
+    endif()
+elseif(SCENARIO STREQUAL "unchanged")
+    set(describe_nested ${DESCRIBE} --definition probe_lender --symbol nested_description_of --prefix nested_
+        --described-elsewhere probe_remote --output ${output} nested.h)
+    execute_process(COMMAND ${describe_nested} WORKING_DIRECTORY ${FIXTURES} RESULT_VARIABLE code ERROR_VARIABLE errors)
+    if(NOT code STREQUAL "0")
+        message(FATAL_ERROR "expected exit 0 describing nested.h, got ${code}: ${errors}")
+    endif()
+    file(TIMESTAMP ${output} first "%s" UTC)
+    execute_process(COMMAND ${CMAKE_COMMAND} -E sleep 1.5)
+    execute_process(COMMAND ${describe_nested} WORKING_DIRECTORY ${FIXTURES} RESULT_VARIABLE code ERROR_VARIABLE errors)
+    if(NOT code STREQUAL "0")
+        message(FATAL_ERROR "expected exit 0 describing nested.h again, got ${code}: ${errors}")
+    endif()
+    file(TIMESTAMP ${output} second "%s" UTC)
+    if(NOT first STREQUAL second)
+        message(FATAL_ERROR "describing unchanged headers rewrote ${output}: modified at ${first}, then at ${second}")
     endif()
 else()
     message(FATAL_ERROR "no scenario ${SCENARIO}")

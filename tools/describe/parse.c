@@ -12,6 +12,8 @@ typedef struct parser {
     const describe_token *tokens;
     size_t at;
     const describe_token *doc;
+    /** The index of the token `doc` stands directly before; a declaration starting anywhere else has no doc. */
+    size_t doc_precedes;
     uint32_t extern_depth;
     describe_refusal *refusal;
     /** The tag of the struct whose body is being read, NULL outside one. */
@@ -41,6 +43,7 @@ static const describe_token *current(parser *state) {
         const describe_token *token = &state->tokens[state->at];
         if (token->kind == DESCRIBE_TOKEN_DOC) {
             state->doc = token;
+            state->doc_precedes = state->at + 1;
         } else if (token->kind == DESCRIBE_TOKEN_DIRECTIVE) {
             state->doc = NULL;
         } else {
@@ -62,7 +65,7 @@ static const describe_token *take(parser *state) {
 static const describe_token *take_doc(parser *state) {
     const describe_token *doc;
     current(state);
-    doc = state->doc;
+    doc = state->doc_precedes == state->at ? state->doc : NULL;
     state->doc = NULL;
     return doc;
 }

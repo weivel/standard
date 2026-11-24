@@ -122,8 +122,13 @@ static void skip_line_comment(scanner *state) {
     }
 }
 
-/** @implNote A block comment inside a directive may span lines, so it is skipped whole rather than to the newline. */
+/**
+ * @implNote A block comment inside a directive may span lines, so it is skipped whole rather than to the newline. After
+ * a line comment's opening the rest of the line is comment text, where no block comment opens, though a continuation
+ * still joins the next line.
+ */
 static int skip_directive(scanner *state) {
+    int in_line_comment = 0;
     while (state->at < state->length && peek(state, 0) != '\n') {
         if (peek(state, 0) == '\\' && peek(state, 1) == '\n') {
             state->at++;
@@ -131,7 +136,10 @@ static int skip_directive(scanner *state) {
         } else if (peek(state, 0) == '\\' && peek(state, 1) == '\r' && peek(state, 2) == '\n') {
             state->at += 2;
             advance(state);
-        } else if (peek(state, 0) == '/' && peek(state, 1) == '*') {
+        } else if (!in_line_comment && peek(state, 0) == '/' && peek(state, 1) == '/') {
+            in_line_comment = 1;
+            state->at += 2;
+        } else if (!in_line_comment && peek(state, 0) == '/' && peek(state, 1) == '*') {
             if (!skip_block_comment(state)) {
                 return 0;
             }
