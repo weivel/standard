@@ -258,6 +258,8 @@ static const weivel_standard_described_operation secrets_operations[] = {
      .parameters = secrets_release_refusal_parameters,
      .parameter_count = sizeof(secrets_release_refusal_parameters) / sizeof(secrets_release_refusal_parameters[0])}};
 
+static const char *const secrets_blocking[] = {"remove", "get", "set"};
+
 static const weivel_standard_description secrets_description = {
     .size = (uint32_t)sizeof(weivel_standard_description),
     .definition = "weivel_standard_secrets",
@@ -267,8 +269,8 @@ static const weivel_standard_description secrets_description = {
     .enum_count = 0,
     .operations = secrets_operations,
     .operation_count = sizeof(secrets_operations) / sizeof(secrets_operations[0]),
-    .blocking = NULL,
-    .blocking_count = 0,
+    .blocking = secrets_blocking,
+    .blocking_count = sizeof(secrets_blocking) / sizeof(secrets_blocking[0]),
     .definitions = NULL,
     .definition_count = 0};
 

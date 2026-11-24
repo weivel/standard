@@ -335,9 +335,10 @@ static const expected_operation CONFIG_OPERATIONS[] = {
     OPERATION(weivel_standard_config, release_tree, NOTHING, CONFIG_RELEASE_TREE),
     OPERATION(weivel_standard_config, settings_file, STATUS, CONFIG_SETTINGS_FILE),
     OPERATION(weivel_standard_config, release_settings_file, NOTHING, CONFIG_RELEASE_SETTINGS_FILE)};
+static const char *const CONFIG_BLOCKING[] = {"all", "get", "set", "get_tree", "settings_file"};
 static const expected_description CONFIG = {"weivel_standard_config", CONFIG_TYPES, COUNT(CONFIG_TYPES),
                                             CONFIG_ENUMS, COUNT(CONFIG_ENUMS), CONFIG_OPERATIONS,
-                                            COUNT(CONFIG_OPERATIONS), NULL, 0};
+                                            COUNT(CONFIG_OPERATIONS), CONFIG_BLOCKING, COUNT(CONFIG_BLOCKING)};
 
 static const expected_member SECRETS_MEMBERS[] = {
     MEMBER(weivel_standard_secrets, size, U32, NONE, NULL, NULL),
@@ -369,8 +370,10 @@ static const expected_operation SECRETS_OPERATIONS[] = {
     OPERATION(weivel_standard_secrets, set, STATUS, SECRETS_SET),
     OPERATION(weivel_standard_secrets, release_secret, NOTHING, SECRETS_RELEASE_SECRET),
     OPERATION(weivel_standard_secrets, release_refusal, NOTHING, RELEASE_REFUSAL)};
+static const char *const SECRETS_BLOCKING[] = {"remove", "get", "set"};
 static const expected_description SECRETS = {"weivel_standard_secrets", SECRETS_TYPES, COUNT(SECRETS_TYPES), NULL, 0,
-                                             SECRETS_OPERATIONS, COUNT(SECRETS_OPERATIONS), NULL, 0};
+                                             SECRETS_OPERATIONS, COUNT(SECRETS_OPERATIONS), SECRETS_BLOCKING,
+                                             COUNT(SECRETS_BLOCKING)};
 
 static const expected_member PATHS_MEMBERS[] = {MEMBER(weivel_standard_paths, size, U32, NONE, NULL, NULL),
                                                 MEMBER(weivel_standard_paths, context, CONTEXT, NONE, NULL, NULL)};
