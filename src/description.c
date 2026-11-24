@@ -1102,6 +1102,12 @@ static weivel_status refuse_answer(weivel_standard_refusal *refusal, uint32_t co
     return state.status;
 }
 
+/** A size ending inside `answered_by` gives part of a pointer, which is no function at all. */
+static int gives_answered_by(const weivel_standard_description *description) {
+    return description->size >=
+           offsetof(weivel_standard_description, answered_by) + sizeof description->answered_by;
+}
+
 weivel_status weivel_standard_description_answers(const weivel_standard_description *description,
                                                   const void *definition, weivel_standard_refusal *refusal) {
     weivel_standard_description own;
@@ -1122,6 +1128,9 @@ weivel_status weivel_standard_description_answers(const weivel_standard_descript
                                            "check the description with weivel_standard_description_check first");
     }
     weivel_standard_sized_read(&own, sizeof own, description);
+    if (!gives_answered_by(description)) {
+        own.answered_by = NULL;
+    }
     if (own.answered_by == NULL) {
         return refuse_answer(refusal, WEIVEL_STANDARD_REFUSAL_MISSING_FIELD,
                              "%s is NULL, so the description names no function answering the definition it describes",

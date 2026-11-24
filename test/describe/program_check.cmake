@@ -1,13 +1,12 @@
 # -DSCENARIO=<refused|usage|elsewhere|answered|unchanged> -DDESCRIBE=<weivel-describe> -DFIXTURES=<test/describe>
 # -DWORK=<scratch directory>
 #
-# refused: a header outside the grammar exits 1, prints the refusal as `<file>:<line>: <message>` and leaves no
-# source behind, even where an earlier run wrote one. usage: a call missing a required option exits 2 and writes
-# nothing. elsewhere: `--described-elsewhere probe_remote` over nested.h, named from the fixtures directory as an
-# include names it, writes golden/nested.c byte for byte. answered: `--answered-by probe_lender_definition` over
-# nested_remote.h and nested.h writes golden/scanned.c byte for byte. unchanged: a second run over the same headers
-# leaves the source
-# it wrote untouched, its modification time included, so nothing built from it is rebuilt.
+# refused: a header outside the grammar exits 1, prints the refusal as `<file>:<line>: <message>` and leaves no source
+# behind, even where an earlier run wrote one. usage: a call missing a required option exits 2 and writes nothing.
+# elsewhere: `--described-elsewhere probe_remote` over nested.h, named from the fixtures directory as an include names
+# it, writes golden/nested.c byte for byte. answered: `--answered-by probe_lender_definition` over nested_remote.h and
+# nested.h writes golden/scanned.c byte for byte. unchanged: a second run over the same headers leaves the source it
+# wrote untouched, its modification time included, so nothing built from it is rebuilt.
 
 cmake_minimum_required(VERSION 3.15)
 

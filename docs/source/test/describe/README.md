@@ -1,6 +1,8 @@
 The headers and scripts the `weivel-describe` tests read: headers that must be described a certain way (`clauses.h`, `cycles.h`, `enums.h`, `every_form.h`, `nested.h` and its remote, `plurals_and_owners.h`, `restated.h`, `self_reference.h`, `skipped.h`, `status_named.h`), the expected output in `golden/`, the headers that must be refused in `refused/`, a hand-written description (`remote.c`) standing in for one another library exports, and the CMake scripts that run the program and the CMake function as a user would and check what they print and leave. The grammar they hold the program to is stated at the head of `tools/describe/reader.h`.
 
 <!-- generated: source-children -->
+- [arguments/](arguments/) - a project whose calls to the function must be refused for their arguments
+- [arguments_check.cmake](../../../../test/describe/arguments_check.cmake) - configures the arguments project once per scenario and checks the refusal
 - [clauses.h](../../../../test/describe/clauses.h) - a header whose docs bind enums to fields clause by clause
 - [cycles.h](../../../../test/describe/cycles.h) - structs that point at themselves and at each other in rings
 - [elsewhere/](elsewhere/) - a project that must be refused for calling the function from the wrong directory
@@ -11,7 +13,7 @@ The headers and scripts the `weivel-describe` tests read: headers that must be d
 - [nested.h](../../../../test/describe/nested.h) - a definition answering two others, one declared here and one described elsewhere, and an operation that blocks
 - [nested_remote.h](../../../../test/describe/nested_remote.h) - a definition another library describes
 - [plurals_and_owners.h](../../../../test/describe/plurals_and_owners.h) - counts named for plural arrays, and handles pointed at as const
-- [program_check.cmake](../../../../test/describe/program_check.cmake) - runs the program as a user would: a refused header, a missing option, a definition described elsewhere, a second run
+- [program_check.cmake](../../../../test/describe/program_check.cmake) - runs the program as a user would: a refused header, a missing option, a definition described elsewhere, an answering function, a second run
 - [refused/](refused/) - one header per way a header falls outside the grammar
 - [remote.c](../../../../test/describe/remote.c) - the description another library would export for the remote definition, written by hand
 - [restated.h](../../../../test/describe/restated.h) - a service whose library restates the status, refusal and value types

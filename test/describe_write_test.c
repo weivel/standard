@@ -165,6 +165,7 @@ static void writes_each_golden_source(void) {
     cases[4].header_count = COUNT_OF(restated);
     cases[4].names = restated_names;
     cases[4].service = service_of("probe_restated", "probe_restated_description", "restated_", NULL);
+    cases[4].service.answered_by = "probe_restated_definition";
     nested_names = standard;
     nested_names.elsewhere = nested_elsewhere;
     nested_names.elsewhere_count = COUNT_OF(nested_elsewhere);

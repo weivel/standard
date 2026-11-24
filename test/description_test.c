@@ -890,6 +890,7 @@ static const void *answer_the_definition(void) {
     return &ANSWERED_DEFINITION;
 }
 
+/** Asks twice, once with a refusal and once without. */
 static void refuses_an_answer_at(const weivel_standard_description *description, const void *definition,
                                  uint32_t code, const char *path, const char *label) {
     weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
@@ -931,12 +932,27 @@ static void reads_an_older_description_as_naming_no_function(void) {
     CHECK(answered_calls == 0);
 }
 
+/** A size ending inside `answered_by` gives part of a pointer, which is read as NULL rather than called. */
+static void reads_a_partly_given_function_as_naming_none(void) {
+    probe_description probe;
+    probe_describe(&probe);
+    probe.description.answered_by = answer_the_definition;
+    probe.description.size = (uint32_t)(offsetof(weivel_standard_description, answered_by) +
+                                        sizeof probe.description.answered_by - 1);
+    answered_calls = 0;
+    refuses_an_answer_at(&probe.description, &ANSWERED_DEFINITION, WEIVEL_STANDARD_REFUSAL_MISSING_FIELD,
+                         "answered_by", "a partly given function");
+    CHECK(answered_calls == 0);
+}
+
 static void refuses_a_description_answering_another_definition(void) {
     probe_description probe;
     probe_describe(&probe);
     probe.description.answered_by = answer_the_definition;
+    answered_calls = 0;
     refuses_an_answer_at(&probe.description, &ANOTHER_DEFINITION, WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
                          "answered_by", "another definition");
+    CHECK(answered_calls == 2);
 }
 
 static void accepts_a_description_answering_its_definition(void) {
@@ -967,6 +983,7 @@ int main(void) {
     refuses_to_compare_without_a_description_or_a_definition();
     refuses_a_description_naming_no_function();
     reads_an_older_description_as_naming_no_function();
+    reads_a_partly_given_function_as_naming_none();
     refuses_a_description_answering_another_definition();
     accepts_a_description_answering_its_definition();
     return check_summary("description_test");

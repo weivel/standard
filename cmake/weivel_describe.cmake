@@ -4,12 +4,13 @@
 #                 [EXPORT <macro>] [STATUS <type>] [REFUSAL <type>] [VALUE <type>] [TREE <type>]
 #                 [DESCRIBED_ELSEWHERE <definition struct>...])
 #
-# Runs weivel-describe at build time over HEADERS, in the order given, once per SERVICE, and adds each generated
-# source, which defines SYMBOL answering the description of that definition, to <target>. ANSWERED_BY names the
-# library function answering that definition, the symbol the service declares as its definition, which the description
-# names as its `answered_by`; the source declares it, with EXPORT, unless a header declares it, and a service naming
-# none leaves the field NULL, as a description only ever nested does. PREFIX begins every other name a generated source
-# declares. EXPORT is the macro SYMBOL is declared with, such as the library's export macro.
+# Runs weivel-describe at build time over HEADERS, in the order given, once per SERVICE, and adds each generated source,
+# which defines SYMBOL answering the description of that definition, to <target>. ANSWERED_BY names the library function
+# answering that definition, the symbol the service declares as its definition, which the description names as its
+# `answered_by`; the source declares it, with EXPORT, unless a header declares it, and a service naming none leaves the
+# field NULL, as a description only ever nested does. A function answers one definition, so no two services name the
+# same one. PREFIX begins every other name a generated source declares. EXPORT is the macro SYMBOL is declared with,
+# such as the library's export macro.
 # STATUS, REFUSAL, VALUE and TREE name the types the headers use in those roles, defaulting to weivel/standard's own.
 # The value and tree types are known by name alone, so the header declaring them is not one of HEADERS, which would
 # refuse it; the headers that use them include it.
@@ -50,7 +51,7 @@ function(weivel_describe target)
             if(keyword STREQUAL "SERVICE_NAMED")
                 message(FATAL_ERROR "weivel_describe: SERVICE ${service} has no SYMBOL")
             elseif(keyword AND NOT keyword STREQUAL "HEADERS" AND NOT keyword STREQUAL "DESCRIBED_ELSEWHERE"
-                    AND NOT keyword STREQUAL "SYMBOL_GIVEN")
+                    AND NOT keyword STREQUAL "SYMBOL_GIVEN" AND NOT keyword STREQUAL "ANSWERED_GIVEN")
                 message(FATAL_ERROR "weivel_describe: ${keyword} has no value")
             endif()
             if(keyword STREQUAL "HEADERS" AND NOT headers)
@@ -69,17 +70,23 @@ function(weivel_describe target)
             endif()
             set(keyword SYMBOL)
         elseif(argument STREQUAL "ANSWERED_BY")
-            if(NOT keyword STREQUAL "SYMBOL_GIVEN")
+            if(keyword STREQUAL "ANSWERED_GIVEN")
+                message(FATAL_ERROR "weivel_describe: ANSWERED_BY is given twice for SERVICE ${service}")
+            elseif(NOT keyword STREQUAL "SYMBOL_GIVEN")
                 message(FATAL_ERROR
                     "weivel_describe: ANSWERED_BY must follow SERVICE <definition struct> SYMBOL <symbol>")
             endif()
             set(keyword ANSWERED_BY)
         elseif(keyword STREQUAL "ANSWERED_BY")
+            if(argument IN_LIST answered)
+                message(FATAL_ERROR "weivel_describe: ANSWERED_BY ${argument} is given for two services; a function "
+                    "answers one definition, which one description describes")
+            endif()
             list(LENGTH answered answered_count)
             math(EXPR last_answered "${answered_count} - 1")
             list(REMOVE_AT answered ${last_answered})
             list(APPEND answered ${argument})
-            set(keyword)
+            set(keyword ANSWERED_GIVEN)
         elseif(keyword STREQUAL "HEADERS")
             get_filename_component(header "${argument}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
             list(APPEND headers "${header}")
@@ -110,7 +117,7 @@ function(weivel_describe target)
     elseif(keyword STREQUAL "DESCRIBED_ELSEWHERE" AND NOT elsewhere)
         message(FATAL_ERROR "weivel_describe: DESCRIBED_ELSEWHERE names no definition")
     elseif(keyword AND NOT keyword STREQUAL "HEADERS" AND NOT keyword STREQUAL "DESCRIBED_ELSEWHERE"
-            AND NOT keyword STREQUAL "SYMBOL_GIVEN")
+            AND NOT keyword STREQUAL "SYMBOL_GIVEN" AND NOT keyword STREQUAL "ANSWERED_GIVEN")
         message(FATAL_ERROR "weivel_describe: ${keyword} has no value")
     endif()
     if(NOT headers)

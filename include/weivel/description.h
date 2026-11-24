@@ -303,8 +303,8 @@ WEIVEL_STANDARD_API weivel_status weivel_standard_description_check(const weivel
 
 /**
  * Checks that `description` describes `definition`: `answered_by` is set and answers `definition`. Call it after
- * weivel_standard_description_check passed. Calls `answered_by` once. A description whose `size` ends before
- * `answered_by` reads it as NULL.
+ * weivel_standard_description_check passed. Calls `answered_by` once. A description whose `size` ends before the end
+ * of `answered_by`, at or inside it, reads it as NULL.
  *
  * @param description Required: the description a service declares.
  * @param definition Required: what the service's definition symbol answered.
