@@ -97,7 +97,7 @@ endforeach()
 target_compile_definitions(described_description_test PRIVATE
     WEIVEL_DESCRIBED_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/described")
 
-foreach(scenario refused usage elsewhere)
+foreach(scenario refused usage elsewhere unchanged)
     add_test(NAME describe_program_${scenario}
         COMMAND ${CMAKE_COMMAND} -DSCENARIO=${scenario} -DDESCRIBE=$<TARGET_FILE:weivel-describe>
             -DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/describe -DWORK=${CMAKE_CURRENT_BINARY_DIR}/describe-program

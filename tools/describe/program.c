@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "allocation.h"
+#include "files.h"
 #include "platform.h"
 #include "reader.h"
 #include "writer.h"
@@ -168,11 +169,26 @@ static int finish(describe_outcome outcome, describe_refusal *refusal, const cha
     return DESCRIBE_EXIT_FAILED;
 }
 
+/**
+ * @implNote An unchanged source is left untouched so its modification time stays, and a build does not recompile
+ * every description whenever weivel-describe itself is rebuilt.
+ */
+static weivel_standard_files_outcome holds_already(const char *path, const describe_text *source, int *same) {
+    char *bytes = NULL;
+    size_t length = 0;
+    weivel_standard_files_outcome outcome = weivel_standard_files_read(path, &bytes, &length);
+    *same = outcome == WEIVEL_STANDARD_FILES_DONE && length == source->length &&
+            memcmp(bytes, source->bytes, length) == 0;
+    weivel_standard_memory_release(bytes);
+    return outcome;
+}
+
 static int describe(options *chosen) {
     describe_model model;
     describe_refusal refusal;
     describe_text source;
     char **includes;
+    int same;
     describe_outcome outcome = describe_read(&model, chosen->headers, chosen->header_count, &chosen->names, &refusal);
     if (outcome != DESCRIBE_DONE) {
         return finish(outcome, &refusal, chosen->output);
@@ -190,7 +206,11 @@ static int describe(options *chosen) {
     if (outcome != DESCRIBE_DONE) {
         return finish(outcome, &refusal, chosen->output);
     }
-    if (!describe_write_file(chosen->output, source.bytes, source.length)) {
+    if (holds_already(chosen->output, &source, &same) == WEIVEL_STANDARD_FILES_OUT_OF_MEMORY) {
+        describe_text_release(&source);
+        return finish(DESCRIBE_OUT_OF_MEMORY, &refusal, chosen->output);
+    }
+    if (!same && !describe_write_file(chosen->output, source.bytes, source.length)) {
         describe_text_release(&source);
         describe_remove_file(chosen->output);
         fprintf(stderr, "weivel-describe: %s cannot be written\n", chosen->output);
