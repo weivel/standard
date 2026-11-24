@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "allocation.h"
 #include "check.h"
+#include "files.h"
 #include "reader.h"
 
 #define K(name) WEIVEL_STANDARD_DESCRIBED_##name
@@ -1067,6 +1069,69 @@ static void reads_a_header_with_crlf_line_ends(void) {
     describe_model_release(&model);
 }
 
+/** Reads `text` after services.h, which declares the refusal its definitions take. */
+static void read_after_services(describe_model *model, const char *path, const char *text, int *read) {
+    describe_refusal refusal;
+    describe_names names = describe_names_of_the_standard();
+    char *services = NULL;
+    const char *paths[2];
+    const char *texts[2];
+    size_t lengths[2];
+    *read = 0;
+    if (weivel_standard_files_read(WEIVEL_DESCRIBE_SERVICES_HEADER, &services, &lengths[0]) !=
+        WEIVEL_STANDARD_FILES_DONE) {
+        fprintf(stderr, "%s cannot be read\n", WEIVEL_DESCRIBE_SERVICES_HEADER);
+        check_failures++;
+        return;
+    }
+    paths[0] = WEIVEL_DESCRIBE_SERVICES_HEADER;
+    paths[1] = path;
+    texts[0] = services;
+    texts[1] = text;
+    lengths[1] = strlen(text);
+    *read = describe_read_texts(model, paths, texts, lengths, COUNT_OF(paths), &names, &refusal) == DESCRIBE_DONE;
+    weivel_standard_memory_release(services);
+    if (!*read) {
+        fprintf(stderr, "%s: %s\n", path, refusal.message == NULL ? "out of memory" : refusal.message);
+        describe_refusal_release(&refusal);
+        check_failures++;
+    }
+}
+
+static void keeps_a_doc_only_for_the_declaration_it_precedes(void) {
+    describe_model model;
+    int read;
+    read_after_services(&model, "stray-doc.h",
+                  "/** A walker. First shape ends at `context`. */\n"
+                  "typedef struct probe_walker {\n    uint32_t size;\n    void *context;\n"
+                  "    weivel_status (*first)(void *context, const char *key /** inside the parameters */,\n"
+                  "                           weivel_standard_service_refusal *refusal);\n"
+                  "    weivel_status (*second)(void *context, weivel_standard_service_refusal *refusal);\n"
+                  "    void (*release_refusal)(void *context, weivel_standard_service_refusal *refusal);\n"
+                  "} probe_walker;\n",
+                  &read);
+    if (!read) {
+        return;
+    }
+    check_nullable(describe_type_operation(describe_model_type(&model, "probe_walker"), "second")->doc, NULL,
+                   "probe_walker.second", "doc");
+    describe_model_release(&model);
+}
+
+static void reads_a_block_opening_inside_a_directive_line_comment_as_comment_text(void) {
+    describe_model model;
+    int read;
+    read_after_services(&model, "directive-comment.h",
+                  "#define PROBE_LIMIT 4 // the most a probe holds, /* not a comment opening\n"
+                  "typedef struct probe_pair {\n    uint64_t left;\n    uint64_t right;\n} probe_pair;\n",
+                  &read);
+    if (!read) {
+        return;
+    }
+    check_where(type_checked(&model, "probe_pair")->members[1].where, "directive-comment.h", 4, "probe_pair.right");
+    describe_model_release(&model);
+}
+
 int main(void) {
     reads_a_member_of_every_kind();
     reads_an_operation_of_every_form();
@@ -1090,5 +1155,7 @@ int main(void) {
     refuses_a_struct_named_as_described_elsewhere();
     reads_a_header_in_memory();
     reads_a_header_with_crlf_line_ends();
+    keeps_a_doc_only_for_the_declaration_it_precedes();
+    reads_a_block_opening_inside_a_directive_line_comment_as_comment_text();
     return check_summary("describe_test");
 }
