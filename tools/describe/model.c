@@ -148,6 +148,16 @@ int describe_model_declares_description(const describe_model *model, const char 
     return 0;
 }
 
+int describe_model_declares_function(const describe_model *model, const char *name) {
+    size_t at;
+    for (at = 0; at < model->function_count; at++) {
+        if (strcmp(model->functions[at], name) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static int names_a_struct(const describe_item *item) {
     return item->kind == WEIVEL_STANDARD_DESCRIBED_STRUCT ||
            ((item->kind == WEIVEL_STANDARD_DESCRIBED_POINTER || item->kind == WEIVEL_STANDARD_DESCRIBED_ARRAY) &&

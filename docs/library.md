@@ -26,10 +26,13 @@ The value 1 is retired and never reused, as every kind is append-only.
 ## Descriptions and contracts
 
 A service whose only function is a definition may declare a `description` symbol, so a language that cannot read the
-library's C header can bind the struct from [the description](descriptions.md) the symbol answers. A library may also
-publish a description it implements nowhere, as a `contracts` entry naming a capability id and the description's
-symbol: plugins that provide that capability implement one definition, and every language binds it alike. Each
-capability is published once.
+library's C header can bind the struct from [the description](descriptions.md) the symbol answers. That description
+names the function answering the service's definition, and a host loads the service only when it answers the very
+definition the service's symbol answered, so a description cannot describe one definition while another is served.
+A library may also publish a description it implements nowhere, as a `contracts` entry naming a capability id and the
+description's symbol: plugins that provide that capability implement one definition, and every language binds it
+alike. Each capability is published once, and a contract's description answers no definition, so its answering
+function is not compared.
 
 ## Reading it
 

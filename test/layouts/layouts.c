@@ -302,6 +302,7 @@ static void print_description_layouts(void) {
     FIELD(weivel_standard_description, blocking_count);
     FIELD(weivel_standard_description, definitions);
     FIELD(weivel_standard_description, definition_count);
+    FIELD(weivel_standard_description, answered_by);
     SIZE(weivel_standard_description);
 }
 

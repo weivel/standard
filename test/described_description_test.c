@@ -489,14 +489,21 @@ static void describes_both_services_as_the_header_declares_them(described_librar
                                                 .definitions = walker_definitions,
                                                 .definition_count = COUNT_OF(walker_definitions)};
     const weivel_standard_description *mirror_description = resolve(library, "described_mirror_description");
+    const weivel_standard_description *without_halve_description =
+        resolve(library, "described_mirror_without_halve_description");
     const weivel_standard_description *walker_description = resolve(library, "described_walker_description");
     if (mirror_description != NULL) {
         check_description(mirror_description, &mirror);
         check_mirror_enums(mirror_description);
     }
+    if (without_halve_description != NULL) {
+        check_description(without_halve_description, &mirror);
+        check_mirror_enums(without_halve_description);
+    }
     if (walker_description != NULL) {
         check_description(walker_description, &walker);
         CHECK(walker_description->enums == NULL);
+        CHECK(walker_description->definition_count == 1 && walker_description->definitions[0]->answered_by == NULL);
     }
 }
 
@@ -565,6 +572,53 @@ static void check_service(const weivel_standard_library *declaration, size_t at,
         CHECK(service->functions[0].kind == WEIVEL_STANDARD_FUNCTION_DEFINITION);
     }
     check_name(declaration->descriptions[at], description, id);
+}
+
+/** Whether the description `description` names, by its `answered_by`, what the symbol `definition` answers. */
+static weivel_status compares_answers(described_library library, const char *description, const char *definition,
+                                      weivel_standard_refusal *refusal) {
+    const weivel_standard_description *described = resolve(library, description);
+    described_definition_symbol answer = described_library_definition(library, definition);
+    CHECK(described != NULL && answer != NULL);
+    if (described == NULL || answer == NULL) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    return weivel_standard_description_answers(described, answer(), refusal);
+}
+
+static void answers_its_own_definition(described_library library, const char *description, const char *definition) {
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    if (compares_answers(library, description, definition, &refusal) != WEIVEL_STATUS_OK) {
+        fprintf(stderr, "%s does not answer %s: %s\n", description, definition,
+                refusal.detail == NULL ? "(no refusal)" : refusal.detail);
+        check_failures++;
+    }
+    weivel_standard_refusal_release(&refusal);
+}
+
+/** Two definitions of one struct pass every other check under each other's description; only the answer differs. */
+static void refuses_a_description_of_another_definition(described_library library, const char *description,
+                                                        const char *definition) {
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    CHECK(compares_answers(library, description, definition, &refusal) == WEIVEL_STATUS_MALFORMED);
+    CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_INVALID_VALUE);
+    check_name(refusal.path, "answered_by", description);
+    weivel_standard_refusal_release(&refusal);
+}
+
+static void names_the_function_answering_each_definition(described_library library) {
+    answers_its_own_definition(library, "described_mirror_description", "described_mirror_definition");
+    answers_its_own_definition(library, "described_mirror_without_halve_description",
+                               "described_mirror_without_halve_definition");
+    answers_its_own_definition(library, "described_walker_description", "described_walker_definition");
+    answers_its_own_definition(library, "described_broken_offset_description", "described_walker_definition");
+    answers_its_own_definition(library, "described_broken_count_description", "described_walker_definition");
+    answers_its_own_definition(library, "described_broken_definition_description", "described_walker_definition");
+    refuses_a_description_of_another_definition(library, "described_mirror_without_halve_description",
+                                                "described_mirror_definition");
+    refuses_a_description_of_another_definition(library, "described_mirror_description",
+                                                "described_mirror_without_halve_definition");
+    refuses_a_description_of_another_definition(library, "described_walker_description", "described_mirror_definition");
 }
 
 /** Reads a declaration and answers the description its walker names, after checking every symbol it names exists. */
@@ -638,6 +692,7 @@ int main(int argument_count, char **arguments) {
     describes_both_services_as_the_header_declares_them(library);
     declares_both_services_and_each_broken_variant(library);
     declares_a_contract_it_describes(library);
+    names_the_function_answering_each_definition(library);
     CHECK(described_library_close(library));
     return check_summary("described_description_test");
 }

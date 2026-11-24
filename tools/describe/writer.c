@@ -25,7 +25,8 @@ typedef struct filled_slot {
  * The source being written; `failed` once memory ran out, after which nothing more is written. `prefix` begins every
  * name of the description being written, the service's own or a nested definition's. `written` names each nested
  * definition already written and `open` each one being written, so a definition is written once and one reaching
- * itself is refused.
+ * itself is refused. `answered_by` is the function the description being written names, the service's for its own and
+ * NULL for a nested one, which no symbol answers.
  */
 typedef struct writing {
     describe_text *source;
@@ -34,6 +35,7 @@ typedef struct writing {
     describe_refusal *refusal;
     int failed;
     const char *prefix;
+    const char *answered_by;
     const char **written;
     size_t written_count;
     const char **open;
@@ -248,11 +250,12 @@ static void put_description(writing *state, const describe_reach *reach) {
         put(state, "    .blocking_count = sizeof(%sblocking) / sizeof(%sblocking[0]),\n", prefix, prefix);
     }
     if (reach->definition_count == 0) {
-        put(state, "    .definitions = NULL,\n    .definition_count = 0};\n\n");
+        put(state, "    .definitions = NULL,\n    .definition_count = 0,\n");
     } else {
         put(state, "    .definitions = %sdefinitions,\n", prefix);
-        put(state, "    .definition_count = sizeof(%sdefinitions) / sizeof(%sdefinitions[0])};\n\n", prefix, prefix);
+        put(state, "    .definition_count = sizeof(%sdefinitions) / sizeof(%sdefinitions[0]),\n", prefix, prefix);
     }
+    put(state, "    .answered_by = %s};\n\n", state->answered_by == NULL ? "NULL" : state->answered_by);
 }
 
 static void put_signature(writing *state) {
@@ -320,6 +323,20 @@ static void put_symbol(writing *state) {
     put(state, "    return &%sdescription;\n}\n", prefix);
 }
 
+/**
+ * Declares the answering function unless the headers declare it, as put_filling does a description, so a misspelt
+ * function is a link error rather than a NULL at run time.
+ */
+static void put_answering_declaration(writing *state) {
+    const describe_service *service = state->service;
+    const char *macro = service->export_macro == NULL ? "" : service->export_macro;
+    const char *space = service->export_macro == NULL ? "" : " ";
+    if (service->answered_by == NULL || describe_model_declares_function(state->model, service->answered_by)) {
+        return;
+    }
+    put(state, "%s%sconst void *%s(void);\n\n", macro, space, service->answered_by);
+}
+
 static void put_head(writing *state) {
     size_t at;
     put(state, "/* Written by weivel-describe from the headers it includes; edit them, not this file. */\n\n");
@@ -328,6 +345,7 @@ static void put_head(writing *state) {
         put(state, "#include \"%s\"\n", state->service->includes[at]);
     }
     put(state, "\n");
+    put_answering_declaration(state);
 }
 
 static void put_blocking(writing *state, const describe_type *definition) {
@@ -486,6 +504,7 @@ static describe_outcome put_described(writing *state, const char *definition) {
 
 static describe_outcome put_reached(writing *state, const char *definition) {
     const char *outer = state->prefix;
+    const char *outer_answered_by = state->answered_by;
     char *prefix = nested_prefix(state, definition);
     const char **slot;
     describe_outcome outcome;
@@ -493,8 +512,10 @@ static describe_outcome put_reached(writing *state, const char *definition) {
         return DESCRIBE_OUT_OF_MEMORY;
     }
     state->prefix = prefix;
+    state->answered_by = NULL;
     outcome = put_described(state, definition);
     state->prefix = outer;
+    state->answered_by = outer_answered_by;
     weivel_standard_memory_release(prefix);
     if (outcome != DESCRIBE_DONE) {
         return outcome;
@@ -552,6 +573,9 @@ static describe_outcome check_service(const describe_model *model, const describ
     if (outcome == DESCRIBE_DONE && service->export_macro != NULL) {
         outcome = check_identifier(service->export_macro, "export macro", refusal);
     }
+    if (outcome == DESCRIBE_DONE && service->answered_by != NULL) {
+        outcome = check_identifier(service->answered_by, "answering function", refusal);
+    }
     if (outcome == DESCRIBE_DONE && service->include_count != model->file_count) {
         return describe_refuse(refusal, NULL, 0, "%u includes were named for %u headers read",
                                (unsigned)service->include_count, (unsigned)model->file_count);
@@ -592,6 +616,7 @@ describe_outcome describe_write(const describe_model *model, const describe_serv
     state.model = model;
     state.refusal = refusal;
     state.prefix = service->prefix;
+    state.answered_by = service->answered_by;
     outcome = put_source(&state);
     release_writing(&state);
     if (state.failed) {

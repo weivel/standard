@@ -74,7 +74,8 @@ static const weivel_standard_description scanned_probe_counter_description = {
     .blocking = NULL,
     .blocking_count = 0,
     .definitions = NULL,
-    .definition_count = 0};
+    .definition_count = 0,
+    .answered_by = NULL};
 
 static const weivel_standard_described_member scanned_probe_lease_members[] = {
     {.name = "size",
@@ -192,7 +193,8 @@ static const weivel_standard_description scanned_description = {
     .blocking = scanned_blocking,
     .blocking_count = sizeof(scanned_blocking) / sizeof(scanned_blocking[0]),
     .definitions = scanned_definitions,
-    .definition_count = sizeof(scanned_definitions) / sizeof(scanned_definitions[0])};
+    .definition_count = sizeof(scanned_definitions) / sizeof(scanned_definitions[0]),
+    .answered_by = probe_lender_definition};
 
 
 #if defined(_WIN32)

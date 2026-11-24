@@ -272,7 +272,8 @@ static const weivel_standard_description secrets_description = {
     .blocking = secrets_blocking,
     .blocking_count = sizeof(secrets_blocking) / sizeof(secrets_blocking[0]),
     .definitions = NULL,
-    .definition_count = 0};
+    .definition_count = 0,
+    .answered_by = NULL};
 
 const weivel_standard_description *describe_secrets(void);
 

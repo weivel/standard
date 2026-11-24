@@ -3,11 +3,17 @@
 
 /**
  * @file
- * The descriptions of the standard's own definitions, as `weivel/description.h` defines a description, generated from
- * the standard's headers in its own build. A library serving one of these services declares the matching symbol as
- * its service's `description`, and a library describing a definition that carries one nests it by its symbol, so
- * neither describes the standard's definitions again. Each answers a static, read-only description that lives until
- * the library is unloaded.
+ * The descriptions of the standard's definitions that other definitions nest, as `weivel/description.h` defines a
+ * description, generated from the standard's headers in its own build. A library describing a definition that carries
+ * one nests it by its symbol, naming the definition as described elsewhere, and never describes it again. Each answers
+ * a static, read-only description that lives until the library is unloaded, and names no answering function, since it
+ * is only ever nested.
+ *
+ * A library serving one of the standard's services describes it itself: a description names the one function that
+ * answers its definition, so one shared by every library serving the service could name none of them. It runs
+ * weivel_describe over the standard's header for that definition, with ANSWERED_BY its own function and
+ * DESCRIBED_ELSEWHERE for the definitions it nests. The bytes are generated from the same header by `offsetof` and
+ * `sizeof`, so the copy cannot drift.
  */
 
 #include "weivel/description.h"
@@ -21,9 +27,5 @@ WEIVEL_STANDARD_API const weivel_standard_description *weivel_standard_secrets_d
 WEIVEL_STANDARD_API const weivel_standard_description *weivel_standard_paths_description(void);
 /** weivel_standard_log, `weivel/services.h`. */
 WEIVEL_STANDARD_API const weivel_standard_description *weivel_standard_log_description(void);
-/** weivel_standard_scopes, `weivel/scope.h`, nesting the four above. */
-WEIVEL_STANDARD_API const weivel_standard_description *weivel_standard_scopes_description(void);
-/** weivel_standard_host, `weivel/host.h`. */
-WEIVEL_STANDARD_API const weivel_standard_description *weivel_standard_host_description(void);
 
 #endif

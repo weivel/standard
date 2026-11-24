@@ -97,17 +97,6 @@ function(standard_descriptions target)
         SERVICE weivel_standard_secrets SYMBOL weivel_standard_secrets_description
         SERVICE weivel_standard_paths SYMBOL weivel_standard_paths_description
         SERVICE weivel_standard_log SYMBOL weivel_standard_log_description)
-    weivel_describe(${target}
-        HEADERS ${headers}/services.h ${headers}/scope.h ${headers}/descriptions.h
-        PREFIX standard_scope_
-        EXPORT WEIVEL_STANDARD_API
-        SERVICE weivel_standard_scopes SYMBOL weivel_standard_scopes_description
-        DESCRIBED_ELSEWHERE weivel_standard_config weivel_standard_secrets weivel_standard_paths weivel_standard_log)
-    weivel_describe(${target}
-        HEADERS ${headers}/services.h ${headers}/host.h ${headers}/descriptions.h
-        PREFIX standard_host_
-        EXPORT WEIVEL_STANDARD_API
-        SERVICE weivel_standard_host SYMBOL weivel_standard_host_description)
     if(NOT WIN32)
         target_link_libraries(${target} PUBLIC ${CMAKE_THREAD_LIBS_INIT})
     endif()

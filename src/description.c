@@ -1090,3 +1090,47 @@ weivel_status weivel_standard_description_check(const weivel_standard_descriptio
     check_described(&state, &own);
     return state.status;
 }
+
+static weivel_status refuse_answer(weivel_standard_refusal *refusal, uint32_t code, const char *what,
+                                   const char *fix) {
+    field_path path = {NULL, "answered_by", 0};
+    checking state;
+    memset(&state, 0, sizeof state);
+    state.refusal = refusal;
+    state.status = WEIVEL_STATUS_OK;
+    refuse(&state, code, &path, what, fix);
+    return state.status;
+}
+
+weivel_status weivel_standard_description_answers(const weivel_standard_description *description,
+                                                  const void *definition, weivel_standard_refusal *refusal) {
+    weivel_standard_description own;
+    if (weivel_standard_refusal_is_unusable(refusal)) {
+        return WEIVEL_STATUS_MALFORMED;
+    }
+    if (description == NULL || definition == NULL) {
+        return weivel_standard_refuse_call(refusal,
+                                           "weivel_standard_description_answers was given no description or no "
+                                           "definition",
+                                           "pass the description a service declares and the definition its "
+                                           "definition symbol answered");
+    }
+    if (description->size < DESCRIPTION_FIRST_SHAPE) {
+        return weivel_standard_refuse_call(refusal,
+                                           "weivel_standard_description_answers was given a description smaller "
+                                           "than its first shape",
+                                           "check the description with weivel_standard_description_check first");
+    }
+    weivel_standard_sized_read(&own, sizeof own, description);
+    if (own.answered_by == NULL) {
+        return refuse_answer(refusal, WEIVEL_STANDARD_REFUSAL_MISSING_FIELD,
+                             "%s is NULL, so the description names no function answering the definition it describes",
+                             "set %s to the function the service declares as its definition");
+    }
+    if (own.answered_by() != definition) {
+        return refuse_answer(refusal, WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
+                             "%s answers another definition than the one the service declares beside this description",
+                             "declare the description of the service's own definition, whose %s answers it");
+    }
+    return WEIVEL_STATUS_OK;
+}

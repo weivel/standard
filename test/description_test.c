@@ -881,6 +881,77 @@ static void refuses_a_malformed_call(void) {
     CHECK(small.code == WEIVEL_STANDARD_REFUSAL_NONE && small.detail == NULL);
 }
 
+static const uint32_t ANSWERED_DEFINITION = 1;
+static const uint32_t ANOTHER_DEFINITION = 2;
+static unsigned answered_calls = 0;
+
+static const void *answer_the_definition(void) {
+    answered_calls++;
+    return &ANSWERED_DEFINITION;
+}
+
+static void refuses_an_answer_at(const weivel_standard_description *description, const void *definition,
+                                 uint32_t code, const char *path, const char *label) {
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    CHECK(weivel_standard_description_answers(description, definition, &refusal) == WEIVEL_STATUS_MALFORMED);
+    if (refusal.code != code) {
+        fprintf(stderr, "%s: code %u, wanted %u\n", label, (unsigned)refusal.code, (unsigned)code);
+        check_failures++;
+    }
+    check_text(refusal.path, path, label);
+    CHECK(refusal.detail != NULL && refusal.fix != NULL);
+    weivel_standard_refusal_release(&refusal);
+    CHECK(weivel_standard_description_answers(description, definition, NULL) == WEIVEL_STATUS_MALFORMED);
+}
+
+static void refuses_to_compare_without_a_description_or_a_definition(void) {
+    probe_description probe;
+    probe_describe(&probe);
+    probe.description.answered_by = answer_the_definition;
+    refuses_an_answer_at(NULL, &ANSWERED_DEFINITION, WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL, "", "no description");
+    refuses_an_answer_at(&probe.description, NULL, WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL, "", "no definition");
+}
+
+static void refuses_a_description_naming_no_function(void) {
+    probe_description probe;
+    probe_describe(&probe);
+    refuses_an_answer_at(&probe.description, &ANSWERED_DEFINITION, WEIVEL_STANDARD_REFUSAL_MISSING_FIELD,
+                         "answered_by", "no function");
+}
+
+/** A description written before `answered_by` reads it as NULL, never past its size. */
+static void reads_an_older_description_as_naming_no_function(void) {
+    probe_description probe;
+    probe_describe(&probe);
+    probe.description.answered_by = answer_the_definition;
+    probe.description.size = (uint32_t)(offsetof(weivel_standard_description, definition_count) + sizeof(size_t));
+    answered_calls = 0;
+    refuses_an_answer_at(&probe.description, &ANSWERED_DEFINITION, WEIVEL_STANDARD_REFUSAL_MISSING_FIELD,
+                         "answered_by", "an older description");
+    CHECK(answered_calls == 0);
+}
+
+static void refuses_a_description_answering_another_definition(void) {
+    probe_description probe;
+    probe_describe(&probe);
+    probe.description.answered_by = answer_the_definition;
+    refuses_an_answer_at(&probe.description, &ANOTHER_DEFINITION, WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
+                         "answered_by", "another definition");
+}
+
+static void accepts_a_description_answering_its_definition(void) {
+    probe_description probe;
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    probe_describe(&probe);
+    probe.description.answered_by = answer_the_definition;
+    answered_calls = 0;
+    CHECK(weivel_standard_description_answers(&probe.description, &ANSWERED_DEFINITION, &refusal) ==
+          WEIVEL_STATUS_OK);
+    CHECK(answered_calls == 1);
+    CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_NONE && refusal.storage == NULL);
+    CHECK(weivel_standard_description_answers(&probe.description, &ANSWERED_DEFINITION, NULL) == WEIVEL_STATUS_OK);
+}
+
 int main(void) {
     size_t at;
     accepts_a_description_of_every_kind();
@@ -893,5 +964,10 @@ int main(void) {
         refuses_by_path(&REFUSED[at]);
     }
     refuses_a_malformed_call();
+    refuses_to_compare_without_a_description_or_a_definition();
+    refuses_a_description_naming_no_function();
+    reads_an_older_description_as_naming_no_function();
+    refuses_a_description_answering_another_definition();
+    accepts_a_description_answering_its_definition();
     return check_summary("description_test");
 }

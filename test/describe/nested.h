@@ -54,6 +54,9 @@ typedef struct probe_lender {
     weivel_status (*borrow)(void *context, const probe_counter **counter);
 } probe_lender;
 
+/** Answers the lender, the function golden/scanned.c names, which this header declares so the source does not. */
+const void *probe_lender_definition(void);
+
 #ifdef __cplusplus
 }
 #endif

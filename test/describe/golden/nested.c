@@ -73,7 +73,8 @@ static const weivel_standard_description nested_probe_counter_description = {
     .blocking = NULL,
     .blocking_count = 0,
     .definitions = NULL,
-    .definition_count = 0};
+    .definition_count = 0,
+    .answered_by = NULL};
 
 static const weivel_standard_described_member nested_probe_lease_members[] = {
     {.name = "size",
@@ -191,7 +192,8 @@ static const weivel_standard_description nested_description = {
     .blocking = nested_blocking,
     .blocking_count = sizeof(nested_blocking) / sizeof(nested_blocking[0]),
     .definitions = nested_definitions,
-    .definition_count = sizeof(nested_definitions) / sizeof(nested_definitions[0])};
+    .definition_count = sizeof(nested_definitions) / sizeof(nested_definitions[0]),
+    .answered_by = NULL};
 
 const weivel_standard_description *probe_remote_description(void);
 

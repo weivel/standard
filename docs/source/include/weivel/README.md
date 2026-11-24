@@ -2,7 +2,7 @@ The public headers, each one a part of the standard: the declarations, and in th
 
 <!-- generated: source-children -->
 - [description.h](../../../../include/weivel/description.h) - the description types, their kinds, roles and forms, and the check every binding runs first
-- [descriptions.h](../../../../include/weivel/descriptions.h) - the descriptions of the standard's own definitions, as functions a library nests or serves
+- [descriptions.h](../../../../include/weivel/descriptions.h) - the descriptions of the standard's definitions other definitions nest, and how a library serving one describes it
 - [host.h](../../../../include/weivel/host.h) - the host service: the plan a run follows, the outcome of each plugin, when to tick, and the order the program follows
 - [identity.h](../../../../include/weivel/identity.h) - a repository identity taken apart, parsed and compared
 - [json.h](../../../../include/weivel/json.h) - the JSON reader and its tree, with what it refuses beyond the grammar

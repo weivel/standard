@@ -108,7 +108,8 @@ static const weivel_standard_description paths_description = {
     .blocking = NULL,
     .blocking_count = 0,
     .definitions = NULL,
-    .definition_count = 0};
+    .definition_count = 0,
+    .answered_by = NULL};
 
 WEIVEL_STANDARD_API const weivel_standard_description *describe_paths(void);
 

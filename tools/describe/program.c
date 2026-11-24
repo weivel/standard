@@ -11,7 +11,8 @@
 
 static const char USAGE[] =
     "usage: weivel-describe --definition <struct> --symbol <function> --prefix <identifier prefix> --output <file.c>\n"
-    "                       [--export <macro>] [--status <type>] [--refusal <type>] [--value <type>] [--tree <type>]\n"
+    "                       [--export <macro>] [--answered-by <function>] [--status <type>] [--refusal <type>]\n"
+    "                       [--value <type>] [--tree <type>]\n"
     "                       [--described-elsewhere <definition struct>]... <header>...\n";
 
 #define ELSEWHERE "--described-elsewhere"
@@ -37,7 +38,7 @@ static int usage(const char *problem) {
 }
 
 static int take_option(options *chosen, const char *flag, const char *value) {
-    option_slot slots[9];
+    option_slot slots[10];
     size_t at;
     slots[0].flag = "--definition";
     slots[0].slot = &chosen->service.definition;
@@ -57,6 +58,8 @@ static int take_option(options *chosen, const char *flag, const char *value) {
     slots[7].slot = &chosen->names.value;
     slots[8].flag = "--tree";
     slots[8].slot = &chosen->names.tree;
+    slots[9].flag = "--answered-by";
+    slots[9].slot = &chosen->service.answered_by;
     for (at = 0; at < sizeof slots / sizeof slots[0]; at++) {
         if (strcmp(flag, slots[at].flag) == 0) {
             *slots[at].slot = value;

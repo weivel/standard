@@ -1,10 +1,12 @@
-# -DSCENARIO=<refused|usage|elsewhere|unchanged> -DDESCRIBE=<weivel-describe> -DFIXTURES=<test/describe>
+# -DSCENARIO=<refused|usage|elsewhere|answered|unchanged> -DDESCRIBE=<weivel-describe> -DFIXTURES=<test/describe>
 # -DWORK=<scratch directory>
 #
 # refused: a header outside the grammar exits 1, prints the refusal as `<file>:<line>: <message>` and leaves no
 # source behind, even where an earlier run wrote one. usage: a call missing a required option exits 2 and writes
 # nothing. elsewhere: `--described-elsewhere probe_remote` over nested.h, named from the fixtures directory as an
-# include names it, writes golden/nested.c byte for byte. unchanged: a second run over the same headers leaves the source
+# include names it, writes golden/nested.c byte for byte. answered: `--answered-by probe_lender_definition` over
+# nested_remote.h and nested.h writes golden/scanned.c byte for byte. unchanged: a second run over the same headers
+# leaves the source
 # it wrote untouched, its modification time included, so nothing built from it is rebuilt.
 
 cmake_minimum_required(VERSION 3.15)
@@ -56,6 +58,20 @@ elseif(SCENARIO STREQUAL "elsewhere")
     file(READ ${FIXTURES}/golden/nested.c golden)
     if(NOT written STREQUAL golden)
         message(FATAL_ERROR "${output} differs from golden/nested.c")
+    endif()
+elseif(SCENARIO STREQUAL "answered")
+    execute_process(COMMAND ${DESCRIBE} --definition probe_lender --symbol scanned_description_of --prefix scanned_
+            --answered-by probe_lender_definition --described-elsewhere probe_remote --output ${output}
+            nested_remote.h nested.h
+        WORKING_DIRECTORY ${FIXTURES}
+        RESULT_VARIABLE code OUTPUT_VARIABLE printed ERROR_VARIABLE errors)
+    if(NOT code STREQUAL "0")
+        message(FATAL_ERROR "expected exit 0 describing nested.h with its answering function, got ${code}: ${errors}")
+    endif()
+    file(READ ${output} written)
+    file(READ ${FIXTURES}/golden/scanned.c golden)
+    if(NOT written STREQUAL golden)
+        message(FATAL_ERROR "${output} differs from golden/scanned.c")
     endif()
 elseif(SCENARIO STREQUAL "unchanged")
     set(describe_nested ${DESCRIBE} --definition probe_lender --symbol nested_description_of --prefix nested_

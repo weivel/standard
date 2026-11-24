@@ -1,11 +1,15 @@
 # weivel_describe(<target> HEADERS <header>... PREFIX <identifier prefix>
-#                 SERVICE <definition struct> SYMBOL <description symbol> [SERVICE <struct> SYMBOL <symbol>]...
+#                 SERVICE <definition struct> SYMBOL <description symbol> [ANSWERED_BY <function>]
+#                 [SERVICE <struct> SYMBOL <symbol> [ANSWERED_BY <function>]]...
 #                 [EXPORT <macro>] [STATUS <type>] [REFUSAL <type>] [VALUE <type>] [TREE <type>]
 #                 [DESCRIBED_ELSEWHERE <definition struct>...])
 #
 # Runs weivel-describe at build time over HEADERS, in the order given, once per SERVICE, and adds each generated
-# source, which defines SYMBOL answering the description of that definition, to <target>. PREFIX begins every other
-# name a generated source declares. EXPORT is the macro SYMBOL is declared with, such as the library's export macro.
+# source, which defines SYMBOL answering the description of that definition, to <target>. ANSWERED_BY names the
+# library function answering that definition, the symbol the service declares as its definition, which the description
+# names as its `answered_by`; the source declares it, with EXPORT, unless a header declares it, and a service naming
+# none leaves the field NULL, as a description only ever nested does. PREFIX begins every other name a generated source
+# declares. EXPORT is the macro SYMBOL is declared with, such as the library's export macro.
 # STATUS, REFUSAL, VALUE and TREE name the types the headers use in those roles, defaulting to weivel/standard's own.
 # The value and tree types are known by name alone, so the header declaring them is not one of HEADERS, which would
 # refuse it; the headers that use them include it.
@@ -38,13 +42,15 @@ function(weivel_describe target)
     set(elsewhere)
     set(services)
     set(symbols)
+    set(answered)
     set(keyword)
     foreach(argument IN LISTS ARGN)
         if(argument STREQUAL "HEADERS" OR argument STREQUAL "SERVICE" OR argument STREQUAL "DESCRIBED_ELSEWHERE"
                 OR argument IN_LIST single_keywords)
             if(keyword STREQUAL "SERVICE_NAMED")
                 message(FATAL_ERROR "weivel_describe: SERVICE ${service} has no SYMBOL")
-            elseif(keyword AND NOT keyword STREQUAL "HEADERS" AND NOT keyword STREQUAL "DESCRIBED_ELSEWHERE")
+            elseif(keyword AND NOT keyword STREQUAL "HEADERS" AND NOT keyword STREQUAL "DESCRIBED_ELSEWHERE"
+                    AND NOT keyword STREQUAL "SYMBOL_GIVEN")
                 message(FATAL_ERROR "weivel_describe: ${keyword} has no value")
             endif()
             if(keyword STREQUAL "HEADERS" AND NOT headers)
@@ -62,6 +68,18 @@ function(weivel_describe target)
                 message(FATAL_ERROR "weivel_describe: SYMBOL must follow SERVICE <definition struct>")
             endif()
             set(keyword SYMBOL)
+        elseif(argument STREQUAL "ANSWERED_BY")
+            if(NOT keyword STREQUAL "SYMBOL_GIVEN")
+                message(FATAL_ERROR
+                    "weivel_describe: ANSWERED_BY must follow SERVICE <definition struct> SYMBOL <symbol>")
+            endif()
+            set(keyword ANSWERED_BY)
+        elseif(keyword STREQUAL "ANSWERED_BY")
+            list(LENGTH answered answered_count)
+            math(EXPR last_answered "${answered_count} - 1")
+            list(REMOVE_AT answered ${last_answered})
+            list(APPEND answered ${argument})
+            set(keyword)
         elseif(keyword STREQUAL "HEADERS")
             get_filename_component(header "${argument}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
             list(APPEND headers "${header}")
@@ -78,7 +96,8 @@ function(weivel_describe target)
                 message(FATAL_ERROR "weivel_describe: SYMBOL ${argument} is given twice")
             endif()
             list(APPEND symbols ${argument})
-            set(keyword)
+            list(APPEND answered -)
+            set(keyword SYMBOL_GIVEN)
         elseif(keyword AND keyword IN_LIST single_keywords)
             set(describe_${keyword} ${argument})
             set(keyword)
@@ -90,7 +109,8 @@ function(weivel_describe target)
         message(FATAL_ERROR "weivel_describe: SERVICE ${service} has no SYMBOL")
     elseif(keyword STREQUAL "DESCRIBED_ELSEWHERE" AND NOT elsewhere)
         message(FATAL_ERROR "weivel_describe: DESCRIBED_ELSEWHERE names no definition")
-    elseif(keyword AND NOT keyword STREQUAL "HEADERS" AND NOT keyword STREQUAL "DESCRIBED_ELSEWHERE")
+    elseif(keyword AND NOT keyword STREQUAL "HEADERS" AND NOT keyword STREQUAL "DESCRIBED_ELSEWHERE"
+            AND NOT keyword STREQUAL "SYMBOL_GIVEN")
         message(FATAL_ERROR "weivel_describe: ${keyword} has no value")
     endif()
     if(NOT headers)
@@ -118,11 +138,16 @@ function(weivel_describe target)
     foreach(at RANGE ${last})
         list(GET services ${at} service)
         list(GET symbols ${at} symbol)
+        list(GET answered ${at} function)
+        set(answering)
+        if(NOT function STREQUAL "-")
+            set(answering --answered-by ${function})
+        endif()
         set(output ${directory}/${symbol}.c)
         add_custom_command(OUTPUT ${output}
             COMMAND ${CMAKE_COMMAND} -E make_directory ${directory}
-            COMMAND weivel-describe --definition ${service} --symbol ${symbol} ${options} --output ${output}
-                ${headers}
+            COMMAND weivel-describe --definition ${service} --symbol ${symbol} ${answering} ${options}
+                --output ${output} ${headers}
             DEPENDS weivel-describe ${headers}
             COMMENT "Describing ${service} as ${symbol}"
             VERBATIM)
