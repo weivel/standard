@@ -150,7 +150,7 @@ typedef struct vector_case {
 } vector_case;
 
 /**
- * The kit's 30 `vectors/standard/validate` vectors, each manifest and well-known list as the vector gives it and the
+ * The kit's 32 `vectors/standard/validate` vectors, each manifest and well-known list as the vector gives it and the
  * paths it expects; `reports-a-missing-entry-beside-another-error` asserts `contains`, and is held here to the exact
  * list this validator answers. The four that still assert wording are held to the refusal code that wording meant.
  */
@@ -204,6 +204,11 @@ static const vector_case VECTOR_CASES[] = {
      NULL, "['capabilities.consumes[1]']", WEIVEL_STANDARD_REFUSAL_DUPLICATE},
     {"refuses-a-duplicate-permission", "{'importName': 'config-ledger', 'api': 2, 'permissions': ['net', 'net']}",
      NULL, "['permissions[1]']", WEIVEL_STANDARD_REFUSAL_DUPLICATE},
+    {"refuses-a-null-member-as-the-wrong-type",
+     "{'importName': 'config-ledger', 'api': 2, 'entry': null, 'services': {'consumes': [{'id': 'accounts', "
+     "'provider': null, 'optional': null}]}, 'permissions': null}",
+     NULL, "['entry', 'services.consumes[0].provider', 'services.consumes[0].optional', 'permissions']",
+     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"refuses-a-provider-with-a-trailing-newline",
      "{'importName': 'a', 'api': 2, 'services': {'consumes': [{'id': 'x:y', 'provider': 'forge:1\\n'}]}}", "[]",
      "['services.consumes[0].provider']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
@@ -228,6 +233,11 @@ static const vector_case VECTOR_CASES[] = {
     {"reports-a-missing-entry-beside-another-error",
      "{'importName': 'config-ledger', 'api': 'one', 'capabilities': {'provides': ['provider']}}", NULL,
      "['api', 'entry']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
+    {"reports-an-all-digit-key-as-a-key",
+     "{'importName': 'a', 'api': 2, 'services': {'provides': [{'id': 'a:x', 'attributes': {'9': 'nine', "
+     "'10': 'ten'}}]}}",
+     NULL, "['services.provides[0].attributes.9', 'services.provides[0].attributes.10']",
+     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"reports-each-repeat-of-two-repeated-capabilities",
      "{'importName': 'config-ledger', 'api': 2, 'entry': 'dist/index.js', 'capabilities': {'provides': ['provider', "
      "'consumer', 'provider', 'consumer']}}",
@@ -251,7 +261,7 @@ static const size_t VECTOR_CASE_COUNT = sizeof VECTOR_CASES / sizeof VECTOR_CASE
 
 static void every_kit_vector_validates_as_it_expects(void) {
     size_t at;
-    CHECK(VECTOR_CASE_COUNT == 30);
+    CHECK(VECTOR_CASE_COUNT == 32);
     for (at = 0; at < VECTOR_CASE_COUNT; at++) {
         const vector_case *vector = &VECTOR_CASES[at];
         check_validates_as(vector->name, vector->manifest, vector->well_known, vector->paths, vector->first_code);
