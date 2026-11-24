@@ -192,9 +192,8 @@ typedef struct weivel_standard_config {
                               weivel_standard_service_refusal *refusal);
     void (*release_tree)(void *context, weivel_standard_value_tree *tree);
     /**
-     * The settings file `set` writes when it is given no other place, the one a user edits by hand, so a consumer can
-     * name it in what it tells the user. Appended after the first shape, so a consumer checks WEIVEL_STANDARD_OFFERS
-     * before calling it.
+     * The settings file `set` writes, the one a user edits by hand, so a consumer can name it in what it tells the
+     * user. Appended after the first shape, so a consumer checks WEIVEL_STANDARD_OFFERS before calling it.
      *
      * @param file the consumer's empty answer. Required.
      * @param refusal the consumer's empty refusal, or NULL for none.

@@ -335,7 +335,7 @@ static const expected_operation CONFIG_OPERATIONS[] = {
     OPERATION(weivel_standard_config, release_tree, NOTHING, CONFIG_RELEASE_TREE),
     OPERATION(weivel_standard_config, settings_file, STATUS, CONFIG_SETTINGS_FILE),
     OPERATION(weivel_standard_config, release_settings_file, NOTHING, CONFIG_RELEASE_SETTINGS_FILE)};
-static const expected_description CONFIG ={"weivel_standard_config", CONFIG_TYPES, COUNT(CONFIG_TYPES),
+static const expected_description CONFIG = {"weivel_standard_config", CONFIG_TYPES, COUNT(CONFIG_TYPES),
                                             CONFIG_ENUMS, COUNT(CONFIG_ENUMS), CONFIG_OPERATIONS,
                                             COUNT(CONFIG_OPERATIONS), NULL, 0};
 

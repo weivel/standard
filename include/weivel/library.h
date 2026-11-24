@@ -69,9 +69,9 @@ typedef struct weivel_standard_library_contract {
 /**
  * A C library's declaration: the name plugins import it by, its version, the symbol that frees what its bytes
  * functions return, NULL when it declares none and every service is a definition, the services its functions
- * offer, and the contracts it publishes for plugins to implement. Everything it points at lives in `storage`, private to the standard, until
- * weivel_standard_library_release. An empty declaration has its `size` set and every other field zero, as WEIVEL_INIT
- * or a release leaves it. First shape ends at `storage`.
+ * offer, and the contracts it publishes for plugins to implement. Everything it points at lives in `storage`,
+ * private to the standard, until weivel_standard_library_release. An empty declaration has its `size` set and every
+ * other field zero, as WEIVEL_INIT or a release leaves it. First shape ends at `storage`.
  */
 typedef struct weivel_standard_library {
     uint32_t size;
