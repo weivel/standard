@@ -46,6 +46,8 @@ one object is never handed to two calls at once. Reading a JSON number uses the 
 host's locale changes nothing about how a number is read. A service a provider serves is one object shared by every
 plugin that resolves it, so a provider is safe for concurrent calls from any thread, its releases included. Every
 operation completes before it returns: a language whose interface is asynchronous presents a call as asynchronous.
+The operations are shaped so that a service's provider may live in another process: such a provider answers once
+the write has reached it.
 
 ## One allocator
 
