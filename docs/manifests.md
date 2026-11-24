@@ -8,9 +8,13 @@ repository publishes. The declarations are in `include/weivel/standard.h` and `i
 
 `weivel_standard_read_manifest` converts and does not validate: a field the core's manifest has no place for is ignored
 (a dependency list among them), a field left out takes the core's default, and `null` is a value of the wrong type,
-never an absent field. A manifest's identity is left empty because it is supplied by whatever loaded the plugin, never
-written in the manifest (see [layout.md](layout.md)). `weivel_standard_validate` judges a document against the schema
-and the two rules [validation.md](validation.md) states, and lists every wrong field, each once.
+never an absent field. All of them take the document's bytes: the host, or discovery (see [layout.md](layout.md)),
+reads the file, and the standard never opens the manifest itself. What a read answers is an opaque
+`weivel_standard_manifest`, and `weivel_standard_manifest_view` gives the core's `weivel_manifest` from it, ready for
+`weivel_supports` and `weivel_register_manifest` and alive until the manifest's release. The view's identity is empty
+because it is supplied by whatever loaded the plugin, never written in the manifest, so a host that supplies one copies
+the view and sets `identity` on its copy. `weivel_standard_validate` judges a document against the schema and the two
+rules [validation.md](validation.md) states, and answers with the wrong fields as that doc says.
 `weivel_standard_load_manifest` does both, validating first, so a host taking the standard's defaults cannot hand the
 core a manifest that skipped validation. The two steps stay separate functions because a host that validates elsewhere
 may still want the reader.

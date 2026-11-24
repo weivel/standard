@@ -6,6 +6,8 @@ ships the ids, the structs and their descriptions, and no provider (see [replaci
 in `include/weivel/services.h`, `scope.h`, `host.h` and `value.h`, the ids' accessor functions in `src/services.c`, and
 the conventions every one follows are [conventions.md](conventions.md)'s.
 
+A plugin gets a service object by listing its id under `services` in its manifest (see [manifests.md](manifests.md)); resolving the id to the provider's object is the core's job and the language layer's, never the standard's.
+
 No value crossing these definitions is JSON: JSON is a file format of the standard's defaults, and a service reached
 from any language hands its data over as typed structs and the value tree below. An id is also a function, for a binding
 that cannot read a macro.
@@ -45,8 +47,9 @@ core's rule that it reads no clock.
 The plan is followed in a fixed order: the program loads the libraries in order, then activates the plugins in order,
 opening each plugin's scope immediately before that plugin's activation. It reads and checks a plugin's manifest before
 opening its scope, so a plugin whose manifest cannot be read gets no scope and is told as refused. The scope is asked of
-the first loaded library that serves a described `weivel.scope`; a program none of them serves opens none and offers
-the plugin nothing. A program never offers a plugin `weivel.host` or `weivel.scope`, since a scope is made for one
+whichever library the program loaded serves a described `weivel.scope`, the library it was started with included; when
+two do, the first loaded wins, the library it was started with first, and a program none of them serves opens none and
+offers the plugin nothing. A program never offers a plugin `weivel.host` or `weivel.scope`, since a scope is made for one
 plugin and handed to no other, and a library serving `weivel.scope` offers config, secrets, paths and log through the
 scope alone.
 
@@ -54,7 +57,7 @@ An action run calls either an action the plugin's entry offers, by name, or a me
 provides, as the plan names it (`action_service` and `action_method`, both set or both unset; one without the other
 ends the run). In serve mode the program calls `tick` at once and again at the time the provider answered, until a
 stop request. Once `start` has answered ok the program calls `stop` last, once, whatever happened, and exits with the
-code `stop` answered (0 to 255). A stop request takes effect once the call it arrived during has returned, never in the
+code `stop` answered (0 to 255), or 1 when `stop` does not answer ok. A stop request takes effect once the call it arrived during has returned, never in the
 middle of one. Every plugin the plan named is attempted before a stop that arrived during activation takes effect, and
 each is told as activated, refused or failed with the reason.
 
