@@ -64,22 +64,6 @@ static int is_letter_or_digit(char byte) {
     return is_lowercase_or_digit(byte) || (byte >= 'A' && byte <= 'Z');
 }
 
-/** `^[a-z0-9]+([-.][a-z0-9]+)*$`, the rule of a service id, and of an import name before its device-name check. */
-static int matches_words(const char *text, size_t length) {
-    size_t at;
-    int after_separator = 1;
-    for (at = 0; at < length; at++) {
-        if (is_lowercase_or_digit(text[at])) {
-            after_separator = 0;
-        } else if ((text[at] == '-' || text[at] == '.') && !after_separator) {
-            after_separator = 1;
-        } else {
-            return 0;
-        }
-    }
-    return !after_separator;
-}
-
 static int matches_function_name(const char *text, size_t length) {
     size_t at;
     if (length == 0 || text[0] < 'a' || text[0] > 'z') {
@@ -121,7 +105,7 @@ static const text_field VERSION = {"version", is_not_empty, "is empty",
 static const text_field RELEASE = {"release", matches_c_identifier, "is not a C identifier",
                                    "name the exported release function as a C identifier, for example "
                                    "\"echo_release\""};
-static const text_field SERVICE_ID = {"id", matches_words, "is not lowercase words joined by single hyphens or dots",
+static const text_field SERVICE_ID = {"id", weivel_standard_matches_service_id, "is not lowercase words joined by single hyphens or dots",
                                       "use lowercase words joined by single hyphens or dots, for example \"echo\" "
                                       "or \"weivel.host\""};
 static const text_field FUNCTION_NAME = {"name", matches_function_name,
@@ -450,6 +434,11 @@ static int lists_a_contract(const weivel_json_value *root) {
     return weivel_json_array_length(weivel_json_object_get(root, "contracts")) > 0;
 }
 
+static int has_contracts_of_the_wrong_type(const weivel_json_value *root) {
+    const weivel_json_value *contracts = weivel_json_object_get(root, "contracts");
+    return contracts != NULL && weivel_json_kind_of(contracts) != WEIVEL_JSON_ARRAY;
+}
+
 static int is_absent_or_empty_list(const weivel_json_value *value) {
     return value == NULL || (weivel_json_kind_of(value) == WEIVEL_JSON_ARRAY && weivel_json_array_length(value) == 0);
 }
@@ -463,6 +452,9 @@ static int check_services(checking *state, const weivel_json_value *root) {
     }
     if (lists_a_contract(root)) {
         return 1;
+    }
+    if (has_contracts_of_the_wrong_type(root)) {
+        return check_contracts(state, root);
     }
     if (services == NULL) {
         return refuse(state, WEIVEL_STANDARD_REFUSAL_MISSING_FIELD, &path,

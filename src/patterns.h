@@ -20,6 +20,9 @@ int weivel_standard_matches_import_name(const char *text, size_t length);
  */
 int weivel_standard_matches_capability_id(const char *text, size_t length);
 
+/** A library declaration's `services[].id`: the capability id grammar, which the two share by rule. */
+int weivel_standard_matches_service_id(const char *text, size_t length);
+
 /** `entry`: no leading separator or drive, no control or line-separator character, no `..` segment. */
 int weivel_standard_matches_entry(const char *text, size_t length);
 

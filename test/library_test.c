@@ -243,8 +243,10 @@ static const refused_case REFUSED[] = {
     {"empty services and empty contracts", "{'importName': 'echo', 'version': '1', 'services': [], 'contracts': []}",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "services"},
     {"empty services beside contracts of the wrong type",
-     "{'importName': 'echo', 'version': '1', 'services': [], 'contracts': {}}", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE,
-     "services"},
+     "{'importName': 'echo', 'version': '1', 'services': [], 'contracts': {}}", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE,
+     "contracts"},
+    {"no services beside contracts of the wrong type", "{'importName': 'echo', 'version': '1', 'contracts': 'echo'}",
+     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE, "contracts"},
     {"services of the wrong type beside a contract",
      "{'importName': 'echo', 'version': '1', 'services': {}, 'contracts': [{'capability': 'echo.provider',"
      " 'description': 'echo_provider_description'}]}",

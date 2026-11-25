@@ -10,9 +10,9 @@ offer and the contracts it publishes. It must declare something, so it lists at 
 contract: a library that only publishes a contract has no service to invent, and its `services` may be empty or left
 out, while a declaration listing neither is refused. Each service has an id plugins request and a list of functions, each
 with the name a plugin calls it by, the exported C symbol that implements it, and its kind. A service id is lowercase
-words joined by single hyphens or dots, so a dotted id such as `weivel.log` is legal, and an `importName` is refused
-when it names a Windows device name such as `con` or `com1`, since a name that cannot be a file name cannot be the
-`<importName>.json` the layout expects (see [layout.md](layout.md)).
+words joined by single hyphens or dots, the capability id's grammar, so a dotted id such as `weivel.log` is legal,
+and an `importName` is refused when it names a Windows device name such as `con` or `com1`, since a name that cannot
+be a file name cannot be the `<importName>.json` the layout expects (see [layout.md](layout.md)).
 
 ## Two kinds of function
 
