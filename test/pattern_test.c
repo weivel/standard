@@ -72,6 +72,8 @@ int main(void) {
                   sizeof IMPORT_NAMES / sizeof IMPORT_NAMES[0]);
     check_samples("capability id", weivel_standard_matches_capability_id, CAPABILITY_IDS,
                   sizeof CAPABILITY_IDS / sizeof CAPABILITY_IDS[0]);
+    check_samples("service id", weivel_standard_matches_service_id, CAPABILITY_IDS,
+                  sizeof CAPABILITY_IDS / sizeof CAPABILITY_IDS[0]);
     check_samples("entry", weivel_standard_matches_entry, ENTRIES, sizeof ENTRIES / sizeof ENTRIES[0]);
     check_samples("repository id", weivel_standard_matches_repository_id, REPOSITORY_IDS,
                   sizeof REPOSITORY_IDS / sizeof REPOSITORY_IDS[0]);
