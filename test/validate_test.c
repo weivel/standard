@@ -150,122 +150,157 @@ typedef struct vector_case {
 } vector_case;
 
 /**
- * The kit's 33 `vectors/standard/validate` vectors, each manifest and well-known list as the vector gives it and the
+ * The kit's 36 `vectors/standard/validate` vectors, each manifest and well-known list as the vector gives it and the
  * paths it expects; `reports-a-missing-entry-beside-another-error` asserts `contains`, and is held here to the exact
  * list this validator answers. The four that still assert wording are held to the refusal code that wording meant.
  */
 static const vector_case VECTOR_CASES[] = {
     {"accepts-a-correct-manifest",
-     "{'importName': 'config-ledger', 'api': 1, 'entry': 'dist/index.js', 'capabilities': {'provides': ['provider']}}",
+     "{'importName': 'config-ledger', 'api': 1, 'language': 'c', 'entry': 'dist/index.js', 'capabilities': "
+     "{'provides': ['provider']}}",
      NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
     {"accepts-a-dependency-named-by-id",
-     "{'importName': 'a', 'api': 2, 'dependencies': [{'importName': 'runtime', 'id': 'forge:12/runtime'}]}", NULL,
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'dependencies': [{'importName': 'runtime', 'id': "
+     "'forge:12/runtime'}]}", NULL,
      "[]", WEIVEL_STANDARD_REFUSAL_NONE},
     {"accepts-a-dependency-named-by-name",
-     "{'importName': 'a', 'api': 2, 'dependencies': [{'importName': 'runtime', 'name': 'vendor/runtime', 'commit': "
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'dependencies': [{'importName': 'runtime', 'name': "
+     "'vendor/runtime', 'commit': "
      "'abc', 'sha256': 'def'}]}",
      NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
-    {"accepts-a-well-known-bare-service-id", "{'importName': 'a', 'api': 2, 'services': {'provides': ['accounts']}}",
-     "['accounts']", "[]", WEIVEL_STANDARD_REFUSAL_NONE},
-    {"accepts-an-id-that-only-starts-with-a-reserved-name", "{'importName': 'console.foo', 'api': 2}", "[]", "[]",
+    {"accepts-a-language-name", "{'importName': 'a', 'api': 2, 'language': 'typescript'}", NULL, "[]",
      WEIVEL_STANDARD_REFUSAL_NONE},
-    {"accepts-an-import-name-that-only-starts-with-package", "{'importName': 'package-lock', 'api': 2}", "[]", "[]",
+    {"accepts-a-well-known-bare-service-id",
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'services': {'provides': ['accounts']}}",
+     "['accounts']", "[]", WEIVEL_STANDARD_REFUSAL_NONE},
+    {"accepts-an-id-that-only-starts-with-a-reserved-name", "{'importName': 'console.foo', 'api': 2, 'language': 'c'}",
+     "[]", "[]",
+     WEIVEL_STANDARD_REFUSAL_NONE},
+    {"accepts-an-import-name-that-only-starts-with-package",
+     "{'importName': 'package-lock', 'api': 2, 'language': 'c'}", "[]", "[]",
      WEIVEL_STANDARD_REFUSAL_NONE},
     {"ignores-an-unknown-field",
-     "{'importName': 'config-ledger', 'api': 1, 'entry': 'dist/index.js', 'capabilities': {'provides': ['provider']}, "
+     "{'importName': 'config-ledger', 'api': 1, 'language': 'c', 'entry': 'dist/index.js', 'capabilities': "
+     "{'provides': ['provider']}, "
      "'reticulation': {'splines': 3}}",
      NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
     {"refuses-a-bare-service-id-that-is-not-well-known",
-     "{'importName': 'a', 'api': 2, 'services': {'provides': ['routing']}}", "['accounts']",
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'services': {'provides': ['routing']}}", "['accounts']",
      "['services.provides[0]']", WEIVEL_STANDARD_REFUSAL_NOT_WELL_KNOWN},
     {"refuses-a-capability-id-outside-the-grammar",
-     "{'importName': 'config-ledger', 'api': 2, 'entry': 'dist/index.js', 'capabilities': {'provides': ['provider', "
+     "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'entry': 'dist/index.js', 'capabilities': "
+     "{'provides': ['provider', "
      "'Store:Read']}}",
      NULL, "['capabilities.provides[1]']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-a-dependency-name-that-is-a-single-dot",
-     "{'importName': 'a', 'api': 2, 'dependencies': [{'importName': 'runtime', 'name': 'vendor/.'}]}", NULL,
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'dependencies': [{'importName': 'runtime', 'name': "
+     "'vendor/.'}]}", NULL,
      "['dependencies[0].name']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-a-dependency-name-that-is-dot-dot",
-     "{'importName': 'a', 'api': 2, 'dependencies': [{'importName': 'runtime', 'name': 'vendor/..'}]}", NULL,
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'dependencies': [{'importName': 'runtime', 'name': "
+     "'vendor/..'}]}", NULL,
      "['dependencies[0].name']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-a-dependency-name-that-looks-like-an-id",
-     "{'importName': 'a', 'api': 2, 'dependencies': [{'importName': 'runtime', 'name': 'forge:1/x'}]}", NULL,
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'dependencies': [{'importName': 'runtime', 'name': "
+     "'forge:1/x'}]}", NULL,
      "['dependencies[0].name']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-a-dependency-with-an-id-and-a-name",
-     "{'importName': 'a', 'api': 2, 'dependencies': [{'importName': 'runtime', 'id': 'forge:12/runtime', 'name': "
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'dependencies': [{'importName': 'runtime', 'id': "
+     "'forge:12/runtime', 'name': "
      "'vendor/runtime'}]}",
      NULL, "['dependencies[0].name']", WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD},
     {"refuses-a-dependency-with-neither-an-id-nor-a-name",
-     "{'importName': 'a', 'api': 2, 'dependencies': [{'importName': 'runtime'}]}", NULL, "['dependencies[0].name']",
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'dependencies': [{'importName': "
+     "'runtime'}]}", NULL, "['dependencies[0].name']",
      WEIVEL_STANDARD_REFUSAL_MISSING_FIELD},
     {"refuses-a-duplicate-capability",
-     "{'importName': 'config-ledger', 'api': 2, 'entry': 'dist/index.js', 'capabilities': {'provides': ['provider', "
+     "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'entry': 'dist/index.js', 'capabilities': "
+     "{'provides': ['provider', "
      "'provider']}}",
      NULL, "['capabilities.provides[1]']", WEIVEL_STANDARD_REFUSAL_DUPLICATE},
     {"refuses-a-duplicate-consumed-capability",
-     "{'importName': 'config-ledger', 'api': 2, 'entry': 'dist/index.js', 'capabilities': {'consumes': ['provider', "
+     "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'entry': 'dist/index.js', 'capabilities': "
+     "{'consumes': ['provider', "
      "'provider']}}",
      NULL, "['capabilities.consumes[1]']", WEIVEL_STANDARD_REFUSAL_DUPLICATE},
-    {"refuses-a-duplicate-permission", "{'importName': 'config-ledger', 'api': 2, 'permissions': ['net', 'net']}",
+    {"refuses-a-duplicate-permission",
+     "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'permissions': ['net', 'net']}",
      NULL, "['permissions[1]']", WEIVEL_STANDARD_REFUSAL_DUPLICATE},
+    {"refuses-a-language-outside-the-grammar", "{'importName': 'a', 'api': 2, 'language': 'Type Script'}", NULL,
+     "['language']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-a-null-member-as-the-wrong-type",
-     "{'importName': 'config-ledger', 'api': 2, 'entry': null, 'services': {'consumes': [{'id': 'accounts', "
+     "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'entry': null, 'services': {'consumes': [{'id': "
+     "'accounts', "
      "'provider': null, 'optional': null}]}, 'permissions': null}",
      NULL, "['entry', 'services.consumes[0].provider', 'services.consumes[0].optional', 'permissions']",
      WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"refuses-a-provider-with-a-trailing-newline",
-     "{'importName': 'a', 'api': 2, 'services': {'consumes': [{'id': 'x:y', 'provider': 'forge:1\\n'}]}}", "[]",
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'services': {'consumes': [{'id': 'x:y', 'provider': "
+     "'forge:1\\n'}]}}", "[]",
      "['services.consumes[0].provider']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
-    {"refuses-a-windows-reserved-id-con-before-a-dot", "{'importName': 'con.foo', 'api': 2}", "[]", "['importName']",
+    {"refuses-a-windows-reserved-id-con-before-a-dot", "{'importName': 'con.foo', 'api': 2, 'language': 'c'}", "[]",
+     "['importName']",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
-    {"refuses-a-windows-reserved-id-nul-before-a-dot", "{'importName': 'nul.x', 'api': 2}", "[]", "['importName']",
+    {"refuses-a-windows-reserved-id-nul-before-a-dot", "{'importName': 'nul.x', 'api': 2, 'language': 'c'}", "[]",
+     "['importName']",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
-    {"refuses-a-windows-reserved-id", "{'importName': 'nul', 'api': 2}", "[]", "['importName']",
+    {"refuses-a-windows-reserved-id", "{'importName': 'nul', 'api': 2, 'language': 'c'}", "[]", "['importName']",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
-    {"refuses-an-entry-outside-the-repo", "{'importName': 'config-ledger', 'api': 2, 'entry': '../x.js'}", NULL,
+    {"refuses-an-entry-outside-the-repo",
+     "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'entry': '../x.js'}", NULL,
      "['entry']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-an-object-entry-in-consumed-capabilities",
-     "{'importName': 'config-ledger', 'api': 2, 'entry': 'dist/index.js', 'capabilities': {'consumes': [{'id': "
+     "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'entry': 'dist/index.js', 'capabilities': "
+     "{'consumes': [{'id': "
      "'provider'}]}}",
      NULL, "['capabilities.consumes[0]']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"refuses-one-service-listed-in-two-forms",
-     "{'importName': 'a', 'api': 2, 'services': {'provides': ['a:x', {'id': 'a:x'}]}}", "[]",
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'services': {'provides': ['a:x', {'id': 'a:x'}]}}", "[]",
      "['services.provides[1]']", WEIVEL_STANDARD_REFUSAL_DUPLICATE},
     {"refuses-the-flat-capabilities-list",
-     "{'importName': 'config-ledger', 'api': 2, 'entry': 'dist/index.js', 'capabilities': ['provider']}", NULL,
+     "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'entry': 'dist/index.js', 'capabilities': "
+     "['provider']}", NULL,
      "['capabilities']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"reports-a-missing-entry-beside-another-error",
-     "{'importName': 'config-ledger', 'api': 'one', 'capabilities': {'provides': ['provider']}}", NULL,
+     "{'importName': 'config-ledger', 'api': 'one', 'language': 'c', 'capabilities': {'provides': ['provider']}}", NULL,
      "['api', 'entry']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"reports-an-all-digit-key-as-a-key",
-     "{'importName': 'a', 'api': 2, 'services': {'provides': [{'id': 'a:x', 'attributes': {'9': 'nine', "
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'services': {'provides': [{'id': 'a:x', 'attributes': {'9': "
+     "'nine', "
      "'10': 'ten'}}]}}",
      NULL, "['services.provides[0].attributes.9', 'services.provides[0].attributes.10']",
      WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"reports-each-repeat-of-two-repeated-capabilities",
-     "{'importName': 'config-ledger', 'api': 2, 'entry': 'dist/index.js', 'capabilities': {'provides': ['provider', "
+     "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'entry': 'dist/index.js', 'capabilities': "
+     "{'provides': ['provider', "
      "'consumer', 'provider', 'consumer']}}",
      NULL, "['capabilities.provides[2]', 'capabilities.provides[3]']", WEIVEL_STANDARD_REFUSAL_DUPLICATE},
     {"reports-every-later-occurrence-of-a-repeated-capability",
-     "{'importName': 'config-ledger', 'api': 2, 'entry': 'dist/index.js', 'capabilities': {'provides': ['provider', "
+     "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'entry': 'dist/index.js', 'capabilities': "
+     "{'provides': ['provider', "
      "'provider', 'provider']}}",
      NULL, "['capabilities.provides[1]', 'capabilities.provides[2]']", WEIVEL_STANDARD_REFUSAL_DUPLICATE},
     {"reports-which-field-is-wrong",
-     "{'importName': 'config-ledger', 'api': 'one', 'entry': 'dist/index.js', 'capabilities': {'provides': "
+     "{'importName': 'config-ledger', 'api': 'one', 'language': 'c', 'entry': 'dist/index.js', 'capabilities': "
+     "{'provides': "
      "['provider']}}",
      NULL, "['api']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
+    {"requires-a-language", "{'importName': 'a', 'api': 2}", NULL, "['language']",
+     WEIVEL_STANDARD_REFUSAL_MISSING_FIELD},
     {"requires-an-entry-once-capabilities-are-declared",
-     "{'importName': 'config-ledger', 'api': 2, 'capabilities': {'provides': ['provider']}}", NULL, "['entry']",
+     "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'capabilities': {'provides': "
+     "['provider']}}", NULL, "['entry']",
      WEIVEL_STANDARD_REFUSAL_MISSING_FIELD},
     {"skips-the-well-known-rule-when-the-host-names-no-list",
-     "{'importName': 'a', 'api': 2, 'services': {'provides': ['routing']}}", NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
+     "{'importName': 'a', 'api': 2, 'language': 'c', 'services': {'provides': "
+     "['routing']}}", NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
 };
 
 static const size_t VECTOR_CASE_COUNT = sizeof VECTOR_CASES / sizeof VECTOR_CASES[0];
 
 static void every_kit_vector_validates_as_it_expects(void) {
     size_t at;
-    CHECK(VECTOR_CASE_COUNT == 33);
+    CHECK(VECTOR_CASE_COUNT == 36);
     for (at = 0; at < VECTOR_CASE_COUNT; at++) {
         const vector_case *vector = &VECTOR_CASES[at];
         check_validates_as(vector->name, vector->manifest, vector->well_known, vector->paths, vector->first_code);
@@ -296,12 +331,15 @@ static void check_mentions(const char *text, const char *word) {
 /** The decision the four wording vectors carried: what their refusal says names the field and how to fix it. */
 static void the_wording_vectors_say_what_they_meant(void) {
     first_refusal flat = validate_with_list(
-        "{'importName': 'config-ledger', 'api': 2, 'entry': 'dist/index.js', 'capabilities': ['provider']}", NULL);
-    first_refusal api = validate_with_list("{'importName': 'config-ledger', 'api': 'one'}", NULL);
+        "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'entry': 'dist/index.js', 'capabilities': "
+        "['provider']}", NULL);
+    first_refusal api = validate_with_list("{'importName': 'config-ledger', 'api': 'one', 'language': 'c'}", NULL);
     first_refusal entry =
-        validate_with_list("{'importName': 'config-ledger', 'api': 2, 'capabilities': {'provides': ['provider']}}",
+        validate_with_list("{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'capabilities': {'provides': "
+                           "['provider']}}",
                            NULL);
-    first_refusal bare = validate_with_list("{'importName': 'a', 'api': 2, 'services': {'provides': ['routing']}}",
+    first_refusal bare = validate_with_list("{'importName': 'a', 'api': 2, 'language': 'c', 'services': {'provides': "
+                                            "['routing']}}",
                                             "['accounts', 'clock']");
     check_mentions(flat.validation.refusal.detail, "capabilities");
     check_mentions(flat.validation.refusal.fix, "provides");
@@ -320,16 +358,18 @@ static void the_wording_vectors_say_what_they_meant(void) {
 
 static void an_empty_well_known_list_names_none(void) {
     first_refusal bare =
-        validate_with_list("{'importName': 'a', 'api': 2, 'services': {'provides': ['routing']}}", "[]");
+        validate_with_list("{'importName': 'a', 'api': 2, 'language': 'c', 'services': {'provides': ['routing']}}",
+                           "[]");
     check_text(bare.validation.refusal.fix, "register it as \"a:routing\", or as one of the well-known ids: (none)",
                "V2 fix with an empty list");
     weivel_standard_validation_release(&bare.validation);
 }
 
 static void a_refusal_says_what_and_how_to_fix_it(void) {
-    first_refusal duplicate = validate_with_list("{'importName': 'a', 'api': 2, 'permissions': ['net', 'net']}", NULL);
-    first_refusal missing = validate_with_list("{'api': 2}", NULL);
-    first_refusal wrong = validate_with_list("{'importName': 'a', 'api': 2, 'targets': [1]}", NULL);
+    first_refusal duplicate = validate_with_list("{'importName': 'a', 'api': 2, 'language': 'c', 'permissions': "
+                                                 "['net', 'net']}", NULL);
+    first_refusal missing = validate_with_list("{'api': 2, 'language': 'c'}", NULL);
+    first_refusal wrong = validate_with_list("{'importName': 'a', 'api': 2, 'language': 'c', 'targets': [1]}", NULL);
     check_text(duplicate.validation.refusal.detail, "permissions[1] repeats permissions[0]", "duplicate detail");
     check_text(duplicate.validation.refusal.fix, "remove the duplicate entry", "duplicate fix");
     check_text(missing.validation.refusal.detail, "importName is missing", "missing detail");
@@ -349,7 +389,7 @@ static void malformed_json_is_refused_with_its_place(void) {
 }
 
 static void the_length_bounds_the_text(void) {
-    const char *text = "{\"importName\": \"a\", \"api\": 2}garbage";
+    const char *text = "{\"importName\": \"a\", \"api\": 2, \"language\": \"c\"}garbage";
     weivel_standard_validation validation = WEIVEL_INIT(weivel_standard_validation);
     CHECK(weivel_standard_validate(text, strlen(text) - strlen("garbage"), NULL, &validation) == WEIVEL_STATUS_OK);
     CHECK(validation.valid == 1 && validation.paths.count == 0 && validation.storage == NULL);
@@ -358,7 +398,7 @@ static void the_length_bounds_the_text(void) {
 
 static void a_release_leaves_the_validation_reusable(void) {
     first_refusal answer = validate_with_list("{}", NULL);
-    CHECK(answer.validation.paths.count == 2);
+    CHECK(answer.validation.paths.count == 3);
     weivel_standard_validation_release(&answer.validation);
     CHECK(answer.validation.size == sizeof(weivel_standard_validation));
     CHECK(answer.validation.valid == 0 && answer.validation.paths.count == 0 && answer.validation.paths.items == NULL);
@@ -410,19 +450,21 @@ static weivel_status load_copy(const char *text, weivel_standard_manifest **mani
 static void loading_validates_before_it_reads(void) {
     weivel_standard_validation validation = WEIVEL_INIT(weivel_standard_validation);
     weivel_standard_manifest *manifest = NULL;
-    CHECK(load_copy("{'importName': 'store', 'api': 2, 'services': {'provides': [{'attributes': {}}]}}", &manifest,
+    CHECK(load_copy("{'importName': 'store', 'api': 2, 'language': 'c', 'services': {'provides': [{'attributes': "
+                    "{}}]}}", &manifest,
                     &validation) == WEIVEL_STATUS_REFUSED);
     CHECK(manifest == NULL);
     CHECK(validation.paths.count == 1 && validation.refusal.code == WEIVEL_STANDARD_REFUSAL_MISSING_FIELD);
     check_text(validation.refusal.path, "services.provides[0].id", "load refusal path");
     weivel_standard_validation_release(&validation);
 
-    CHECK(load_copy("{'importName': 'store', 'api': 2, 'entry': 'lib/store.so'}", &manifest, &validation) ==
-          WEIVEL_STATUS_OK);
+    CHECK(load_copy("{'importName': 'store', 'api': 2, 'language': 'rust', 'entry': 'lib/store.so'}", &manifest,
+                    &validation) == WEIVEL_STATUS_OK);
     CHECK(manifest != NULL && validation.valid == 1 && validation.paths.count == 0);
     if (manifest != NULL) {
         check_text(weivel_standard_manifest_view(manifest)->import_name, "store", "loaded importName");
         CHECK(weivel_standard_manifest_view(manifest)->api == 2);
+        check_text(weivel_standard_manifest_language(manifest), "rust", "loaded language");
     }
     weivel_standard_manifest_release(manifest);
     weivel_standard_validation_release(&validation);
@@ -431,7 +473,8 @@ static void loading_validates_before_it_reads(void) {
 static void loading_refuses_what_the_core_cannot_hold(void) {
     weivel_standard_validation validation = WEIVEL_INIT(weivel_standard_validation);
     weivel_standard_manifest *manifest = NULL;
-    CHECK(load_copy("{'importName': 'store', 'api': 5000000000}", &manifest, &validation) == WEIVEL_STATUS_REFUSED);
+    CHECK(load_copy("{'importName': 'store', 'api': 5000000000, 'language': 'c'}", &manifest,
+                    &validation) == WEIVEL_STATUS_REFUSED);
     CHECK(manifest == NULL && validation.valid == 0);
     CHECK(validation.refusal.code == WEIVEL_STANDARD_REFUSAL_UNREPRESENTABLE);
     CHECK(validation.paths.count == 1);
@@ -445,7 +488,7 @@ static void loading_refuses_what_the_core_cannot_hold(void) {
 static void reading_alone_does_not_validate(void) {
     weivel_standard_manifest *manifest = NULL;
     weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
-    const char *text = "{\"api\": 0, \"importName\": \"Upper\"}";
+    const char *text = "{\"api\": 0, \"language\": \"c\", \"importName\": \"Upper\"}";
     CHECK(weivel_standard_read_manifest(text, strlen(text), &manifest, &refusal) == WEIVEL_STATUS_OK);
     weivel_standard_manifest_release(manifest);
     weivel_standard_refusal_release(&refusal);
@@ -466,7 +509,7 @@ static void a_malformed_load_is_answered_not_crashed(void) {
 /** A key the author chose is written `["<JSON-escaped key>"]` whenever it is not `[A-Za-z0-9_-]+`, never as two steps. */
 static void a_chosen_key_that_is_not_plain_is_bracketed(void) {
     static const char MANIFEST[] =
-        "{\"importName\": \"a\", \"api\": 2, \"services\": {"
+        "{\"importName\": \"a\", \"api\": 2, \"language\": \"c\", \"services\": {"
         "\"provides\": [{\"id\": \"a:x\", \"attributes\": {\"a.b\": \"x\", \"c[d\": \"x\", \"e\\\"f\": \"x\", "
         "\"\xc3\xa9\": \"x\", \"plain_key-1\": \"x\", \"\": \"x\", \"g\\\\h\\n\": \"x\"}}],"
         "\"consumes\": [{\"id\": \"b\", \"constraints\": {\"x.y\": true}}]}}";

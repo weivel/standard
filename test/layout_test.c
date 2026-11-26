@@ -72,7 +72,8 @@ static void finds_a_valid_plugin(void) {
     weivel_standard_discovery discovery;
     const weivel_standard_discovered_plugin *plugin;
     scenario(directory, "valid");
-    write_file(directory, "calendar.json", "{\"importName\": \"calendar\", \"api\": 2, \"entry\": \"calendar.bin\"}");
+    write_file(directory, "calendar.json",
+               "{\"importName\": \"calendar\", \"api\": 2, \"language\": \"c\", \"entry\": \"calendar.bin\"}");
     write_file(directory, "calendar_identity.json", "{\"id\": \"forge:42/calendar\", \"name\": \"owner/calendar\"}");
     write_file(directory, "calendar.bin", "entry");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
@@ -104,8 +105,9 @@ static void answers_an_entry_that_is_not_there(void) {
     weivel_standard_discovery discovery;
     const weivel_standard_discovered_plugin *plugin;
     scenario(directory, "entries");
-    write_file(directory, "absent.json", "{\"importName\": \"absent\", \"api\": 2, \"entry\": \"dist/absent.bin\"}");
-    write_file(directory, "none.json", "{\"importName\": \"none\", \"api\": 2}");
+    write_file(directory, "absent.json",
+               "{\"importName\": \"absent\", \"api\": 2, \"language\": \"c\", \"entry\": \"dist/absent.bin\"}");
+    write_file(directory, "none.json", "{\"importName\": \"none\", \"api\": 2, \"language\": \"c\"}");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
     CHECK(discovery.plugin_count == 2 && discovery.failure_count == 0);
     plugin = plugin_named(&discovery, "absent");
@@ -123,19 +125,19 @@ static void reports_each_bad_file_and_keeps_the_rest(void) {
     char directory[FIXTURE_PATH_CAPACITY];
     weivel_standard_discovery discovery;
     scenario(directory, "failures");
-    write_file(directory, "good.json", "{\"importName\": \"good\", \"api\": 2}");
-    write_file(directory, "invalid.json", "{\"importName\": \"invalid\", \"api\": \"two\"}");
+    write_file(directory, "good.json", "{\"importName\": \"good\", \"api\": 2, \"language\": \"c\"}");
+    write_file(directory, "invalid.json", "{\"importName\": \"invalid\", \"api\": \"two\", \"language\": \"c\"}");
     write_file(directory, "broken.json", "{\"importName\": ");
-    write_file(directory, "beta.json", "{\"importName\": \"gamma\", \"api\": 2}");
-    write_file(directory, "spoken.json", "{\"importName\": \"spoken\", \"api\": 2}");
+    write_file(directory, "beta.json", "{\"importName\": \"gamma\", \"api\": 2, \"language\": \"c\"}");
+    write_file(directory, "spoken.json", "{\"importName\": \"spoken\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "spoken_identity.json", "{\"id\": \"forge:1\", ");
-    write_file(directory, "unnamed.json", "{\"importName\": \"unnamed\", \"api\": 2}");
+    write_file(directory, "unnamed.json", "{\"importName\": \"unnamed\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "unnamed_identity.json", "{\"id\": \"forge:1\"}");
-    write_file(directory, "wrong.json", "{\"importName\": \"wrong\", \"api\": 2}");
+    write_file(directory, "wrong.json", "{\"importName\": \"wrong\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "wrong_identity.json", "{\"id\": \"no identity\", \"name\": \"owner/wrong\"}");
-    write_file(directory, "typed.json", "{\"importName\": \"typed\", \"api\": 2}");
+    write_file(directory, "typed.json", "{\"importName\": \"typed\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "typed_identity.json", "{\"id\": 7, \"name\": \"owner/typed\"}");
-    write_file(directory, "blank.json", "{\"importName\": \"blank\", \"api\": 2}");
+    write_file(directory, "blank.json", "{\"importName\": \"blank\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "blank_identity.json", "{\"id\": \"forge:3\", \"name\": \"\"}");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
     CHECK(discovery.plugin_count == 1 && plugin_named(&discovery, "good") != NULL);
@@ -156,8 +158,8 @@ static void reports_an_unreadable_file(void) {
     char locked[FIXTURE_PATH_CAPACITY];
     weivel_standard_discovery discovery;
     scenario(directory, "unreadable");
-    write_file(directory, "good.json", "{\"importName\": \"good\", \"api\": 2}");
-    write_file(directory, "hidden.json", "{\"importName\": \"hidden\", \"api\": 2}");
+    write_file(directory, "good.json", "{\"importName\": \"good\", \"api\": 2, \"language\": \"c\"}");
+    write_file(directory, "hidden.json", "{\"importName\": \"hidden\", \"api\": 2, \"language\": \"c\"}");
     fixture_join(locked, directory, "hidden.json");
     if (!fixture_lock(locked)) {
         printf("layout_test: skipped the unreadable file, this process reads every file\n");
@@ -181,7 +183,7 @@ static void ignores_what_is_not_a_manifest(void) {
     write_file(directory, "orphan_identity.json", "{");
     write_file(directory, "trailing.json.bak", "{");
     write_file(directory, ".json", "{");
-    write_file(directory, "only.json", "{\"importName\": \"only\", \"api\": 2}");
+    write_file(directory, "only.json", "{\"importName\": \"only\", \"api\": 2, \"language\": \"c\"}");
     fixture_join(subdirectory, directory, "folder.json");
     CHECK(fixture_make_directory(subdirectory));
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
@@ -195,7 +197,7 @@ static void never_follows_a_link(void) {
     char target[FIXTURE_PATH_CAPACITY];
     weivel_standard_discovery discovery;
     scenario(directory, "links");
-    write_file(directory, "real.json", "{\"importName\": \"real\", \"api\": 2}");
+    write_file(directory, "real.json", "{\"importName\": \"real\", \"api\": 2, \"language\": \"c\"}");
     fixture_join(target, directory, "real.json");
     if (!fixture_link(directory, "linked.json", target)) {
         printf("layout_test: skipped the link, this process may not make one\n");
@@ -216,8 +218,10 @@ static void never_reaches_an_entry_through_a_link(void) {
     scenario(outside, "outside");
     write_file(outside, "main.bin", "entry");
     scenario(directory, "linked-entry");
-    write_file(directory, "linked.json", "{\"importName\": \"linked\", \"api\": 2, \"entry\": \"lib/main.bin\"}");
-    write_file(directory, "real.json", "{\"importName\": \"real\", \"api\": 2, \"entry\": \"real/main.bin\"}");
+    write_file(directory, "linked.json",
+               "{\"importName\": \"linked\", \"api\": 2, \"language\": \"c\", \"entry\": \"lib/main.bin\"}");
+    write_file(directory, "real.json",
+               "{\"importName\": \"real\", \"api\": 2, \"language\": \"c\", \"entry\": \"real/main.bin\"}");
     fixture_join(real, directory, "real");
     CHECK(fixture_make_directory(real));
     write_file(real, "main.bin", "entry");
@@ -253,11 +257,11 @@ static void refuses_a_file_over_the_cap_alone(void) {
     char directory[FIXTURE_PATH_CAPACITY];
     weivel_standard_discovery discovery;
     scenario(directory, "sizes");
-    write_sized(directory, "exact.json", "{\"importName\": \"exact\", \"api\": 2}", CAP);
-    write_sized(directory, "big.json", "{\"importName\": \"big\", \"api\": 2}", CAP + 1);
-    write_file(directory, "huge.json", "{\"importName\": \"huge\", \"api\": 2}");
+    write_sized(directory, "exact.json", "{\"importName\": \"exact\", \"api\": 2, \"language\": \"c\"}", CAP);
+    write_sized(directory, "big.json", "{\"importName\": \"big\", \"api\": 2, \"language\": \"c\"}", CAP + 1);
+    write_file(directory, "huge.json", "{\"importName\": \"huge\", \"api\": 2, \"language\": \"c\"}");
     write_sized(directory, "huge_identity.json", "{\"id\": \"forge:5\", \"name\": \"o/huge\"}", CAP + 1);
-    write_file(directory, "good.json", "{\"importName\": \"good\", \"api\": 2}");
+    write_file(directory, "good.json", "{\"importName\": \"good\", \"api\": 2, \"language\": \"c\"}");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
     CHECK(discovery.plugin_count == 2 && plugin_named(&discovery, "exact") != NULL &&
           plugin_named(&discovery, "good") != NULL);
@@ -278,15 +282,15 @@ static void orders_by_identity_then_the_rest_by_name(void) {
     weivel_standard_discovery discovery;
     size_t at;
     scenario(directory, "order");
-    write_file(directory, "baker.json", "{\"importName\": \"baker\", \"api\": 2}");
-    write_file(directory, "able.json", "{\"importName\": \"able\", \"api\": 2}");
-    write_file(directory, "whiskey.json", "{\"importName\": \"whiskey\", \"api\": 2}");
+    write_file(directory, "baker.json", "{\"importName\": \"baker\", \"api\": 2, \"language\": \"c\"}");
+    write_file(directory, "able.json", "{\"importName\": \"able\", \"api\": 2, \"language\": \"c\"}");
+    write_file(directory, "whiskey.json", "{\"importName\": \"whiskey\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "whiskey_identity.json", "{\"id\": \"forge@host.example:9\", \"name\": \"o/w\"}");
-    write_file(directory, "xray.json", "{\"importName\": \"xray\", \"api\": 2}");
+    write_file(directory, "xray.json", "{\"importName\": \"xray\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "xray_identity.json", "{\"id\": \"forge:10\", \"name\": \"o/x\"}");
-    write_file(directory, "yankee.json", "{\"importName\": \"yankee\", \"api\": 2}");
+    write_file(directory, "yankee.json", "{\"importName\": \"yankee\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "yankee_identity.json", "{\"id\": \"forge:9\", \"name\": \"o/y\"}");
-    write_file(directory, "zulu.json", "{\"importName\": \"zulu\", \"api\": 2}");
+    write_file(directory, "zulu.json", "{\"importName\": \"zulu\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "zulu_identity.json", "{\"id\": \"local:zulu\", \"name\": \"zulu\"}");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
     CHECK(discovery.plugin_count == 6 && discovery.failure_count == 0);
@@ -301,9 +305,9 @@ static void refuses_a_repeated_identity(void) {
     char directory[FIXTURE_PATH_CAPACITY];
     weivel_standard_discovery discovery;
     scenario(directory, "repeated");
-    write_file(directory, "first.json", "{\"importName\": \"first\", \"api\": 2}");
+    write_file(directory, "first.json", "{\"importName\": \"first\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "first_identity.json", "{\"id\": \"forge:7\", \"name\": \"o/r\"}");
-    write_file(directory, "second.json", "{\"importName\": \"second\", \"api\": 2}");
+    write_file(directory, "second.json", "{\"importName\": \"second\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "second_identity.json", "{\"id\": \"forge:007\", \"name\": \"o/r\"}");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
     CHECK(discovery.plugin_count == 1 && plugin_named(&discovery, "first") != NULL);
@@ -317,7 +321,8 @@ static void reads_a_directory_whose_name_is_not_ascii(void) {
     char expected[FIXTURE_PATH_CAPACITY];
     weivel_standard_discovery discovery;
     scenario(directory, "plugins-\xc3\xbc-\xe6\x97\xa5");
-    write_file(directory, "wide.json", "{\"importName\": \"wide\", \"api\": 2, \"entry\": \"wide.bin\"}");
+    write_file(directory, "wide.json",
+               "{\"importName\": \"wide\", \"api\": 2, \"language\": \"c\", \"entry\": \"wide.bin\"}");
     write_file(directory, "wide.bin", "entry");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
     CHECK(discovery.plugin_count == 1 && discovery.failure_count == 0);
@@ -358,7 +363,7 @@ static void refuses_a_file_named_as_the_directory(void) {
     char file[FIXTURE_PATH_CAPACITY];
     weivel_standard_discovery discovery;
     scenario(directory, "not-a-directory");
-    write_file(directory, "plain.json", "{\"importName\": \"plain\", \"api\": 2}");
+    write_file(directory, "plain.json", "{\"importName\": \"plain\", \"api\": 2, \"language\": \"c\"}");
     fixture_join(file, directory, "plain.json");
     CHECK(discover(file, &discovery) == WEIVEL_STATUS_REFUSED);
     CHECK(discovery.refusal.code == WEIVEL_STANDARD_REFUSAL_UNREADABLE);
@@ -370,7 +375,7 @@ static void refuses_a_malformed_call(void) {
     weivel_standard_discovery discovery;
     weivel_standard_discovery small = {0};
     scenario(directory, "calls");
-    write_file(directory, "held.json", "{\"importName\": \"held\", \"api\": 2}");
+    write_file(directory, "held.json", "{\"importName\": \"held\", \"api\": 2, \"language\": \"c\"}");
     CHECK(discover(NULL, &discovery) == WEIVEL_STATUS_MALFORMED);
     CHECK(discovery.refusal.code == WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL);
     weivel_standard_discovery_release(&discovery);
@@ -396,7 +401,8 @@ static void passes_the_well_known_services_on(void) {
     options.well_known_services = &well_known;
     scenario(directory, "options");
     write_file(directory, "bare.json",
-               "{\"importName\": \"bare\", \"api\": 2, \"services\": {\"provides\": [\"calendar\"]}}");
+               "{\"importName\": \"bare\", \"api\": 2, \"language\": \"c\", \"services\": {\"provides\": "
+               "[\"calendar\"]}}");
     CHECK(weivel_standard_discover(directory, &options, &discovery) == WEIVEL_STATUS_OK);
     CHECK(discovery.plugin_count == 0 && discovery.failure_count == 1);
     check_failure(&discovery, directory, "bare.json", WEIVEL_STANDARD_REFUSAL_NOT_WELL_KNOWN, "services.provides[0]");

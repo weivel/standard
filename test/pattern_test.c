@@ -30,6 +30,14 @@ static const sample CAPABILITY_IDS[] = {
     {TEXT("a-"), 0},      {TEXT("a b"), 0},           {TEXT("a\nb"), 0},          {TEXT("a\0b"), 0},
 };
 
+static const sample LANGUAGES[] = {
+    {TEXT("c"), 1},           {TEXT("typescript"), 1}, {TEXT("java"), 1},  {TEXT("rust"), 1},
+    {TEXT("objective-c"), 1}, {TEXT("c2"), 1},         {TEXT("c-2"), 1},   {TEXT("a-b-c"), 1},
+    {TEXT(""), 0},            {TEXT("Type Script"), 0}, {TEXT("TypeScript"), 0}, {TEXT("2c"), 0},
+    {TEXT("-c"), 0},          {TEXT("c-"), 0},         {TEXT("c--d"), 0},  {TEXT("c.d"), 0},
+    {TEXT("c_d"), 0},         {TEXT("c d"), 0},        {TEXT("c\n"), 0},   {TEXT("c\0d"), 0},
+};
+
 static const sample ENTRIES[] = {
     {TEXT(""), 1},
     {TEXT("dist/index.js"), 1},
@@ -74,6 +82,7 @@ int main(void) {
                   sizeof CAPABILITY_IDS / sizeof CAPABILITY_IDS[0]);
     check_samples("service id", weivel_standard_matches_service_id, CAPABILITY_IDS,
                   sizeof CAPABILITY_IDS / sizeof CAPABILITY_IDS[0]);
+    check_samples("language", weivel_standard_matches_language, LANGUAGES, sizeof LANGUAGES / sizeof LANGUAGES[0]);
     check_samples("entry", weivel_standard_matches_entry, ENTRIES, sizeof ENTRIES / sizeof ENTRIES[0]);
     check_samples("repository id", weivel_standard_matches_repository_id, REPOSITORY_IDS,
                   sizeof REPOSITORY_IDS / sizeof REPOSITORY_IDS[0]);

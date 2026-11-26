@@ -19,6 +19,8 @@ const schema_rule SCHEMA_RULES[] = {
      "(?![\\s\\S])"},
     {"/properties/api/type", "integer"},
     {"/properties/api/minimum", "1"},
+    {"/properties/language/type", "string"},
+    {"/properties/language/pattern", "^[a-z][a-z0-9]*(-[a-z0-9]+)*(?![\\s\\S])"},
     {"/properties/entry/type", "string"},
     {"/properties/entry/pattern",
      "^(?![\\\\/])(?![A-Za-z]:)(?![\\s\\S]*[\\u0000-\\u001f\\u007f-\\u009f\\u2028\\u2029])"
@@ -77,6 +79,7 @@ const schema_rule SCHEMA_RULES[] = {
     {DEPENDENCY "/else/properties/name/type", "string"},
     {"/required/importName", NULL},
     {"/required/api", NULL},
+    {"/required/language", NULL},
     {"/if/type", "object"},
     {"/if/required/capabilities", NULL},
     {"/if/properties/capabilities/type", "object"},
@@ -97,7 +100,7 @@ const schema_rule SCHEMA_RULES[] = {
 
 const size_t SCHEMA_RULE_COUNT = sizeof SCHEMA_RULES / sizeof SCHEMA_RULES[0];
 
-#define BASE "'importName': 'a', 'api': 2"
+#define BASE "'importName': 'a', 'api': 2, 'language': 'c'"
 #define WITH_CAPABILITY BASE ", 'entry': 'lib/a.so', 'capabilities': {'provides': ['screens']}"
 
 const rule_case RULE_CASES[] = {
@@ -105,24 +108,44 @@ const rule_case RULE_CASES[] = {
     {"/type", "null", NULL, "['']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"/type", "{" BASE "}", NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
 
-    {"/properties/importName/type", "{'importName': 5, 'api': 2}", NULL, "['importName']",
+    {"/properties/importName/type", "{'importName': 5, 'api': 2, 'language': 'c'}", NULL, "['importName']",
      WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
-    {"/properties/importName/pattern", "{'importName': 'Upper', 'api': 2}", NULL, "['importName']",
+    {"/properties/importName/pattern", "{'importName': 'Upper', 'api': 2, 'language': 'c'}", NULL, "['importName']",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
-    {"/properties/importName/pattern", "{'importName': 'com1.x', 'api': 2}", NULL, "['importName']",
+    {"/properties/importName/pattern", "{'importName': 'com1.x', 'api': 2, 'language': 'c'}", NULL, "['importName']",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
-    {"/properties/importName/pattern", "{'importName': 'a--b', 'api': 2}", NULL, "['importName']",
+    {"/properties/importName/pattern", "{'importName': 'a--b', 'api': 2, 'language': 'c'}", NULL, "['importName']",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
-    {"/properties/importName/pattern", "{'importName': 'store.cache-2', 'api': 2}", NULL, "[]",
+    {"/properties/importName/pattern", "{'importName': 'store.cache-2', 'api': 2, 'language': 'c'}", NULL, "[]",
      WEIVEL_STANDARD_REFUSAL_NONE},
-    {"/properties/importName/pattern", "{'importName': 'con-x', 'api': 2}", NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
+    {"/properties/importName/pattern", "{'importName': 'con-x', 'api': 2, 'language': 'c'}", NULL, "[]",
+     WEIVEL_STANDARD_REFUSAL_NONE},
 
-    {"/properties/api/type", "{'importName': 'a', 'api': 'one'}", NULL, "['api']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
-    {"/properties/api/type", "{'importName': 'a', 'api': 1.5}", NULL, "['api']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
-    {"/properties/api/type", "{'importName': 'a', 'api': 2.0}", NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
-    {"/properties/api/minimum", "{'importName': 'a', 'api': 0}", NULL, "['api']",
+    {"/properties/api/type", "{'importName': 'a', 'api': 'one', 'language': 'c'}", NULL, "['api']",
+     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
+    {"/properties/api/type", "{'importName': 'a', 'api': 1.5, 'language': 'c'}", NULL, "['api']",
+     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
+    {"/properties/api/type", "{'importName': 'a', 'api': 2.0, 'language': 'c'}", NULL, "[]",
+     WEIVEL_STANDARD_REFUSAL_NONE},
+    {"/properties/api/minimum", "{'importName': 'a', 'api': 0, 'language': 'c'}", NULL, "['api']",
      WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
-    {"/properties/api/minimum", "{'importName': 'a', 'api': 1}", NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
+    {"/properties/api/minimum", "{'importName': 'a', 'api': 1, 'language': 'c'}", NULL, "[]",
+     WEIVEL_STANDARD_REFUSAL_NONE},
+
+    {"/properties/language/type", "{'importName': 'a', 'api': 2, 'language': 7}", NULL, "['language']",
+     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
+    {"/properties/language/type", "{'importName': 'a', 'api': 2, 'language': null}", NULL, "['language']",
+     WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
+    {"/properties/language/pattern", "{'importName': 'a', 'api': 2, 'language': 'Type Script'}", NULL,
+     "['language']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
+    {"/properties/language/pattern", "{'importName': 'a', 'api': 2, 'language': ''}", NULL, "['language']",
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
+    {"/properties/language/pattern", "{'importName': 'a', 'api': 2, 'language': 'c\\n'}", NULL, "['language']",
+     WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
+    {"/properties/language/pattern", "{'importName': 'a', 'api': 2, 'language': 'typescript'}", NULL, "[]",
+     WEIVEL_STANDARD_REFUSAL_NONE},
+    {"/properties/language/pattern", "{'importName': 'a', 'api': 2, 'language': 'objective-c'}", NULL, "[]",
+     WEIVEL_STANDARD_REFUSAL_NONE},
 
     {"/properties/entry/type", "{" BASE ", 'entry': 5}", NULL, "['entry']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"/properties/entry/pattern", "{" BASE ", 'entry': '../x.js'}", NULL, "['entry']",
@@ -290,9 +313,12 @@ const rule_case RULE_CASES[] = {
     {DEPENDENCY "/else/properties/name/type", "{" BASE ", 'dependencies': [{'importName': 'r', 'name': ['v/r']}]}",
      NULL, "['dependencies[0].name']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
 
-    {"/required/importName", "{'api': 2}", NULL, "['importName']", WEIVEL_STANDARD_REFUSAL_MISSING_FIELD},
-    {"/required/api", "{'importName': 'a'}", NULL, "['api']", WEIVEL_STANDARD_REFUSAL_MISSING_FIELD},
-    {"/required/api", "{}", NULL, "['importName', 'api']", WEIVEL_STANDARD_REFUSAL_MISSING_FIELD},
+    {"/required/importName", "{'api': 2, 'language': 'c'}", NULL, "['importName']",
+     WEIVEL_STANDARD_REFUSAL_MISSING_FIELD},
+    {"/required/api", "{'importName': 'a', 'language': 'c'}", NULL, "['api']", WEIVEL_STANDARD_REFUSAL_MISSING_FIELD},
+    {"/required/api", "{}", NULL, "['importName', 'api', 'language']", WEIVEL_STANDARD_REFUSAL_MISSING_FIELD},
+    {"/required/language", "{'importName': 'a', 'api': 2}", NULL, "['language']",
+     WEIVEL_STANDARD_REFUSAL_MISSING_FIELD},
 
     {"/if/type", "'text'", NULL, "['']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"/if/type", "[{'capabilities': {'provides': ['screens']}}]", NULL, "['']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
@@ -343,7 +369,7 @@ const rule_case RULE_CASES[] = {
      "['services.provides[0]', 'services.provides[1]']", WEIVEL_STANDARD_REFUSAL_NOT_WELL_KNOWN},
     {"V2", "{" BASE ", 'services': {'provides': ['routing\\u0000']}}", NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
     {"V2", "{" BASE ", 'services': {'consumes': ['routing']}}", "[]", "[]", WEIVEL_STANDARD_REFUSAL_NONE},
-    {"V2", "{'importName': 5, 'api': 2, 'services': {'provides': ['5:x']}}", "[]",
+    {"V2", "{'importName': 5, 'api': 2, 'language': 'c', 'services': {'provides': ['5:x']}}", "[]",
      "['importName', 'services.provides[0]']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"V2", "{" BASE ", 'services': {'provides': ['x', 'x']}}", "[]", "['services.provides[0]', 'services.provides[1]']",
      WEIVEL_STANDARD_REFUSAL_NOT_WELL_KNOWN},
@@ -354,10 +380,11 @@ const rule_case RULE_CASES[] = {
      "'mirror': []}]}",
      NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
     {"malformed json", "{'importName': 'a',", NULL, "['']", WEIVEL_STANDARD_REFUSAL_MALFORMED_JSON},
-    {"malformed json", "{'importName': 'a', 'importName': 'b', 'api': 2}", NULL, "['']",
+    {"malformed json", "{'importName': 'a', 'importName': 'b', 'api': 2, 'language': 'c'}", NULL, "['']",
      WEIVEL_STANDARD_REFUSAL_MALFORMED_JSON},
     {"every wrong field once",
-     "{'importName': 'a', 'api': 'one', 'entry': 5, 'capabilities': {'provides': ['screens', 'screens']}, "
+     "{'importName': 'a', 'api': 'one', 'language': 'c', 'entry': 5, 'capabilities': {'provides': ['screens', "
+     "'screens']}, "
      "'services': {'provides': [{'id': 'a:x'}, 'a:x', 'b:y']}, 'dependencies': [{'importName': 'r'}]}",
      "[]",
      "['api', 'entry', 'capabilities.provides[1]', 'services.provides[1]', 'services.provides[2]', "

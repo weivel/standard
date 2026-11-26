@@ -17,6 +17,7 @@ typedef struct pattern_binding {
 /** Which matcher implements each `pattern`; the rule table pins the pattern string at the same location. */
 static const pattern_binding PATTERN_BINDINGS[] = {
     {"/properties/importName/pattern", weivel_standard_matches_import_name},
+    {"/properties/language/pattern", weivel_standard_matches_language},
     {"/properties/entry/pattern", weivel_standard_matches_entry},
     {"/properties/capabilities/properties/provides/items/pattern", weivel_standard_matches_capability_id},
     {"/properties/capabilities/properties/consumes/items/pattern", weivel_standard_matches_capability_id},

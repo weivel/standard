@@ -10,15 +10,17 @@ static int lay_out(char *directory) {
     fixture_make_directory(ROOT);
     fixture_join(directory, ROOT, "memory");
     written &= fixture_fresh_directory(directory);
-    written &= fixture_write(directory, "kept.json", "{\"importName\": \"kept\", \"api\": 2, \"entry\": \"kept.bin\"}");
+    written &= fixture_write(directory, "kept.json",
+                             "{\"importName\": \"kept\", \"api\": 2, \"language\": \"c\", \"entry\": \"kept.bin\"}");
     written &= fixture_write(directory, "kept_identity.json", "{\"id\": \"forge:4/a/b\", \"name\": \"o/kept\"}");
     written &= fixture_write(directory, "kept.bin", "entry");
-    written &= fixture_write(directory, "local.json", "{\"importName\": \"local\", \"api\": 2}");
-    written &= fixture_write(directory, "twin.json", "{\"importName\": \"twin\", \"api\": 2}");
+    written &= fixture_write(directory, "local.json", "{\"importName\": \"local\", \"api\": 2, \"language\": \"c\"}");
+    written &= fixture_write(directory, "twin.json", "{\"importName\": \"twin\", \"api\": 2, \"language\": \"c\"}");
     written &= fixture_write(directory, "twin_identity.json", "{\"id\": \"forge:4/a/b\", \"name\": \"o/twin\"}");
-    written &= fixture_write(directory, "invalid.json", "{\"importName\": \"invalid\", \"api\": -1}");
-    written &= fixture_write(directory, "other.json", "{\"importName\": \"another\", \"api\": 2}");
-    written &= fixture_write(directory, "bad.json", "{\"importName\": \"bad\", \"api\": 2}");
+    written &= fixture_write(directory, "invalid.json",
+                             "{\"importName\": \"invalid\", \"api\": -1, \"language\": \"c\"}");
+    written &= fixture_write(directory, "other.json", "{\"importName\": \"another\", \"api\": 2, \"language\": \"c\"}");
+    written &= fixture_write(directory, "bad.json", "{\"importName\": \"bad\", \"api\": 2, \"language\": \"c\"}");
     written &= fixture_write(directory, "bad_identity.json", "{\"id\": \"x\", \"name\": \"o/bad\"}");
     written &= fixture_write(directory, "notes.txt", "stray");
     return written;

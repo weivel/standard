@@ -3,14 +3,15 @@
 #include "weivel/standard.h"
 
 static const char *const MANY_FAULTS =
-    "{\"importName\": \"a\", \"api\": \"one\", \"entry\": 5, \"targets\": [1],"
+    "{\"importName\": \"a\", \"api\": \"one\", \"language\": \"c\", \"entry\": 5, \"targets\": [1],"
     " \"capabilities\": {\"provides\": [\"screens\", \"screens\"]},"
     " \"services\": {\"provides\": [\"a:x\", {\"id\": \"a:x\"}, \"routing\", {\"attributes\": {\"x\": \"y\"}}],"
     "   \"consumes\": [{\"id\": \"clock\", \"provider\": \"Forge:1\", \"optional\": 1}]},"
     " \"permissions\": [\"net\", \"net\"], \"dependencies\": [{\"importName\": \"r\"}, {\"id\": 5}]}";
 
 static const char *const VALID =
-    "{\"importName\": \"a\", \"api\": 2, \"entry\": \"lib/a.so\", \"capabilities\": {\"provides\": [\"screens\"]},"
+    "{\"importName\": \"a\", \"api\": 2, \"language\": \"c\", \"entry\": \"lib/a.so\", \"capabilities\": "
+    "{\"provides\": [\"screens\"]},"
     " \"services\": {\"provides\": [\"a:x\", \"accounts\"], \"consumes\": [{\"id\": \"clock\"}]}}";
 
 static const char *const MALFORMED = "{\"importName\": ";
@@ -83,7 +84,8 @@ int main(void) {
     every_failed_allocation_leaves_nothing(validate_with_list, VALID, WEIVEL_STATUS_OK);
     every_failed_allocation_leaves_nothing(validate_with_list, MALFORMED, WEIVEL_STATUS_REFUSED);
     every_failed_allocation_leaves_nothing(load_and_release, VALID, WEIVEL_STATUS_OK);
-    every_failed_allocation_leaves_nothing(load_and_release, "{\"importName\": \"a\", \"api\": 5000000000}",
+    every_failed_allocation_leaves_nothing(load_and_release,
+                                           "{\"importName\": \"a\", \"api\": 5000000000, \"language\": \"c\"}",
                                            WEIVEL_STATUS_REFUSED);
     return check_summary("validate_memory_test");
 }

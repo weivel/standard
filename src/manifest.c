@@ -13,6 +13,7 @@ typedef weivel_standard_refusal_texts refusal_texts;
 
 struct weivel_standard_manifest {
     weivel_manifest view;
+    const char *language;
     void **blocks;
     size_t block_count;
     size_t block_capacity;
@@ -341,6 +342,7 @@ static int read_services(reading *state, const weivel_json_value *value, const f
 static int read_document(reading *state, const weivel_json_value *root, weivel_manifest *view) {
     field_path import_name = {NULL, "importName", 0};
     field_path api = {NULL, "api", 0};
+    field_path language = {NULL, "language", 0};
     field_path entry = {NULL, "entry", 0};
     field_path targets = {NULL, "targets", 0};
     field_path capabilities = {NULL, "capabilities", 0};
@@ -351,6 +353,7 @@ static int read_document(reading *state, const weivel_json_value *root, weivel_m
     }
     return read_optional_text(state, member_of(root, "importName"), &import_name, &view->import_name) &&
            read_api(state, member_of(root, "api"), &api, &view->api) &&
+           read_optional_text(state, member_of(root, "language"), &language, &state->owner->language) &&
            read_optional_text(state, member_of(root, "entry"), &entry, &view->entry) &&
            read_strings(state, member_of(root, "targets"), &targets, &view->targets) &&
            read_capabilities(state, member_of(root, "capabilities"), &capabilities, &view->capabilities) &&
@@ -409,6 +412,10 @@ weivel_status weivel_standard_read_manifest(const char *json, size_t length, wei
 
 const weivel_manifest *weivel_standard_manifest_view(const weivel_standard_manifest *manifest) {
     return manifest == NULL ? NULL : &manifest->view;
+}
+
+const char *weivel_standard_manifest_language(const weivel_standard_manifest *manifest) {
+    return manifest == NULL ? NULL : manifest->language;
 }
 
 void weivel_standard_manifest_release(weivel_standard_manifest *manifest) {
