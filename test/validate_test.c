@@ -150,7 +150,7 @@ typedef struct vector_case {
 } vector_case;
 
 /**
- * The kit's 36 `vectors/standard/validate` vectors, each manifest and well-known list as the vector gives it and the
+ * The kit's 39 `vectors/standard/validate` vectors, each manifest and well-known list as the vector gives it and the
  * paths it expects; `reports-a-missing-entry-beside-another-error` asserts `contains`, and is held here to the exact
  * list this validator answers. The four that still assert wording are held to the refusal code that wording meant.
  */
@@ -168,6 +168,8 @@ static const vector_case VECTOR_CASES[] = {
      "'vendor/runtime', 'commit': "
      "'abc', 'sha256': 'def'}]}",
      NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
+    {"accepts-a-hyphenated-language", "{'importName': 'a', 'api': 2, 'language': 'objective-c'}", NULL, "[]",
+     WEIVEL_STANDARD_REFUSAL_NONE},
     {"accepts-a-language-name", "{'importName': 'a', 'api': 2, 'language': 'typescript'}", NULL, "[]",
      WEIVEL_STANDARD_REFUSAL_NONE},
     {"accepts-a-well-known-bare-service-id",
@@ -226,7 +228,11 @@ static const vector_case VECTOR_CASES[] = {
     {"refuses-a-duplicate-permission",
      "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'permissions': ['net', 'net']}",
      NULL, "['permissions[1]']", WEIVEL_STANDARD_REFUSAL_DUPLICATE},
+    {"refuses-a-language-ending-in-a-hyphen", "{'importName': 'a', 'api': 2, 'language': 'c-'}", NULL,
+     "['language']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-a-language-outside-the-grammar", "{'importName': 'a', 'api': 2, 'language': 'Type Script'}", NULL,
+     "['language']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
+    {"refuses-a-language-with-a-double-hyphen", "{'importName': 'a', 'api': 2, 'language': 'c--d'}", NULL,
      "['language']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-a-null-member-as-the-wrong-type",
      "{'importName': 'config-ledger', 'api': 2, 'language': 'c', 'entry': null, 'services': {'consumes': [{'id': "
@@ -300,7 +306,7 @@ static const size_t VECTOR_CASE_COUNT = sizeof VECTOR_CASES / sizeof VECTOR_CASE
 
 static void every_kit_vector_validates_as_it_expects(void) {
     size_t at;
-    CHECK(VECTOR_CASE_COUNT == 36);
+    CHECK(VECTOR_CASE_COUNT == 39);
     for (at = 0; at < VECTOR_CASE_COUNT; at++) {
         const vector_case *vector = &VECTOR_CASES[at];
         check_validates_as(vector->name, vector->manifest, vector->well_known, vector->paths, vector->first_code);
