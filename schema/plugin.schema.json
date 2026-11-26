@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://weivel.com/schema/plugin.schema.json",
   "title": "weivel plugin manifest",
-  "description": "What a plugin declares to the weivel core: its name, the API it needs, its entry, what it provides and consumes, its permissions and the plugins it needs beside it. Every object stays open, so a field this schema does not name validates and is ignored.",
+  "description": "What a plugin declares to the weivel core: its name, the API it needs, the weivel implementation that loads it, its entry, what it provides and consumes, its permissions and the plugins it needs beside it. Every object stays open, so a field this schema does not name validates and is ignored.",
   "type": "object",
   "properties": {
     "importName": {
@@ -14,6 +14,11 @@
       "description": "The lowest API major version this plugin needs. A floor, not a build tag.",
       "type": "integer",
       "minimum": 1
+    },
+    "language": {
+      "description": "The weivel implementation that loads this plugin, named by the language it is written in, for example \"c\", \"typescript\", \"java\" or \"rust\". A lowercase letter, then lowercase letters and digits, in words joined by single hyphens.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*(?![\\s\\S])"
     },
     "entry": {
       "description": "The built module a host loads, relative to the plugin's directory. Required once capabilities are provided.",
@@ -210,7 +215,8 @@
   },
   "required": [
     "importName",
-    "api"
+    "api",
+    "language"
   ],
   "if": {
     "type": "object",

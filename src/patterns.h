@@ -23,6 +23,9 @@ int weivel_standard_matches_capability_id(const char *text, size_t length);
 /** A library declaration's `services[].id`: the capability id grammar, which the two share by rule. */
 int weivel_standard_matches_service_id(const char *text, size_t length);
 
+/** `language`: a lowercase letter, then lowercase letters and digits, in words joined by single hyphens. */
+int weivel_standard_matches_language(const char *text, size_t length);
+
 /** `entry`: no leading separator or drive, no control or line-separator character, no `..` segment. */
 int weivel_standard_matches_entry(const char *text, size_t length);
 

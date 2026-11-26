@@ -136,6 +136,25 @@ int weivel_standard_matches_service_id(const char *text, size_t length) {
     return is_lowercase_words(text, length);
 }
 
+/** `[a-z][a-z0-9]*(-[a-z0-9]+)*` over the whole text. */
+int weivel_standard_matches_language(const char *text, size_t length) {
+    size_t at;
+    int after_hyphen = 0;
+    if (length == 0 || !is_lowercase_letter(text[0])) {
+        return 0;
+    }
+    for (at = 1; at < length; at++) {
+        if (is_lowercase_word_character(text[at])) {
+            after_hyphen = 0;
+        } else if (text[at] == '-' && !after_hyphen) {
+            after_hyphen = 1;
+        } else {
+            return 0;
+        }
+    }
+    return !after_hyphen;
+}
+
 static int holds_control_or_line_separator(const char *text, size_t length) {
     size_t position = 0;
     while (position < length) {

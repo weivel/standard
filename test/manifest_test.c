@@ -44,7 +44,7 @@ static void check_strings(weivel_strings strings, const char *const *expected, u
 }
 
 static const char *const FULL_MANIFEST =
-    "{\"importName\": \"greeter\", \"api\": 2, \"entry\": \"dist/greeter.so\","
+    "{\"importName\": \"greeter\", \"api\": 2, \"language\": \"c\", \"entry\": \"dist/greeter.so\","
     " \"targets\": [\"app.one\", \"app.two\"],"
     " \"capabilities\": {\"provides\": [\"screens\", \"menus\"], \"consumes\": [\"provider\"]},"
     " \"services\": {"
@@ -118,6 +118,7 @@ static void every_core_subset_field_lands(void) {
     check_strings(view->capabilities.consumes, consumed, 1, "capabilities.consumes");
     check_full_offers(view->services.provides);
     check_full_wants(view->services.consumes);
+    check_text(weivel_standard_manifest_language(manifest), "c", "language");
     check_strings(view->permissions, permissions, 2, "permissions");
     CHECK(view->identity == NULL);
     weivel_standard_manifest_release(manifest);
@@ -137,6 +138,7 @@ static void absent_fields_take_the_core_defaults(void) {
         CHECK(view->services.consumes.count == 0 && view->services.consumes.items == NULL);
         CHECK(view->permissions.count == 0 && view->permissions.items == NULL);
         CHECK(view->identity == NULL);
+        CHECK(weivel_standard_manifest_language(manifest) == NULL);
     }
     weivel_standard_manifest_release(manifest);
     manifest = NULL;
@@ -225,6 +227,8 @@ static void a_wrong_type_is_refused_at_its_path(void) {
     check_wrong_type_at("{\"api\": \"2\"}", "api");
     check_wrong_type_at("{\"api\": 1.5}", "api");
     check_wrong_type_at("{\"entry\": true}", "entry");
+    check_wrong_type_at("{\"language\": 7}", "language");
+    check_wrong_type_at("{\"language\": null}", "language");
     check_wrong_type_at("{\"targets\": \"app\"}", "targets");
     check_wrong_type_at("{\"targets\": [\"a\", 1]}", "targets[1]");
     check_wrong_type_at("{\"capabilities\": [\"x\"]}", "capabilities");
@@ -256,6 +260,7 @@ static void an_unrepresentable_value_is_refused_at_its_path(void) {
     check_refused_at("{\"api\": -1}", WEIVEL_STANDARD_REFUSAL_UNREPRESENTABLE, "api");
     check_refused_at("{\"api\": 4294967296}", WEIVEL_STANDARD_REFUSAL_UNREPRESENTABLE, "api");
     check_refused_at("{\"entry\": \"a\\u0000b\"}", WEIVEL_STANDARD_REFUSAL_UNREPRESENTABLE, "entry");
+    check_refused_at("{\"language\": \"c\\u0000\"}", WEIVEL_STANDARD_REFUSAL_UNREPRESENTABLE, "language");
     check_refused_at("{\"services\": {\"consumes\": [{\"id\": \"a\\u0000\"}]}}", WEIVEL_STANDARD_REFUSAL_UNREPRESENTABLE,
                      "services.consumes[0].id");
 }
@@ -331,6 +336,7 @@ static void a_malformed_call_is_answered_not_crashed(void) {
     weivel_standard_refusal_release(NULL);
     weivel_standard_manifest_release(NULL);
     CHECK(weivel_standard_manifest_view(NULL) == NULL);
+    CHECK(weivel_standard_manifest_language(NULL) == NULL);
 }
 
 static weivel_handle register_text(weivel_core *core, const char *text) {

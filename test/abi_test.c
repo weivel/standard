@@ -11,7 +11,8 @@
 #define GUARD_BYTE 0xab
 #define NEWER_BYTE 0xff
 
-static const char BARE_SERVICE[] = "{\"importName\": \"a\", \"api\": 2, \"services\": {\"provides\": [\"calendar\"]}}";
+static const char BARE_SERVICE[] = "{\"importName\": \"a\", \"api\": 2, \"language\": \"c\", \"services\": "
+                                   "{\"provides\": [\"calendar\"]}}";
 static const char MALFORMED_JSON[] = "{\"importName\": ";
 
 typedef struct newer_options {

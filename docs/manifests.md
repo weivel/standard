@@ -13,24 +13,28 @@ standard's discovery (see [layout.md](layout.md)) reads it for the host. What a 
 `weivel_standard_manifest`, and `weivel_standard_manifest_view` gives the core's `weivel_manifest` from it, ready for
 `weivel_supports` and `weivel_register_manifest` and alive until the manifest's release. The view's identity is empty
 because it is supplied by whatever loaded the plugin, never written in the manifest, so a host that supplies one copies
-the view and sets `identity` on its copy. `weivel_standard_validate` judges a document against the schema and the two
-rules [validation.md](validation.md) states, and answers with the wrong fields as that doc says.
+the view and sets `identity` on its copy. The manifest's `language` has no place in the core's manifest, since the core
+never loads a plugin itself, so it is kept beside the view and `weivel_standard_manifest_language` answers it, alive as
+long as the view. `weivel_standard_validate` judges a document against the schema and the two rules
+[validation.md](validation.md) states, and answers with the wrong fields as that doc says.
 `weivel_standard_load_manifest` does both, validating first, so a host taking the standard's defaults cannot hand the
 core a manifest that skipped validation. The two steps stay separate functions because a host that validates elsewhere
 may still want the reader.
 
 ## The schema, and a validator that is not a schema engine
 
-`schema/plugin.schema.json` is the published vocabulary: a plugin's `importName`, `api`, `entry`, `targets`,
-`capabilities`, `services`, `permissions` and `dependencies`, with the draft-07 rules for each. The validator is
-hand-written C, not a general schema engine, because the library has to run anywhere C does with nothing beside it.
-That would let the schema and the code drift apart, so a parity test walks the schema and fails on a property no rule
-of the validator covers, on a rule that names a location the schema does not hold, and on a pattern with no matcher;
-each rule has a test case that proves it. A capability id in `capabilities.provides` or `capabilities.consumes` is
-lowercase words joined by single hyphens or dots, the grammar a library's contract names a capability by (see
-[library.md](library.md)); one matcher decides it for both, so a manifest cannot provide a capability no contract could
-describe. A field the schema does not name validates and is ignored at any depth, which
-is how a later manifest still loads on an older reader.
+`schema/plugin.schema.json` is the published vocabulary: a plugin's `importName`, `api`, `language`, `entry`, `targets`,
+`capabilities`, `services`, `permissions` and `dependencies`, with the draft-07 rules for each. `language` is required
+and names the weivel implementation that loads the plugin (`c`, `typescript`, `java`, `rust`): a lowercase letter, then
+lowercase letters and digits in words joined by single hyphens. The standard keeps no list of languages and compares the
+name with nothing; it only checks the grammar and reads the name. The validator is hand-written C, not a general schema
+engine, because the library has to run anywhere C does with nothing beside it. That would let the schema and the code
+drift apart, so a parity test walks the schema and fails on a property no rule of the validator covers, on a rule that
+names a location the schema does not hold, and on a pattern with no matcher; each rule has a test case that proves it. A
+capability id in `capabilities.provides` or `capabilities.consumes` is lowercase words joined by single hyphens or dots,
+the grammar a library's contract names a capability by (see [library.md](library.md)); one matcher decides it for both,
+so a manifest cannot provide a capability no contract could describe. A field the schema does not name validates and is
+ignored at any depth, which is how a later manifest still loads on an older reader.
 
 ## The JSON reader
 

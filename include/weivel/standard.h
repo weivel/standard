@@ -101,12 +101,12 @@ WEIVEL_STANDARD_API void weivel_standard_refusal_release(weivel_standard_refusal
 typedef struct weivel_standard_manifest weivel_standard_manifest;
 
 /**
- * Reads a JSON manifest into the core's weivel_manifest. It converts and DOES NOT VALIDATE: a host taking the
- * standard's defaults calls weivel_standard_load_manifest, which validates first. A field the core's manifest carries
- * is refused here only when its JSON type is wrong or its value cannot be held, a field left out takes the core's
- * default (a required one such as `importName` reads as NULL, which validation refuses with its path and the core
- * refuses on registration without one),
- * and every field the core's manifest has no place for (`dependencies` among them) is ignored. `null` is a value of
+ * Reads a JSON manifest into the core's weivel_manifest, and its `language` beside it. It converts and DOES NOT
+ * VALIDATE: a host taking the standard's defaults calls weivel_standard_load_manifest, which validates first. A field
+ * the core's manifest carries, or `language`, is refused here only when its JSON type is wrong or its value cannot be
+ * held, a field left out takes the core's default (a required one such as `importName` reads as NULL, which
+ * validation refuses with its path and the core refuses on registration without one, and `language` reads as NULL),
+ * and every other field the core's manifest has no place for (`dependencies` among them) is ignored. `null` is a value of
  * the wrong type, never an absent field. The manifest's `identity` is left NULL: it is supplied by whatever loaded
  * the plugin, not written in its manifest.
  *
@@ -129,6 +129,13 @@ WEIVEL_STANDARD_API weivel_status weivel_standard_read_manifest(const char *json
  * `identity` on its copy. NULL for a NULL manifest.
  */
 WEIVEL_STANDARD_API const weivel_manifest *weivel_standard_manifest_view(const weivel_standard_manifest *manifest);
+
+/**
+ * The manifest's `language`: the weivel implementation that loads the plugin, such as "c" or "typescript", opaque to
+ * the standard beyond its grammar and kept beside the view, since the core's manifest has no place for it. It lives
+ * until weivel_standard_manifest_release. NULL for a NULL manifest, or one read without validation that states none.
+ */
+WEIVEL_STANDARD_API const char *weivel_standard_manifest_language(const weivel_standard_manifest *manifest);
 
 /** Frees a manifest and everything its view points at; a no-op for NULL. */
 WEIVEL_STANDARD_API void weivel_standard_manifest_release(weivel_standard_manifest *manifest);

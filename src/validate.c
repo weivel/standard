@@ -41,6 +41,9 @@ static const char *const IMPORT_NAME_FIX =
     "a Windows device name with or without a dot after it (con, prn, aux, nul, com1 to com9, lpt1 to "
     "lpt9)";
 static const char *const API_FIX = "set api to the lowest API major version this plugin needs, for example 1";
+static const char *const LANGUAGE_FIX =
+    "set language to the weivel implementation that loads this plugin, in lowercase words joined by single hyphens, "
+    "for example \"c\", \"typescript\", \"java\" or \"rust\"";
 static const char *const ENTRY_FIX =
     "point entry at the built module a host loads, inside the plugin's directory, for example \"lib/plugin.so\", with "
     "no leading slash, drive letter, control character or .. segment";
@@ -58,6 +61,7 @@ static const char *const DUPLICATE_FIX = "remove the duplicate entry";
 
 static const pattern_rule IMPORT_NAME_PATTERN = {weivel_standard_matches_import_name, "is not a valid import name",
                                                  NULL};
+static const pattern_rule LANGUAGE_PATTERN = {weivel_standard_matches_language, "is not a language name", NULL};
 static const pattern_rule ENTRY_PATTERN = {weivel_standard_matches_entry,
                                            "leaves the plugin's directory or holds a control character", NULL};
 static const pattern_rule REPOSITORY_ID_PATTERN = {weivel_standard_matches_repository_id, "is not a repository id",
@@ -332,6 +336,16 @@ static void check_api(validating *state, const weivel_json_value *root) {
     if (level < 1) {
         report(state, &path, WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "%s is below 1, the lowest API version", API_FIX);
     }
+}
+
+static void check_language(validating *state, const weivel_json_value *root) {
+    const weivel_json_value *value = weivel_json_object_get(root, "language");
+    field_path path = {NULL, "language", 0};
+    if (value == NULL) {
+        report_missing(state, NULL, "language", LANGUAGE_FIX);
+        return;
+    }
+    check_patterned_string(state, value, &path, &LANGUAGE_PATTERN, LANGUAGE_FIX);
 }
 
 static void check_entry(validating *state, const weivel_json_value *root) {
@@ -658,6 +672,7 @@ static void check_document(validating *state, const weivel_json_value *root) {
     state->import_name = weivel_json_as_string(weivel_json_object_get(root, "importName"));
     check_import_name(state, root);
     check_api(state, root);
+    check_language(state, root);
     check_entry(state, root);
     check_string_list(state, weivel_json_object_get(root, "targets"), &targets, 0, NULL);
     check_capabilities(state, root);
