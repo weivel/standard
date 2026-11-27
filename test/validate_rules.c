@@ -3,7 +3,10 @@
 #include "weivel/standard.h"
 
 #define REPOSITORY_ID_PATTERN                                                                                     \
-    "^(local:[^/\\s]+|[a-z][a-z0-9-]*(@[a-z0-9.-]+)?:[0-9]+)(/(?!\\.{1,2}(/|(?![\\s\\S])))[a-z0-9._-]+)*(?![\\s\\S])"
+    "^(local:[^/\\s\\u0000]+|git:([0-9a-f]{64}|[0-9a-f]{40}))(/(?!\\.{1,2}(/|(?![\\s\\S])))[a-z0-9._-]+)*"        \
+    "(?![\\s\\S])"
+
+#define SHA1_ROOT "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 #define CAPABILITY_ID_PATTERN "^[a-z0-9]+([-.][a-z0-9]+)*(?![\\s\\S])"
 
@@ -240,7 +243,7 @@ const rule_case RULE_CASES[] = {
      "{" BASE ", 'services': {'consumes': [{'id': 'clock', 'provider': 'Forge:1'}]}}", NULL,
      "['services.consumes[0].provider']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {WANT "/properties/provider/pattern",
-     "{" BASE ", 'services': {'consumes': [{'id': 'clock', 'provider': 'forge@git.example.com:12/runtime'}]}}", NULL,
+     "{" BASE ", 'services': {'consumes': [{'id': 'clock', 'provider': 'git:" SHA1_ROOT "/runtime'}]}}", NULL,
      "[]", WEIVEL_STANDARD_REFUSAL_NONE},
     {WANT "/properties/optional/type", "{" BASE ", 'services': {'consumes': [{'id': 'clock', 'optional': 'yes'}]}}",
      NULL, "['services.consumes[0].optional']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
@@ -269,7 +272,7 @@ const rule_case RULE_CASES[] = {
      NULL, "['dependencies[0].importName']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {DEPENDENCY "/properties/id/type", "{" BASE ", 'dependencies': [{'importName': 'r', 'id': 5}]}", NULL,
      "['dependencies[0].id', 'dependencies[0].name']", WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
-    {DEPENDENCY "/properties/id/pattern", "{" BASE ", 'dependencies': [{'importName': 'r', 'id': 'forge:1/..'}]}",
+    {DEPENDENCY "/properties/id/pattern", "{" BASE ", 'dependencies': [{'importName': 'r', 'id': 'git:" SHA1_ROOT "/..'}]}",
      NULL, "['dependencies[0].id']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {DEPENDENCY "/properties/id/pattern", "{" BASE ", 'dependencies': [{'importName': 'r', 'id': 'local:x/.hidden'}]}",
      NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},

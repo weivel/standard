@@ -29,7 +29,7 @@ int weivel_standard_matches_language(const char *text, size_t length);
 /** `entry`: no leading separator or drive, no control or line-separator character, no `..` segment. */
 int weivel_standard_matches_entry(const char *text, size_t length);
 
-/** A repository identity: `local:<name>` or `<forge>[@host]:<number>`, then path segments, none `.` or `..`. */
+/** A repository identity: `local:<name>` or `git:<40 or 64 lowercase hex>`, then path segments, none `.` or `..`. */
 int weivel_standard_matches_repository_id(const char *text, size_t length);
 
 /** A dependency's `name`: `owner/name`, the name neither `.` nor `..`. */

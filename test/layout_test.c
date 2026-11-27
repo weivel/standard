@@ -4,6 +4,15 @@
 
 #include <stdlib.h>
 
+#define EMPTY_TREE_ROOT "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+#define ROOT_ONE "git:1111111111111111111111111111111111111111"
+#define ROOT_THREE "git:3333333333333333333333333333333333333333"
+#define ROOT_FIVE "git:5555555555555555555555555555555555555555"
+#define ROOT_SEVEN "git:7777777777777777777777777777777777777777"
+#define EARLIEST_ROOT "git:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+#define LATER_ROOT "git:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+#define LATEST_ROOT "git:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+
 static const char *const ROOT = WEIVEL_STANDARD_FIXTURE_ROOT;
 
 static void scenario(char *directory, const char *name) {
@@ -74,7 +83,8 @@ static void finds_a_valid_plugin(void) {
     scenario(directory, "valid");
     write_file(directory, "calendar.json",
                "{\"importName\": \"calendar\", \"api\": 2, \"language\": \"c\", \"entry\": \"calendar.bin\"}");
-    write_file(directory, "calendar_identity.json", "{\"id\": \"forge:42/calendar\", \"name\": \"owner/calendar\"}");
+    write_file(directory, "calendar_identity.json",
+               "{\"id\": \"" EMPTY_TREE_ROOT "/calendar\", \"name\": \"owner/calendar\"}");
     write_file(directory, "calendar.bin", "entry");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
     CHECK(discovery.plugin_count == 1 && discovery.failure_count == 0);
@@ -86,9 +96,9 @@ static void finds_a_valid_plugin(void) {
         check_text(plugin->manifest_path, expected, "manifest path");
         fixture_join(expected, directory, "calendar_identity.json");
         check_text(plugin->identity_path, expected, "identity path");
-        check_text(plugin->identity_id, "forge:42/calendar", "identity id");
+        check_text(plugin->identity_id, EMPTY_TREE_ROOT "/calendar", "identity id");
         check_text(plugin->repository_name, "owner/calendar", "repository name");
-        CHECK(plugin->identity.kind == WEIVEL_STANDARD_IDENTITY_FORGE && plugin->identity.number == 42);
+        CHECK(plugin->identity.kind == WEIVEL_STANDARD_IDENTITY_GIT && plugin->identity.commit_length == 40);
         CHECK(plugin->identity.size == sizeof plugin->identity);
         fixture_join(expected, directory, "calendar.bin");
         check_text(plugin->entry_path, expected, "entry path");
@@ -130,15 +140,15 @@ static void reports_each_bad_file_and_keeps_the_rest(void) {
     write_file(directory, "broken.json", "{\"importName\": ");
     write_file(directory, "beta.json", "{\"importName\": \"gamma\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "spoken.json", "{\"importName\": \"spoken\", \"api\": 2, \"language\": \"c\"}");
-    write_file(directory, "spoken_identity.json", "{\"id\": \"forge:1\", ");
+    write_file(directory, "spoken_identity.json", "{\"id\": \"" ROOT_ONE "\", ");
     write_file(directory, "unnamed.json", "{\"importName\": \"unnamed\", \"api\": 2, \"language\": \"c\"}");
-    write_file(directory, "unnamed_identity.json", "{\"id\": \"forge:1\"}");
+    write_file(directory, "unnamed_identity.json", "{\"id\": \"" ROOT_ONE "\"}");
     write_file(directory, "wrong.json", "{\"importName\": \"wrong\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "wrong_identity.json", "{\"id\": \"no identity\", \"name\": \"owner/wrong\"}");
     write_file(directory, "typed.json", "{\"importName\": \"typed\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "typed_identity.json", "{\"id\": 7, \"name\": \"owner/typed\"}");
     write_file(directory, "blank.json", "{\"importName\": \"blank\", \"api\": 2, \"language\": \"c\"}");
-    write_file(directory, "blank_identity.json", "{\"id\": \"forge:3\", \"name\": \"\"}");
+    write_file(directory, "blank_identity.json", "{\"id\": \"" ROOT_THREE "\", \"name\": \"\"}");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
     CHECK(discovery.plugin_count == 1 && plugin_named(&discovery, "good") != NULL);
     CHECK(discovery.failure_count == 8);
@@ -260,7 +270,7 @@ static void refuses_a_file_over_the_cap_alone(void) {
     write_sized(directory, "exact.json", "{\"importName\": \"exact\", \"api\": 2, \"language\": \"c\"}", CAP);
     write_sized(directory, "big.json", "{\"importName\": \"big\", \"api\": 2, \"language\": \"c\"}", CAP + 1);
     write_file(directory, "huge.json", "{\"importName\": \"huge\", \"api\": 2, \"language\": \"c\"}");
-    write_sized(directory, "huge_identity.json", "{\"id\": \"forge:5\", \"name\": \"o/huge\"}", CAP + 1);
+    write_sized(directory, "huge_identity.json", "{\"id\": \"" ROOT_FIVE "\", \"name\": \"o/huge\"}", CAP + 1);
     write_file(directory, "good.json", "{\"importName\": \"good\", \"api\": 2, \"language\": \"c\"}");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
     CHECK(discovery.plugin_count == 2 && plugin_named(&discovery, "exact") != NULL &&
@@ -285,11 +295,11 @@ static void orders_by_identity_then_the_rest_by_name(void) {
     write_file(directory, "baker.json", "{\"importName\": \"baker\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "able.json", "{\"importName\": \"able\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "whiskey.json", "{\"importName\": \"whiskey\", \"api\": 2, \"language\": \"c\"}");
-    write_file(directory, "whiskey_identity.json", "{\"id\": \"forge@host.example:9\", \"name\": \"o/w\"}");
+    write_file(directory, "whiskey_identity.json", "{\"id\": \"" LATEST_ROOT "\", \"name\": \"o/w\"}");
     write_file(directory, "xray.json", "{\"importName\": \"xray\", \"api\": 2, \"language\": \"c\"}");
-    write_file(directory, "xray_identity.json", "{\"id\": \"forge:10\", \"name\": \"o/x\"}");
+    write_file(directory, "xray_identity.json", "{\"id\": \"" LATER_ROOT "\", \"name\": \"o/x\"}");
     write_file(directory, "yankee.json", "{\"importName\": \"yankee\", \"api\": 2, \"language\": \"c\"}");
-    write_file(directory, "yankee_identity.json", "{\"id\": \"forge:9\", \"name\": \"o/y\"}");
+    write_file(directory, "yankee_identity.json", "{\"id\": \"" EARLIEST_ROOT "\", \"name\": \"o/y\"}");
     write_file(directory, "zulu.json", "{\"importName\": \"zulu\", \"api\": 2, \"language\": \"c\"}");
     write_file(directory, "zulu_identity.json", "{\"id\": \"local:zulu\", \"name\": \"zulu\"}");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
@@ -306,9 +316,9 @@ static void refuses_a_repeated_identity(void) {
     weivel_standard_discovery discovery;
     scenario(directory, "repeated");
     write_file(directory, "first.json", "{\"importName\": \"first\", \"api\": 2, \"language\": \"c\"}");
-    write_file(directory, "first_identity.json", "{\"id\": \"forge:7\", \"name\": \"o/r\"}");
+    write_file(directory, "first_identity.json", "{\"id\": \"" ROOT_SEVEN "/r\", \"name\": \"o/r\"}");
     write_file(directory, "second.json", "{\"importName\": \"second\", \"api\": 2, \"language\": \"c\"}");
-    write_file(directory, "second_identity.json", "{\"id\": \"forge:007\", \"name\": \"o/r\"}");
+    write_file(directory, "second_identity.json", "{\"id\": \"" ROOT_SEVEN "/r\", \"name\": \"o/r\"}");
     CHECK(discover(directory, &discovery) == WEIVEL_STATUS_OK);
     CHECK(discovery.plugin_count == 1 && plugin_named(&discovery, "first") != NULL);
     CHECK(discovery.failure_count == 1);

@@ -111,7 +111,7 @@
                   "provider": {
                     "description": "The repository identity of the plugin this plugin takes the service from. Absent means any provider of the service id.",
                     "type": "string",
-                    "pattern": "^(local:[^/\\s]+|[a-z][a-z0-9-]*(@[a-z0-9.-]+)?:[0-9]+)(/(?!\\.{1,2}(/|(?![\\s\\S])))[a-z0-9._-]+)*(?![\\s\\S])"
+                    "pattern": "^(local:[^/\\s\\u0000]+|git:([0-9a-f]{64}|[0-9a-f]{40}))(/(?!\\.{1,2}(/|(?![\\s\\S])))[a-z0-9._-]+)*(?![\\s\\S])"
                   },
                   "optional": {
                     "description": "Whether this plugin still starts when nothing provides the service. Absent means true, which is what a bare string means.",
@@ -161,7 +161,7 @@
           "id": {
             "description": "The repository identity of the dependency, which survives a rename.",
             "type": "string",
-            "pattern": "^(local:[^/\\s]+|[a-z][a-z0-9-]*(@[a-z0-9.-]+)?:[0-9]+)(/(?!\\.{1,2}(/|(?![\\s\\S])))[a-z0-9._-]+)*(?![\\s\\S])"
+            "pattern": "^(local:[^/\\s\\u0000]+|git:([0-9a-f]{64}|[0-9a-f]{40}))(/(?!\\.{1,2}(/|(?![\\s\\S])))[a-z0-9._-]+)*(?![\\s\\S])"
           },
           "name": {
             "description": "The owner and name of the dependency's repository, for a repository whose id is not known. A name can be taken by someone else, so a host warns about it.",

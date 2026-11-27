@@ -53,11 +53,10 @@ static void print_discovery_layouts(void) {
     FIELD(weivel_standard_identity, kind);
     FIELD(weivel_standard_identity, name);
     FIELD(weivel_standard_identity, name_length);
-    FIELD(weivel_standard_identity, forge);
-    FIELD(weivel_standard_identity, host);
-    FIELD(weivel_standard_identity, number);
     FIELD(weivel_standard_identity, segments);
     FIELD(weivel_standard_identity, segment_count);
+    FIELD(weivel_standard_identity, commit);
+    FIELD(weivel_standard_identity, commit_length);
     SIZE(weivel_standard_identity);
     FIELD(weivel_standard_discovered_plugin, manifest);
     FIELD(weivel_standard_discovered_plugin, manifest_path);

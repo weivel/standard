@@ -5,37 +5,33 @@
 
 #include <stdint.h>
 
+#define SAME_ROOT "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+#define LATER_ROOT "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
 static weivel_status parse_text(const char *text, weivel_standard_identity *identity,
                                 weivel_standard_refusal *refusal) {
     return weivel_standard_identity_parse(text, strlen(text), identity, refusal);
 }
 
-static void check_forge_parts(const char *text, const char *forge, const char *host, uint64_t number,
-                              size_t segment_count, const char *last_segment) {
+static void check_git_parts(const char *text, const char *commit, size_t segment_count, const char *last_segment) {
     weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
     CHECK(parse_text(text, &identity, NULL) == WEIVEL_STATUS_OK);
-    CHECK(identity.kind == WEIVEL_STANDARD_IDENTITY_FORGE);
-    check_text(identity.forge, forge, text);
-    CHECK((identity.host == NULL) == (host == NULL));
-    if (host != NULL && identity.host != NULL) {
-        check_text(identity.host, host, text);
-    }
-    CHECK(identity.number == number);
+    CHECK(identity.kind == WEIVEL_STANDARD_IDENTITY_GIT);
+    check_text(identity.commit, commit, text);
+    CHECK(identity.commit_length == strlen(commit));
     CHECK(identity.segment_count == segment_count);
     if (last_segment != NULL && identity.segment_count == segment_count && segment_count > 0) {
         check_text(identity.segments[segment_count - 1], last_segment, text);
     }
-    CHECK(identity.name == NULL);
+    CHECK(identity.name == NULL && identity.name_length == 0);
     weivel_standard_identity_release(&identity);
 }
 
-static void parts_of_forge_identities(void) {
-    check_forge_parts("forge:1434954468", "forge", NULL, 1434954468u, 0, NULL);
-    check_forge_parts("gitea@git.example.com:123", "gitea", "git.example.com", 123, 0, NULL);
-    check_forge_parts("forge:1361969293/kernel", "forge", NULL, 1361969293u, 1, "kernel");
-    check_forge_parts("a-1:0/x_y.z/.hidden/a..b", "a-1", NULL, 0, 3, "a..b");
-    check_forge_parts("forge:00042", "forge", NULL, 42, 0, NULL);
-    check_forge_parts("forge:18446744073709551615", "forge", NULL, UINT64_MAX, 0, NULL);
+static void parts_of_git_identities(void) {
+    check_git_parts("git:" SHA1_ROOT, SHA1_ROOT, 0, NULL);
+    check_git_parts("git:" SHA256_ROOT, SHA256_ROOT, 0, NULL);
+    check_git_parts("git:" SHA1_ROOT "/kernel", SHA1_ROOT, 1, "kernel");
+    check_git_parts("git:" SHA256_ROOT "/x_y.z/.hidden/a..b", SHA256_ROOT, 3, "a..b");
 }
 
 static void parts_of_local_identities(void) {
@@ -44,7 +40,7 @@ static void parts_of_local_identities(void) {
     CHECK(identity.kind == WEIVEL_STANDARD_IDENTITY_LOCAL);
     check_text(identity.name, "plugin-stub", "local name");
     CHECK(identity.name_length == strlen("plugin-stub"));
-    CHECK(identity.forge == NULL && identity.host == NULL && identity.segment_count == 0);
+    CHECK(identity.commit == NULL && identity.commit_length == 0 && identity.segment_count == 0);
     weivel_standard_identity_release(&identity);
 
     CHECK(parse_text("local:a:b/x/y", &identity, NULL) == WEIVEL_STATUS_OK);
@@ -52,11 +48,6 @@ static void parts_of_local_identities(void) {
     CHECK(identity.segment_count == 2);
     check_text(identity.segments[0], "x", "first segment");
     check_text(identity.segments[1], "y", "second segment");
-    weivel_standard_identity_release(&identity);
-
-    CHECK(weivel_standard_identity_parse("local:a\0b/s", 11, &identity, NULL) == WEIVEL_STATUS_OK);
-    CHECK(identity.name_length == 3 && memcmp(identity.name, "a\0b", 4) == 0);
-    CHECK(identity.segment_count == 1);
     weivel_standard_identity_release(&identity);
 
     CHECK(parse_text("local:12", &identity, NULL) == WEIVEL_STATUS_OK);
@@ -79,146 +70,182 @@ static int order_of_texts(const char *left_text, const char *right_text) {
 }
 
 static void compare_orders_by_parts(void) {
-    CHECK(order_of_texts("forge:9", "forge:10") < 0);
-    CHECK(order_of_texts("forge:10", "forge:9") > 0);
-    CHECK(order_of_texts("forge:007", "forge:7") == 0);
-    CHECK(order_of_texts("forge:1", "forge:1") == 0);
-    CHECK(order_of_texts("local:z", "forge:1") < 0);
-    CHECK(order_of_texts("a:5", "b:1") < 0);
-    CHECK(order_of_texts("forge:5", "forge@host:5") < 0);
-    CHECK(order_of_texts("forge@a.com:5", "forge@b.com:1") < 0);
-    CHECK(order_of_texts("forge@host:5", "forge@host:6") < 0);
-    CHECK(order_of_texts("forge:1", "forge:1/a") < 0);
-    CHECK(order_of_texts("forge:1/a", "forge:1/b") < 0);
-    CHECK(order_of_texts("forge:1/a/z", "forge:1/b") < 0);
-    CHECK(order_of_texts("forge:1/a", "forge:1/a/b") < 0);
-    CHECK(order_of_texts("forge:1/a/b", "forge:1/a/b") == 0);
-    CHECK(order_of_texts("local:ab", "local:b") < 0);
-    CHECK(order_of_texts("local:a", "local:ab") < 0);
-    CHECK(order_of_texts("local:a/x", "local:a/y") < 0);
-    CHECK(order_of_texts("forge:18446744073709551615", "forge:18446744073709551614") > 0);
+    CHECK(order_of_texts("local:z", "git:" SAME_ROOT) == -1);
+    CHECK(order_of_texts("git:" SAME_ROOT, "git:" LATER_ROOT) == -1);
+    CHECK(order_of_texts("git:" SAME_ROOT, "git:" SAME_ROOT) == 0);
+    CHECK(order_of_texts("git:" SHA1_ROOT, "git:" SHA256_ROOT) == -1);
+    CHECK(order_of_texts("git:" SAME_ROOT, "git:" SAME_ROOT "aaaaaaaaaaaaaaaaaaaaaaaa") == -1);
+    CHECK(order_of_texts("git:" SAME_ROOT "/z", "git:" LATER_ROOT) == -1);
+    CHECK(order_of_texts("git:" SAME_ROOT, "git:" SAME_ROOT "/a") == -1);
+    CHECK(order_of_texts("git:" SAME_ROOT "/a", "git:" SAME_ROOT "/b") == -1);
+    CHECK(order_of_texts("git:" SAME_ROOT "/a/z", "git:" SAME_ROOT "/b") == -1);
+    CHECK(order_of_texts("git:" SAME_ROOT "/a", "git:" SAME_ROOT "/a/b") == -1);
+    CHECK(order_of_texts("git:" SAME_ROOT "/a/b", "git:" SAME_ROOT "/a/b") == 0);
+    CHECK(order_of_texts("local:ab", "local:b") == -1);
+    CHECK(order_of_texts("local:a", "local:ab") == -1);
+    CHECK(order_of_texts("local:a/x", "local:a/y") == -1);
 }
 
-static void refusal_of(const char *text, uint32_t code, const char *detail_part) {
+static size_t offset_in(const char *detail) {
+    size_t offset = 0;
+    const char *at = detail + strlen("byte ");
+    if (strncmp(detail, "byte ", strlen("byte ")) != 0 || *at < '0' || *at > '9') {
+        return SIZE_MAX;
+    }
+    while (*at >= '0' && *at <= '9') {
+        offset = offset * 10 + (size_t)(*at - '0');
+        at++;
+    }
+    return *at == ':' ? offset : SIZE_MAX;
+}
+
+static void check_refused_at(const char *label, const char *text, size_t length, size_t offset) {
     weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
     weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
-    CHECK(parse_text(text, &identity, &refusal) == WEIVEL_STATUS_REFUSED);
-    CHECK(refusal.code == code);
+    CHECK(weivel_standard_identity_parse(text, length, &identity, &refusal) == WEIVEL_STATUS_REFUSED);
+    CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_INVALID_VALUE);
     CHECK(refusal.path != NULL && refusal.path[0] == '\0');
     CHECK(refusal.fix != NULL && refusal.fix[0] != '\0');
-    CHECK(refusal.detail != NULL && strstr(refusal.detail, detail_part) != NULL);
-    if (refusal.detail == NULL || strstr(refusal.detail, detail_part) == NULL) {
-        fprintf(stderr, "  \"%s\" gave detail \"%s\"\n", text, refusal.detail == NULL ? "(null)" : refusal.detail);
+    CHECK(refusal.detail != NULL && offset_in(refusal.detail) == offset);
+    if (refusal.detail == NULL || offset_in(refusal.detail) != offset) {
+        fprintf(stderr, "  %s gave detail \"%s\", expected byte %zu\n", label,
+                refusal.detail == NULL ? "(null)" : refusal.detail, offset);
     }
-    CHECK(identity.kind == 0 && identity.name == NULL && identity.forge == NULL && identity.segments == NULL);
+    CHECK(identity.kind == 0 && identity.name == NULL && identity.commit == NULL && identity.segments == NULL);
     weivel_standard_refusal_release(&refusal);
 }
 
-static void a_refusal_says_where_it_failed(void) {
-    refusal_of("calendar", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 8:");
-    refusal_of("", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 0:");
-    refusal_of("Forge:1", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 0:");
-    refusal_of("forge:", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 6:");
-    refusal_of("forge:abc", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 6:");
-    refusal_of("forge@:1", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 6:");
-    refusal_of("forge:1/", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 8:");
-    refusal_of("forge:1/..", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 8:");
-    refusal_of("forge:1/a/../b", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 10:");
-    refusal_of("forge:1/X", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 8:");
-    refusal_of("local:", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 6:");
-    refusal_of("local:a b", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 7:");
-    refusal_of("local:a\xc2\xa0", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 7:");
-    refusal_of("local:ab/.", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE, "byte 9:");
+static void refused_at(const char *text, size_t offset) {
+    check_refused_at(text, text, strlen(text), offset);
 }
 
-static void a_number_past_64_bits_is_refused_on_its_own(void) {
-    refusal_of("forge:18446744073709551616", WEIVEL_STANDARD_REFUSAL_UNREPRESENTABLE, "does not fit 64 bits");
-    refusal_of("forge@host:99999999999999999999999/x", WEIVEL_STANDARD_REFUSAL_UNREPRESENTABLE,
-               "does not fit 64 bits");
-    refusal_of("forge:184467440737095516150", WEIVEL_STANDARD_REFUSAL_UNREPRESENTABLE, "byte 6:");
+static void a_refusal_says_where_it_failed(void) {
+    refused_at("", 0);
+    refused_at("calendar", 0);
+    refused_at("forge:123", 0);
+    refused_at("Git:" SHA1_ROOT, 0);
+    refused_at("git", 0);
+    refused_at("git:", 4);
+    refused_at("git:abc", 7);
+    refused_at("git:abcx", 7);
+    refused_at("git:" SHA1_ROOT "x", 44);
+    refused_at("git:" SHA1_ROOT "0", 44);
+    refused_at("git:" SHA256_ROOT "0", 68);
+    refused_at("git:" SHA1_ROOT "/", 45);
+    refused_at("git:" SHA1_ROOT "//a", 45);
+    refused_at("git:" SHA1_ROOT "/X", 45);
+    refused_at("git:" SHA1_ROOT "/aX", 46);
+    refused_at("git:" SHA1_ROOT "/..x/X", 49);
+    refused_at("git:" SHA1_ROOT "/a/.", 47);
+    refused_at("local:", 6);
+    refused_at("local:/a", 6);
+    refused_at("local:a b", 7);
+    refused_at("local:a\xc2\xa0", 7);
+    refused_at("local:ab/.", 9);
+    check_refused_at("a NUL in a local name", "local:a\0b/s", 11, 7);
+}
+
+static void a_forge_number_is_only_an_invalid_value(void) {
+    refused_at("forge:18446744073709551616", 0);
+    refused_at("forge@host:99999999999999999999999/x", 0);
 }
 
 static void malformed_calls_and_missing_refusal(void) {
     weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
     CHECK(weivel_standard_identity_parse(NULL, 0, &identity, NULL) == WEIVEL_STATUS_MALFORMED);
-    CHECK(weivel_standard_identity_parse("forge:1", 7, NULL, NULL) == WEIVEL_STATUS_MALFORMED);
+    CHECK(weivel_standard_identity_parse("local:a", 7, NULL, NULL) == WEIVEL_STATUS_MALFORMED);
     CHECK(parse_text("nope", &identity, NULL) == WEIVEL_STATUS_REFUSED);
     weivel_standard_identity_release(NULL);
 }
 
-static void check_parse_agrees_with_matcher(const char *label, const char *text, size_t length, int expected_valid) {
+/**
+ * The kit's `vectors/standard/identity` vectors, one row each and named for the vector: a row with `other` set is an
+ * order vector, any other row answers `valid` and, refused, the offset.
+ */
+typedef struct kit_vector {
+    const char *id;
+    const char *value;
+    const char *other;
+    int valid;
+    size_t offset;
+    int order;
+} kit_vector;
+
+static const kit_vector KIT_VECTORS[] = {
+    {"accepts-a-local-id", "local:plugin-stub", NULL, 1, 0, 0},
+    {"accepts-a-path-under-a-git-id", "git:" SHA1_ROOT "/kernel", NULL, 1, 0, 0},
+    {"accepts-a-segment-containing-two-dots", "git:" SHA1_ROOT "/a..b", NULL, 1, 0, 0},
+    {"accepts-a-segment-starting-with-a-dot", "git:" SHA1_ROOT "/.hidden", NULL, 1, 0, 0},
+    {"accepts-a-sha1-git-id", "git:" SHA1_ROOT, NULL, 1, 0, 0},
+    {"accepts-a-sha256-git-id", "git:" SHA256_ROOT, NULL, 1, 0, 0},
+    {"orders-a-prefix-first", "git:" SAME_ROOT, "git:" SAME_ROOT "/a", 1, 0, -1},
+    {"orders-by-segments-after-the-id", "git:" SAME_ROOT "/a", "git:" SAME_ROOT "/b", 1, 0, -1},
+    {"orders-equal-ids-as-equal", "git:" SAME_ROOT "/a", "git:" SAME_ROOT "/a", 1, 0, 0},
+    {"orders-git-ids-by-hex-text", "git:" SAME_ROOT, "git:" LATER_ROOT, 1, 0, -1},
+    {"orders-local-before-git", "local:z", "git:" SAME_ROOT, 1, 0, -1},
+    {"refuses-41-hex-digits", "git:" SHA1_ROOT "0", NULL, 0, 44, 0},
+    {"refuses-a-bare-name", "calendar", NULL, 0, 0, 0},
+    {"refuses-a-dot-dot-segment-before-a-name", "git:" SHA1_ROOT "/../calendar", NULL, 0, 45, 0},
+    {"refuses-a-dot-dot-segment-between-names", "git:" SHA1_ROOT "/a/../b", NULL, 0, 47, 0},
+    {"refuses-a-dot-dot-segment", "git:" SHA1_ROOT "/..", NULL, 0, 45, 0},
+    {"refuses-a-forge-number-id", "forge:123", NULL, 0, 0, 0},
+    {"refuses-a-local-name-with-whitespace", "local:a b", NULL, 0, 7, 0},
+    {"refuses-uppercase-hex", "git:4B825DC642CB6EB9A060E54BF8D69288FBEE4904", NULL, 0, 5, 0},
+};
+
+static void answers_every_kit_vector(void) {
+    size_t at;
+    for (at = 0; at < sizeof KIT_VECTORS / sizeof KIT_VECTORS[0]; at++) {
+        const kit_vector *vector = &KIT_VECTORS[at];
+        if (vector->other != NULL) {
+            CHECK(order_of_texts(vector->value, vector->other) == vector->order);
+        } else if (vector->valid) {
+            weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
+            CHECK(parse_text(vector->value, &identity, NULL) == WEIVEL_STATUS_OK);
+            weivel_standard_identity_release(&identity);
+        } else {
+            check_refused_at(vector->id, vector->value, strlen(vector->value), vector->offset);
+        }
+    }
+}
+
+static void check_parse_agrees_with_matcher(const char *text, size_t length, int expected_valid) {
     weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
-    weivel_status status = weivel_standard_identity_parse(text, length, &identity, NULL);
+    weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
+    weivel_status status = weivel_standard_identity_parse(text, length, &identity, &refusal);
     int matches = weivel_standard_matches_repository_id(text, length);
     if (matches != expected_valid) {
-        fprintf(stderr, "%s: the matcher answered %d, expected %d\n", label, matches, expected_valid);
+        fprintf(stderr, "%s: the matcher answered %d, expected %d\n", text, matches, expected_valid);
         check_failures++;
     }
     if ((status == WEIVEL_STATUS_OK) != matches) {
-        fprintf(stderr, "%s: parse answered %d but the matcher answered %d\n", label, (int)status, matches);
+        fprintf(stderr, "%s: parse answered %d but the matcher answered %d\n", text, (int)status, matches);
         check_failures++;
     }
     if (status == WEIVEL_STATUS_OK) {
         weivel_standard_identity_release(&identity);
+    } else {
+        CHECK(status == WEIVEL_STATUS_REFUSED && refusal.code == WEIVEL_STANDARD_REFUSAL_INVALID_VALUE);
     }
-}
-
-typedef struct identity_case {
-    const char *value;
-    int valid;
-} identity_case;
-
-static const identity_case IDENTITY_CASES[] = {
-    {"forge:1434954468", 1},
-    {"gitea@git.example.com:123", 1},
-    {"local:plugin-stub", 1},
-    {"forge:1361969293/kernel", 1},
-    {"forge:1/a..b", 1},
-    {"forge:1/.hidden", 1},
-    {"calendar", 0},
-    {"forge:1/../calendar_identity", 0},
-    {"forge:1/a/../b", 0},
-    {"forge:1/..", 0},
-    {"forge:abc", 0},
-    {"forge:1/.", 0},
-    {"forge:", 0},
-    {"Forge:1", 0},
-};
-
-static void parse_agrees_with_the_identity_cases(void) {
-    size_t at;
-    for (at = 0; at < sizeof IDENTITY_CASES / sizeof IDENTITY_CASES[0]; at++) {
-        check_parse_agrees_with_matcher(IDENTITY_CASES[at].value, IDENTITY_CASES[at].value,
-                                        strlen(IDENTITY_CASES[at].value), IDENTITY_CASES[at].valid);
-    }
+    weivel_standard_refusal_release(&refusal);
 }
 
 static void parse_agrees_with_every_pattern_sample(void) {
     size_t at;
     for (at = 0; at < sizeof REPOSITORY_IDS / sizeof REPOSITORY_IDS[0]; at++) {
-        weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
-        weivel_standard_refusal refusal = WEIVEL_INIT(weivel_standard_refusal);
-        weivel_status status =
-            weivel_standard_identity_parse(REPOSITORY_IDS[at].text, REPOSITORY_IDS[at].length, &identity, &refusal);
-        if (REPOSITORY_IDS[at].matches) {
-            CHECK(status == WEIVEL_STATUS_OK);
-            weivel_standard_identity_release(&identity);
-        } else {
-            CHECK(status == WEIVEL_STATUS_REFUSED);
-            CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_INVALID_VALUE);
-        }
-        weivel_standard_refusal_release(&refusal);
+        check_parse_agrees_with_matcher(REPOSITORY_IDS[at].text, REPOSITORY_IDS[at].length,
+                                        REPOSITORY_IDS[at].matches);
     }
 }
 
 int main(void) {
-    parts_of_forge_identities();
+    parts_of_git_identities();
     parts_of_local_identities();
     compare_orders_by_parts();
     a_refusal_says_where_it_failed();
-    a_number_past_64_bits_is_refused_on_its_own();
+    a_forge_number_is_only_an_invalid_value();
     malformed_calls_and_missing_refusal();
-    parse_agrees_with_the_identity_cases();
+    answers_every_kit_vector();
     parse_agrees_with_every_pattern_sample();
     return check_summary("identity_test");
 }

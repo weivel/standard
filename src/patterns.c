@@ -195,7 +195,7 @@ int weivel_standard_matches_entry(const char *text, size_t length) {
     return !holds_control_or_line_separator(text, length) && !holds_parent_segment(text, length);
 }
 
-/** `local:[^/\s]+`: the length of the root it matches, 0 for none. */
+/** `local:[^/\s\u0000]+`: the length of the root it matches, 0 for none. */
 static size_t local_root_length(const char *text, size_t length) {
     size_t position = strlen("local:");
     if (length < position || memcmp(text, "local:", position) != 0) {
@@ -203,7 +203,7 @@ static size_t local_root_length(const char *text, size_t length) {
     }
     while (position < length) {
         character next = character_at(text, length, position);
-        if (next.code_point == '/' || is_ecmascript_space(next.code_point)) {
+        if (next.code_point == '/' || next.code_point == 0 || is_ecmascript_space(next.code_point)) {
             break;
         }
         position += next.width;
@@ -219,34 +219,24 @@ static size_t run_length(const char *text, size_t length, size_t from, int (*acc
     return at - from;
 }
 
-static int is_forge_character(char byte) {
-    return is_lowercase_word_character(byte) || byte == '-';
+static int is_lowercase_hex(char byte) {
+    return is_digit(byte) || (byte >= 'a' && byte <= 'f');
 }
 
-static int is_host_character(char byte) {
-    return is_lowercase_word_character(byte) || byte == '.' || byte == '-';
-}
-
-/** `[a-z][a-z0-9-]*(@[a-z0-9.-]+)?:[0-9]+`: the length of the root it matches, 0 for none. */
-static size_t forge_root_length(const char *text, size_t length) {
-    size_t position;
+/**
+ * `git:([0-9a-f]{64}|[0-9a-f]{40})`: the length of the root it matches, 0 for none.
+ *
+ * @implNote The rest of the expression needs a `/` or the end right after the root, so a run of hex digits matches
+ * only when it is exactly 40 or 64 long.
+ */
+static size_t git_root_length(const char *text, size_t length) {
+    size_t prefix = strlen("git:");
     size_t digits;
-    if (length == 0 || !is_lowercase_letter(text[0])) {
+    if (length < prefix || memcmp(text, "git:", prefix) != 0) {
         return 0;
     }
-    position = 1 + run_length(text, length, 1, is_forge_character);
-    if (position < length && text[position] == '@') {
-        size_t host = run_length(text, length, position + 1, is_host_character);
-        if (host == 0) {
-            return 0;
-        }
-        position += 1 + host;
-    }
-    if (position >= length || text[position] != ':') {
-        return 0;
-    }
-    digits = run_length(text, length, position + 1, is_digit);
-    return digits == 0 ? 0 : position + 1 + digits;
+    digits = run_length(text, length, prefix, is_lowercase_hex);
+    return digits == 40 || digits == 64 ? prefix + digits : 0;
 }
 
 static int is_segment_character(char byte) {
@@ -276,7 +266,7 @@ static int root_then_segments(const char *text, size_t length, size_t root) {
 
 int weivel_standard_matches_repository_id(const char *text, size_t length) {
     return root_then_segments(text, length, local_root_length(text, length)) ||
-           root_then_segments(text, length, forge_root_length(text, length));
+           root_then_segments(text, length, git_root_length(text, length));
 }
 
 static int is_alphanumeric(char byte) {

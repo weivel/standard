@@ -53,8 +53,8 @@ static const char *const CAPABILITIES_FIX =
     "write capabilities as an object, for example {\"provides\": [\"screens\"], \"consumes\": [\"provider\"]}; a flat "
     "list of ids moves under \"provides\"";
 static const char *const REPOSITORY_ID_FIX =
-    "write a repository id, local:<name> or <forge>[@host]:<number> then path segments, for example \"local:store\" "
-    "or \"forge@git.example.com:12/runtime\"";
+    "write a repository id, local:<name> or git:<the root commit's 40 or 64 lowercase hex digits> then path segments, "
+    "for example \"local:store\" or \"git:4b825dc642cb6eb9a060e54bf8d69288fbee4904/runtime\"";
 static const char *const SERVICE_FIX =
     "write the service as its id, for example \"store:read\", or as an object carrying \"id\"";
 static const char *const DUPLICATE_FIX = "remove the duplicate entry";

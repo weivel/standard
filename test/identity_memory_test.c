@@ -2,9 +2,9 @@
 #include "check.h"
 #include "weivel/identity.h"
 
-static const char *const SAMPLES[] = {"forge@host.example:42/a/b/c", "local:name/x", "forge:1",
-                                      "forge:18446744073709551616", "forge:1/..",
-                                      "calendar", "local:a b/x"};
+static const char *const SAMPLES[] = {"git:4b825dc642cb6eb9a060e54bf8d69288fbee4904/a/b/c", "local:name/x",
+                                      "git:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                      "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904/..", "calendar", "local:a b/x"};
 
 /** Fails each allocation in turn until a parse needs no more, and checks every failure leaves nothing behind. */
 static void every_failed_allocation_leaves_nothing(const char *text) {
@@ -24,7 +24,7 @@ static void every_failed_allocation_leaves_nothing(const char *text) {
         }
         weivel_standard_memory_fail_at(0);
         CHECK(status == WEIVEL_STATUS_OUT_OF_MEMORY);
-        CHECK(identity.name == NULL && identity.forge == NULL && identity.host == NULL && identity.segments == NULL);
+        CHECK(identity.name == NULL && identity.commit == NULL && identity.segments == NULL);
         weivel_standard_refusal_release(&refusal);
         CHECK(weivel_standard_memory_live_blocks() == 0);
     }

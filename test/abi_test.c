@@ -126,7 +126,7 @@ static void an_answer_smaller_than_its_first_shape_is_malformed(void) {
     weivel_standard_identity identity = WEIVEL_INIT(weivel_standard_identity);
     weivel_standard_library library = WEIVEL_INIT(weivel_standard_library);
     weivel_standard_mirror_list list = WEIVEL_INIT(weivel_standard_mirror_list);
-    identity.size = (uint32_t)offsetof(weivel_standard_identity, segment_count);
+    identity.size = (uint32_t)offsetof(weivel_standard_identity, commit_length);
     CHECK(weivel_standard_identity_parse("local:a", 7, &identity, &refusal) == WEIVEL_STATUS_MALFORMED);
     CHECK(refusal.code == WEIVEL_STANDARD_REFUSAL_MALFORMED_CALL && identity.name == NULL);
     weivel_standard_refusal_release(&refusal);

@@ -21,7 +21,7 @@ The standard's tests and the fixtures they plant, registered by this folder's CM
 - [fixtures.c](../../../test/fixtures.c) - creating, emptying and filling scratch directories for the tests
 - [fixtures.h](../../../test/fixtures.h) - the scratch directory helpers
 - [identity_memory_test.c](../../../test/identity_memory_test.c) - parsing identities with each allocation failing in turn
-- [identity_test.c](../../../test/identity_test.c) - parsing and comparing identities, including the numbers that do not fit
+- [identity_test.c](../../../test/identity_test.c) - parsing and comparing identities, with the offset every refusal names and the kit's identity vectors
 - [json_equality_test.c](../../../test/json_equality_test.c) - `uniqueItems` equality across spellings of a number
 - [json_memory_test.c](../../../test/json_memory_test.c) - reading JSON with each allocation failing in turn
 - [json_test.c](../../../test/json_test.c) - the JSON reader against the grammar and the refusals beyond it

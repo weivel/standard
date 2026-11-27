@@ -161,7 +161,7 @@ static const vector_case VECTOR_CASES[] = {
      NULL, "[]", WEIVEL_STANDARD_REFUSAL_NONE},
     {"accepts-a-dependency-named-by-id",
      "{'importName': 'a', 'api': 2, 'language': 'c', 'dependencies': [{'importName': 'runtime', 'id': "
-     "'forge:12/runtime'}]}", NULL,
+     "'git:4b825dc642cb6eb9a060e54bf8d69288fbee4904/runtime'}]}", NULL,
      "[]", WEIVEL_STANDARD_REFUSAL_NONE},
     {"accepts-a-dependency-named-by-name",
      "{'importName': 'a', 'api': 2, 'language': 'c', 'dependencies': [{'importName': 'runtime', 'name': "
@@ -204,11 +204,11 @@ static const vector_case VECTOR_CASES[] = {
      "['dependencies[0].name']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-a-dependency-name-that-looks-like-an-id",
      "{'importName': 'a', 'api': 2, 'language': 'c', 'dependencies': [{'importName': 'runtime', 'name': "
-     "'forge:1/x'}]}", NULL,
+     "'git:4b825dc642cb6eb9a060e54bf8d69288fbee4904/x'}]}", NULL,
      "['dependencies[0].name']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-a-dependency-with-an-id-and-a-name",
      "{'importName': 'a', 'api': 2, 'language': 'c', 'dependencies': [{'importName': 'runtime', 'id': "
-     "'forge:12/runtime', 'name': "
+     "'git:4b825dc642cb6eb9a060e54bf8d69288fbee4904/runtime', 'name': "
      "'vendor/runtime'}]}",
      NULL, "['dependencies[0].name']", WEIVEL_STANDARD_REFUSAL_CONFLICTING_FIELD},
     {"refuses-a-dependency-with-neither-an-id-nor-a-name",
@@ -242,7 +242,7 @@ static const vector_case VECTOR_CASES[] = {
      WEIVEL_STANDARD_REFUSAL_WRONG_TYPE},
     {"refuses-a-provider-with-a-trailing-newline",
      "{'importName': 'a', 'api': 2, 'language': 'c', 'services': {'consumes': [{'id': 'x:y', 'provider': "
-     "'forge:1\\n'}]}}", "[]",
+     "'git:4b825dc642cb6eb9a060e54bf8d69288fbee4904\\n'}]}}", "[]",
      "['services.consumes[0].provider']", WEIVEL_STANDARD_REFUSAL_INVALID_VALUE},
     {"refuses-a-windows-reserved-id-con-before-a-dot", "{'importName': 'con.foo', 'api': 2, 'language': 'c'}", "[]",
      "['importName']",
