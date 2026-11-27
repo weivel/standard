@@ -69,27 +69,11 @@ static size_t segments_failure(const char *text, size_t length, size_t from) {
     return position;
 }
 
-static int is_character_start(const char *text, size_t at) {
-    return (((unsigned char)text[at]) & 0xC0) != 0x80;
-}
-
 /** The offset of the first character a local name may not hold, or where its segments stop matching. */
 static size_t local_failure(const char *text, size_t length) {
-    size_t prefix = strlen(LOCAL_PREFIX);
-    size_t name_end = length_until_slash(text, length, prefix) + prefix;
-    size_t previous = prefix;
-    size_t at;
-    if (name_end == prefix) {
-        return prefix;
-    }
-    for (at = prefix + 1; at <= name_end; at++) {
-        if (at < length && !is_character_start(text, at)) {
-            continue;
-        }
-        if (!weivel_standard_matches_repository_id(text, at)) {
-            return previous;
-        }
-        previous = at;
+    size_t name_end = weivel_standard_local_name_end(text, length);
+    if (name_end == strlen(LOCAL_PREFIX) || (name_end < length && text[name_end] != '/')) {
+        return name_end;
     }
     return segments_failure(text, length, name_end);
 }
@@ -130,12 +114,11 @@ static size_t failure_offset(const char *text, size_t length) {
 
 static weivel_status refuse_grammar(weivel_standard_refusal *refusal, const char *text, size_t length) {
     weivel_standard_refusal_texts texts = {NULL, NULL, NULL};
-    texts.detail =
-        weivel_standard_format_text("byte %zu: not a repository identity", failure_offset(text, length));
     if (refusal == NULL) {
-        weivel_standard_release_texts(&texts);
         return WEIVEL_STATUS_REFUSED;
     }
+    texts.detail =
+        weivel_standard_format_text("byte %zu: not a repository identity", failure_offset(text, length));
     texts.fix = weivel_standard_format_text(
         "%s", "write `local:<name>` or `git:<the root commit's 40 or 64 lowercase hex digits>`, then any path segments");
     texts.path = weivel_standard_format_text("%s", "");

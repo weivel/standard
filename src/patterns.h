@@ -32,6 +32,12 @@ int weivel_standard_matches_entry(const char *text, size_t length);
 /** A repository identity: `local:<name>` or `git:<40 or 64 lowercase hex>`, then path segments, none `.` or `..`. */
 int weivel_standard_matches_repository_id(const char *text, size_t length);
 
+/**
+ * Where the name of `text`, which starts `local:`, stops matching `[^/\s\u0000]`: at a `/`, at the end, or at the
+ * first character a name may not hold. Linear, so a refusal can name the offset of a long text.
+ */
+size_t weivel_standard_local_name_end(const char *text, size_t length);
+
 /** A dependency's `name`: `owner/name`, the name neither `.` nor `..`. */
 int weivel_standard_matches_owner_and_name(const char *text, size_t length);
 

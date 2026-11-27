@@ -4,6 +4,8 @@
 #include "weivel/identity.h"
 
 #include <stdint.h>
+#include <stdlib.h>
+#include <time.h>
 
 #define SAME_ROOT "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 #define LATER_ROOT "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -145,6 +147,53 @@ static void a_refusal_says_where_it_failed(void) {
     check_refused_at("a NUL in a local name", "local:a\0b/s", 11, 7);
 }
 
+static char *long_local_text(size_t name_length, const char *tail) {
+    size_t prefix = strlen("local:");
+    char *text = malloc(prefix + name_length + strlen(tail) + 1);
+    if (text != NULL) {
+        memcpy(text, "local:", prefix);
+        memset(text + prefix, 'a', name_length);
+        memcpy(text + prefix + name_length, tail, strlen(tail) + 1);
+    }
+    return text;
+}
+
+/** Seconds a refusal of `local:` + `name_length` letters + `/A` takes, checking it names the `A`; -1 when it fails. */
+static double seconds_to_refuse_a_long_name(size_t name_length) {
+    char *text = long_local_text(name_length, "/A");
+    clock_t started;
+    double seconds;
+    CHECK(text != NULL);
+    if (text == NULL) {
+        return -1;
+    }
+    started = clock();
+    check_refused_at("a long local name", text, strlen(text), strlen("local:") + name_length + 1);
+    seconds = (double)(clock() - started) / CLOCKS_PER_SEC;
+    free(text);
+    return seconds;
+}
+
+/**
+ * @implNote The small size runs first so a quadratic scan fails in seconds rather than hanging on the large one:
+ * 16 KiB took about 3 seconds quadratically, and 1 MiB is what discovery reads from one identity file.
+ */
+static void a_long_local_name_is_refused_in_linear_time(void) {
+    double small = seconds_to_refuse_a_long_name((size_t)16 << 10);
+    if (small < 0 || small >= 0.25) {
+        fprintf(stderr, "  refusing a 16 KiB local name took %.2f s\n", small);
+        check_failures++;
+        return;
+    }
+    {
+        double large = seconds_to_refuse_a_long_name((size_t)1 << 20);
+        if (large < 0 || large >= 1.0) {
+            fprintf(stderr, "  refusing a 1 MiB local name took %.2f s\n", large);
+            check_failures++;
+        }
+    }
+}
+
 static void a_forge_number_is_only_an_invalid_value(void) {
     refused_at("forge:18446744073709551616", 0);
     refused_at("forge@host:99999999999999999999999/x", 0);
@@ -244,6 +293,7 @@ int main(void) {
     compare_orders_by_parts();
     a_refusal_says_where_it_failed();
     a_forge_number_is_only_an_invalid_value();
+    a_long_local_name_is_refused_in_linear_time();
     malformed_calls_and_missing_refusal();
     answers_every_kit_vector();
     parse_agrees_with_every_pattern_sample();

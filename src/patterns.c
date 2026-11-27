@@ -197,10 +197,16 @@ int weivel_standard_matches_entry(const char *text, size_t length) {
 
 /** `local:[^/\s\u0000]+`: the length of the root it matches, 0 for none. */
 static size_t local_root_length(const char *text, size_t length) {
-    size_t position = strlen("local:");
-    if (length < position || memcmp(text, "local:", position) != 0) {
+    size_t position;
+    if (length < strlen("local:") || memcmp(text, "local:", strlen("local:")) != 0) {
         return 0;
     }
+    position = weivel_standard_local_name_end(text, length);
+    return position > strlen("local:") ? position : 0;
+}
+
+size_t weivel_standard_local_name_end(const char *text, size_t length) {
+    size_t position = strlen("local:");
     while (position < length) {
         character next = character_at(text, length, position);
         if (next.code_point == '/' || next.code_point == 0 || is_ecmascript_space(next.code_point)) {
@@ -208,7 +214,7 @@ static size_t local_root_length(const char *text, size_t length) {
         }
         position += next.width;
     }
-    return position > strlen("local:") ? position : 0;
+    return position;
 }
 
 static size_t run_length(const char *text, size_t length, size_t from, int (*accepts)(char byte)) {

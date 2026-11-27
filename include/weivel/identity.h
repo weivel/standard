@@ -20,6 +20,9 @@ typedef enum weivel_standard_identity_kind {
  * `segments` after the root, in order, none `.` or `..`. The fields a kind does not use are NULL or 0. An empty
  * identity has its `size` set and every other field zero, as WEIVEL_INIT or a release leaves it. First shape ends at
  * `commit_length`.
+ *
+ * @implNote The struct shrank when its forge, host and number members went, so a caller compiled against that shape
+ * passes a `size` larger than this one and `size` does not catch it: every binding moves with this struct.
  */
 typedef struct weivel_standard_identity {
     uint32_t size;
